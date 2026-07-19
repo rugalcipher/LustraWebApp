@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --noir: 0 0% 5%;
+    --deep-black: 0 0% 3%;
+    --elevated-black: 0 0% 7%;
+    --card-black: 0 0% 9%;
+    --ivory: 40 25% 95%;
+    --soft-ivory: 40 14% 83%;
+    --rose-gold: 22 35% 57%;
+    --light-rose-gold: 22 47% 71%;
+    --deep-rose: 342 34% 27%;
+    --muted-grey: 30 5% 53%;
+    --success: 143 27% 42%;
+    --warning: 38 44% 51%;
+    --error: 354 33% 48%;
+    --background: 0 0% 5%;
+    --foreground: 40 25% 95%;
+    --card: 0 0% 9%;
+    --card-foreground: 40 25% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 40 25% 95%;
+    --primary: 22 35% 57%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 40 25% 95%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 30 5% 53%;
+    --accent: 22 35% 57%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 354 33% 48%;
+    --destructive-foreground: 40 25% 95%;
+    --border: 40 8% 18%;
+    --input: 40 8% 18%;
+    --ring: 22 35% 57%;
+    --radius: 0.25rem;
+    --font-heading: "Cormorant Garamond", ui-serif, Georgia, serif;
+    --font-body: "Jost", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Cormorant Garamond", ui-serif, Georgia, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: hsl(var(--noir));
+    color: hsl(var(--ivory));
+    font-family: var(--font-body);
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: hsl(var(--rose-gold) / 0.3);
+    color: hsl(var(--ivory));
+  }
+}
+
+@layer components {
+  .lustra-marble {
+    background-color: #0B0B0D;
+    background-image:
+      radial-gradient(at 20% 10%, rgba(184, 135, 107, 0.04) 0px, transparent 50%),
+      radial-gradient(at 80% 90%, rgba(184, 135, 107, 0.03) 0px, transparent 50%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.72 0 0 0 0 0.53 0 0 0 0 0.42 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .lustra-text-gradient {
+    background: linear-gradient(135deg, #D8AB91 0%, #B8876B 45%, #8a5e44 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .lustra-gold-border {
+    border: 1px solid rgba(184, 135, 107, 0.45);
+  }
+
+  .lustra-vignette {
+    position: relative;
+  }
+  .lustra-vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(11, 11, 13, 0.75) 100%);
+  }
+
+  .lustra-scroll-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .lustra-scroll-hide {
+    scrollbar-width: none;
+  }
+}
+
+@layer utilities {
+  .tracking-luxe {
+    letter-spacing: 0.35em;
+  }
+  .tracking-wide-luxe {
+    letter-spacing: 0.18em;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+/* Experience Hero — per-slide responsive focal point (object-position). */
+.hero-focal {
+  object-position: var(--focal-m, 50% 50%);
+}
+@media (min-width: 768px) {
+  .hero-focal {
+    object-position: var(--focal-d, 50% 50%);
+  }
+}
