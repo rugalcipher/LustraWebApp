@@ -139,3 +139,16 @@ export function isOwnMessage(message: MessageDto, userId: string | null): boolea
   if (message.isSystem || !message.senderUserId || !userId) return false;
   return message.senderUserId === userId;
 }
+
+/**
+ * Open or reuse the caller's conversation with Lustra management, optionally about a
+ * specific talent.
+ *
+ * The talent becomes CONTEXT on the conversation — never a participant. Clients message
+ * management; management decides whether and when talent is contacted.
+ */
+export function startConversation(
+  talentProfileId: string | null
+): Promise<{ conversationId: string }> {
+  return api.post<{ conversationId: string }>("/client/conversations", { talentProfileId });
+}

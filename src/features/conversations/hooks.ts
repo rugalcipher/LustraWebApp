@@ -125,6 +125,25 @@ export function useSendMessage(conversationId: string | undefined) {
   });
 }
 
+/**
+ * Open — or reuse — the client's conversation with management about a talent.
+ *
+ * The server is idempotent by intent: calling it again for the same talent returns the
+ * existing thread rather than stacking empty duplicates. `retry: false` because a
+ * duplicate request is pointless, not because a retry would be unsafe.
+ */
+export function useStartConversation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (talentProfileId?: string | null) =>
+      conversationService.startConversation(talentProfileId ?? null),
+    retry: false,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations.mine() });
+    },
+  });
+}
+
 /** Mark the conversation read, clearing its unread badge. */
 export function useMarkConversationRead() {
   const queryClient = useQueryClient();

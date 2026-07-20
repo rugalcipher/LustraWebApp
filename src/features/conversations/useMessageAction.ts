@@ -5,15 +5,19 @@ import { rememberIntendedAction } from "@/features/auth/intendedAction";
 import { useDiscoveryUiStore } from "@/stores/discoveryUiStore";
 
 /**
- * The canonical "Inquire" action.
+ * The canonical MESSAGE action — the primary thing a client does on Lustra.
  *
- * A signed-in client goes straight to the form. A GUEST has the intent parked — talent,
- * discovery position and story slide — is sent to sign in, and is returned to the same
- * talent's inquiry form afterwards, without having to find them again.
+ * A signed-in client goes straight to their conversation with management about this
+ * talent. A GUEST has the intent parked (talent, discovery position, story slide), signs
+ * in, and is returned to the same talent's conversation without having to find them again.
  *
- * Personal inquiry content is never parked; only the context needed to reopen the form.
+ * This replaced `useInquireAction`, which sent the client to a structured inquiry form.
+ * Lustra is concierge-led: the client messages management and everything is arranged in
+ * conversation, so there is no form to fill in.
+ *
+ * No message content is ever parked — only the context needed to reopen the conversation.
  */
-export function useInquireAction(): (talent: { slug?: string; id?: string } | null | undefined) => void {
+export function useMessageAction(): (talent: { slug?: string; id?: string } | null | undefined) => void {
   const { principal } = usePrincipal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,7 +33,7 @@ export function useInquireAction(): (talent: { slug?: string; id?: string } | nu
 
       if (!principal.isAuthenticated) {
         rememberIntendedAction({
-          type: "inquire",
+          type: "message",
           talentSlug: String(slug),
           returnTo,
           talentIndex: currentIndex,
@@ -39,7 +43,7 @@ export function useInquireAction(): (talent: { slug?: string; id?: string } | nu
         return;
       }
 
-      navigate(`/app/inquire/${encodeURIComponent(String(slug))}`, {
+      navigate(`/app/message/${encodeURIComponent(String(slug))}`, {
         state: { source: returnTo, slideIndex },
       });
     },

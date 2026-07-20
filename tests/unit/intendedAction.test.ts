@@ -18,7 +18,7 @@ describe("guest intended action", () => {
   it("preserves the talent and the exact story position through sign-in", () => {
     rememberIntendedAction(
       {
-        type: "inquire",
+        type: "message",
         talentSlug: "isabelle",
         returnTo: "/app/discover",
         talentIndex: 4,
@@ -45,7 +45,7 @@ describe("guest intended action", () => {
   });
 
   it("expires a stale intent rather than replaying it later", () => {
-    rememberIntendedAction({ type: "inquire", talentSlug: "sofia", returnTo: "/app/discover" }, NOW);
+    rememberIntendedAction({ type: "message", talentSlug: "sofia", returnTo: "/app/discover" }, NOW);
 
     expect(peekIntendedAction(NOW + INTENT_TTL_MS - 1)).not.toBeNull();
     expect(peekIntendedAction(NOW + INTENT_TTL_MS + 1)).toBeNull();
@@ -56,7 +56,7 @@ describe("guest intended action", () => {
   it("discards an intent written by an older app version", () => {
     window.sessionStorage.setItem(
       "lustra.intendedAction",
-      JSON.stringify({ v: 0, type: "inquire", talentSlug: "x", returnTo: "/", createdAtMs: NOW })
+      JSON.stringify({ v: 0, type: "message", talentSlug: "x", returnTo: "/", createdAtMs: NOW })
     );
     expect(peekIntendedAction(NOW)).toBeNull();
   });
@@ -74,13 +74,13 @@ describe("guest intended action", () => {
 
   it("refuses an absolute returnTo, which would be an open redirect", () => {
     rememberIntendedAction(
-      { type: "inquire", talentSlug: "isabelle", returnTo: "https://evil.example/steal" },
+      { type: "message", talentSlug: "isabelle", returnTo: "https://evil.example/steal" },
       NOW
     );
     expect(peekIntendedAction(NOW)).toBeNull();
 
     rememberIntendedAction(
-      { type: "inquire", talentSlug: "isabelle", returnTo: "//evil.example/steal" },
+      { type: "message", talentSlug: "isabelle", returnTo: "//evil.example/steal" },
       NOW
     );
     expect(peekIntendedAction(NOW)).toBeNull();
@@ -96,21 +96,29 @@ describe("guest intended action", () => {
     // Extra fields are not part of the schema and must be stripped, even if a caller
     // (or a future refactor) tries to smuggle them through.
     const withExtras = {
-      type: "inquire" as const,
+      type: "message" as const,
       talentSlug: "isabelle",
       returnTo: "/app/discover",
       message: "private note",
     };
     rememberIntendedAction(withExtras, NOW);
     const raw = window.sessionStorage.getItem("lustra.intendedAction")!;
+
+    // The smuggled VALUE must not be stored — free text a visitor typed is never parked.
     expect(raw).not.toContain("private note");
-    expect(raw).not.toContain("message");
+
+    // The smuggled KEY must be stripped too. Checked by parsing rather than substring:
+    // `type` is legitimately "message", so a naive `not.toContain("message")` would fail
+    // on the schema's own value and prove nothing about the extra field.
+    const stored = JSON.parse(raw) as Record<string, unknown>;
+    expect(Object.keys(stored)).not.toContain("message");
+    expect(stored.type).toBe("message");
   });
 
-  it("routes an inquire intent to the form and other intents back in place", () => {
-    const inquire = {
+  it("routes a message intent to the conversation and other intents back in place", () => {
+    const message = {
       v: 1 as const,
-      type: "inquire" as const,
+      type: "message" as const,
       talentSlug: "a b",
       returnTo: "/app/discover",
       createdAtMs: NOW,
@@ -123,7 +131,7 @@ describe("guest intended action", () => {
       createdAtMs: NOW,
     };
 
-    expect(routeForIntendedAction(inquire)).toBe("/app/inquire/a%20b");
+    expect(routeForIntendedAction(message)).toBe("/app/message/a%20b");
     expect(routeForIntendedAction(save)).toBe("/talent/camille");
   });
 

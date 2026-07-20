@@ -4,7 +4,7 @@ import { ChevronUp, ChevronDown, Undo2, Clock, X } from "lucide-react";
 import TalentCard from "@/components/lustra/TalentCard";
 import { useSavedTalent } from "@/layouts/AppShell";
 import DiscoveryGate from "@/components/lustra/immersive/DiscoveryGate";
-import { useInquireAction } from "@/features/inquiries/useInquireAction";
+import { useMessageAction } from "@/features/conversations/useMessageAction";
 import {
   useDiscoverState,
   usePrefersReducedMotion,
@@ -30,7 +30,7 @@ const DIRECTION_LOCK_THRESHOLD = 10;
  */
 export default function ImmersiveTalentDiscovery() {
   const { isSaved, toggle } = useSavedTalent();
-  const inquire = useInquireAction();
+  const message = useMessageAction();
   const state = useDiscoverState();
   const reduced = usePrefersReducedMotion();
 
@@ -141,9 +141,9 @@ export default function ImmersiveTalentDiscovery() {
 
   // Guests get their intent (talent + discovery position + slide) parked and are
   // returned here after signing in.
-  const handleInquire = useCallback(() => {
-    if (current) inquire(current);
-  }, [current, inquire]);
+  const handleMessage = useCallback(() => {
+    if (current) message(current);
+  }, [current, message]);
 
   const handleToggleSave = useCallback(() => {
     if (current) toggle(current);
@@ -359,7 +359,7 @@ export default function ImmersiveTalentDiscovery() {
                   onSlideJump={goToSlide}
                   saved={isSaved(current.talentProfileId)}
                   onToggleSave={handleToggleSave}
-                  onInquire={handleInquire}
+                  onMessage={handleMessage}
                   reduced={reduced}
                 />
               </motion.div>
@@ -413,7 +413,7 @@ export default function ImmersiveTalentDiscovery() {
           <TalentActionBar
             saved={isSaved(current.talentProfileId)}
             onToggleSave={handleToggleSave}
-            onInquire={handleInquire}
+            onMessage={handleMessage}
             onPrev={goPrevTalent}
             onNext={() => {
               goNextTalent();

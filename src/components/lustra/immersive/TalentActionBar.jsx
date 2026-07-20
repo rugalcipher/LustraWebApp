@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils";
 import { Sparkle } from "@/lib/lustra/Brand";
 
 /**
- * Persistent floating action bar — Previous talent, Save, Inquire (central,
+ * Persistent floating action bar — Previous talent, Save, Message (central,
  * rose-gold, strongest), Next talent. Sits above the client bottom
  * navigation.
  */
 export default function TalentActionBar({
   saved,
   onToggleSave,
-  onInquire,
+  onMessage,
   onPrev,
   onNext,
   hasPrev,
@@ -50,14 +50,14 @@ export default function TalentActionBar({
         </motion.span>
       </button>
 
-      {/* Inquire — central, strongest */}
+      {/* Message — central, strongest: this is the primary Lustra action */}
       <button
-        onClick={onInquire}
+        onClick={onMessage}
         className="relative h-12 sm:h-14 px-7 sm:px-10 rounded-full bg-gradient-to-r from-light-rose-gold via-rose-gold to-rose-gold text-noir font-body text-[0.65rem] sm:text-[0.7rem] tracking-luxe uppercase font-medium flex items-center gap-2 shadow-lg shadow-rose-gold/20 hover:shadow-rose-gold/40 transition-all active:scale-[0.97]"
-        aria-label="Send an inquiry"
+        aria-label="Message Lustra management about this talent"
       >
         <Sparkle size={11} className="shrink-0" />
-        Inquire
+        Message
       </button>
 
       {/* Next talent */}

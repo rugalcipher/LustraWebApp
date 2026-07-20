@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Send, Paperclip, Loader2, Lock, X, FileText, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Monogram from "@/lib/lustra/Monogram";
@@ -37,7 +37,11 @@ export default function Conversation() {
   const markRead = useMarkConversationRead();
   const { status, isSomeoneTyping, notifyTyping } = useLiveConversation(id);
 
-  const [draft, setDraft] = useState("");
+  // Arriving from "Message" on a talent profile carries a suggested opener. It is placed
+  // in the composer as a DRAFT the client can edit or delete — never sent for them, so
+  // management only ever reads words the client chose to send.
+  const location = useLocation();
+  const [draft, setDraft] = useState(() => location.state?.draft ?? "");
   const [file, setFile] = useState(null);
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);

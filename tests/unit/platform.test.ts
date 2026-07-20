@@ -29,12 +29,32 @@ describe("route registry", () => {
 
   it("registers every client route", () => {
     for (const path of [
-      "/app/discover", "/app/saved", "/app/inquiries", "/app/inquiries/:id",
-      "/app/messages", "/app/messages/:id", "/app/bookings", "/app/bookings/:id",
-      "/app/proposals/:id", "/app/notifications", "/app/profile",
+      "/app/discover", "/app/saved", "/app/collections/:id",
+      "/app/messages", "/app/messages/:id", "/app/message/:slug",
+      "/app/notifications", "/app/report", "/app/profile",
     ]) {
       expect(paths).toContain(path);
     }
+  });
+
+  it("keeps the booking lifecycle OFF the client surface", () => {
+    // Lustra is concierge-led: the client browses, messages management, and arranges
+    // everything in conversation. Re-adding any of these would put the client back into
+    // operational paperwork the product deliberately spares them. See INTEGRATION.md §0.
+    for (const path of [
+      "/app/inquire/:id", "/app/inquiries", "/app/inquiries/:id",
+      "/app/bookings", "/app/bookings/:id", "/app/proposals/:id",
+    ]) {
+      expect(paths, `${path} must not be routable for clients`).not.toContain(path);
+    }
+  });
+
+  it("offers the client exactly four navigation entries", () => {
+    // Discover · Saved · Messages · Profile. A fifth would mean the lifecycle crept back.
+    const clientNav = ROUTES.filter((r) => r.nav?.group === "client");
+    expect(clientNav.map((r) => r.nav!.label).sort()).toEqual(
+      ["Discover", "Messages", "Profile", "Saved"]
+    );
   });
 
   it("has no duplicate paths", () => {

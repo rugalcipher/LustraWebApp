@@ -9,13 +9,13 @@ import { Sparkle, StarDivider } from "@/lib/lustra/Brand";
 /**
  * SLIDE 7 — Final profile summary. Main portrait, display name, category,
  * city, starting rate, saved status, and a large final CTA:
- * "INQUIRE ABOUT [DISPLAY NAME]". Plus Save for Later, Share, and Report.
+ * "MESSAGE ABOUT [DISPLAY NAME]". Plus Save for Later, Share, and Report.
  */
 export default function TalentSummarySlide({
   talent,
   saved,
   onToggleSave,
-  onInquire,
+  onMessage,
   reduced,
 }) {
   return (
@@ -69,12 +69,12 @@ export default function TalentSummarySlide({
         {/* Large final CTA */}
         <div className="px-5">
           <motion.button
-            onClick={onInquire}
+            onClick={onMessage}
             whileTap={reduced ? undefined : { scale: 0.97 }}
             className="w-full py-4 rounded-full bg-gradient-to-r from-light-rose-gold via-rose-gold to-rose-gold text-noir font-body text-[0.7rem] tracking-luxe uppercase font-medium flex items-center justify-center gap-2 shadow-lg shadow-rose-gold/25"
           >
             <Sparkle size={12} className="shrink-0" />
-            Inquire about {talent.name}
+            Message about {talent.name}
           </motion.button>
 
           {/* Secondary actions */}

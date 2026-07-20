@@ -10,7 +10,7 @@ import LustraButton from "@/components/lustra/Button";
 import DiscoveryGate from "@/components/lustra/immersive/DiscoveryGate";
 import { useSavedTalent } from "@/layouts/AppShell";
 import { useTalentProfile, useTalentReviews, useDiscoveryPolicy } from "@/features/discovery/hooks";
-import { useInquireAction } from "@/features/inquiries/useInquireAction";
+import { useMessageAction } from "@/features/conversations/useMessageAction";
 import { formatRate, formatRateUnit } from "@/domain/talent";
 
 /**
@@ -24,7 +24,7 @@ export default function TalentProfile() {
   const { id: slug } = useParams();
   const navigate = useNavigate();
   const { isSaved, toggle } = useSavedTalent();
-  const inquire = useInquireAction();
+  const message = useMessageAction();
   const [activeImg, setActiveImg] = useState(0);
 
   const { talent, isLoading, gate, notFound } = useTalentProfile(slug);
@@ -309,7 +309,7 @@ export default function TalentProfile() {
         </Link>
       </div>
 
-      {/* Sticky inquire bar */}
+      {/* Sticky message bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-noir/95 backdrop-blur-xl border-t border-white/[0.06] safe-bottom">
         <div className="max-w-luxe mx-auto px-5 py-3 flex items-center gap-3">
           <div className="flex-1">
@@ -317,8 +317,8 @@ export default function TalentProfile() {
             <p className="font-heading text-lg text-light-rose-gold leading-none mt-1">{rateLabel}</p>
           </div>
           {/* Guests are routed to sign-in with this talent's context preserved. */}
-          <LustraButton onClick={() => inquire(talent)} size="md" className="flex-1">
-            Inquire
+          <LustraButton onClick={() => message(talent)} size="md" className="flex-1">
+            Message
           </LustraButton>
         </div>
       </div>

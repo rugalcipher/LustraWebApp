@@ -30,7 +30,9 @@ export const INTENT_TTL_MS = 30 * 60_000;
 
 const intendedActionSchema = z.object({
   v: z.literal(VERSION),
-  type: z.enum(["inquire", "save", "add-to-collection"]),
+  // "message" replaced the former "inquire": Lustra is concierge-led, so the primary
+  // guest intent is to start a conversation with management, not to open a form.
+  type: z.enum(["message", "save", "add-to-collection"]),
   /** Public talent slug — never an internal id. */
   talentSlug: z.string().min(1).max(200),
   /** Where to send the visitor back to. */
@@ -130,10 +132,11 @@ export function clearIntendedAction(): void {
 
 /**
  * The route that resumes an intent. `save` and `add-to-collection` return to where the
- * visitor was so the action can be completed in place; `inquire` opens the form.
+ * visitor was so the action can be completed in place; `message` opens (or reuses) the
+ * client's conversation with management about that talent.
  */
 export function routeForIntendedAction(action: IntendedAction): string {
-  return action.type === "inquire"
-    ? `/app/inquire/${encodeURIComponent(action.talentSlug)}`
+  return action.type === "message"
+    ? `/app/message/${encodeURIComponent(action.talentSlug)}`
     : action.returnTo;
 }

@@ -16,16 +16,11 @@ import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import Discover from "@/pages/Discover";
-import Inquiry from "@/pages/Inquiry";
 import Saved from "@/pages/Saved";
-import Inquiries from "@/pages/Inquiries";
-import InquiryDetail from "@/pages/InquiryDetail";
 import CollectionDetail from "@/pages/CollectionDetail";
 import Messages from "@/pages/Messages";
 import Conversation from "@/pages/Conversation";
-import Bookings from "@/pages/Bookings";
-import BookingDetail from "@/pages/BookingDetail";
-import ProposalDetail from "@/pages/ProposalDetail";
+import StartConversation from "@/pages/StartConversation";
 import Notifications from "@/pages/Notifications";
 import Report from "@/pages/Report";
 import Profile from "@/pages/Profile";
@@ -132,25 +127,29 @@ export const ROUTES: RouteDef[] = [
   { path: "/dev/roles", element: <DevRoles />, access: "public", shell: "public", devOnly: true },
 
   // ---- Client app (mobile-first immersive) ----
+  //
+  // Lustra is concierge-led. The client browses, presses MESSAGE, and arranges everything
+  // by talking to management. There is deliberately NO inquiry form, proposal, booking or
+  // settlement on this surface — see INTEGRATION.md §0. The corresponding screens have
+  // been withdrawn from routing; their code and endpoints remain but are legacy/deferred
+  // and must not be reintroduced without a product decision.
   { path: "/app/discover", element: <Discover />, access: "protected", roles: CLIENT_AND_UP, shell: "client", index: true, nav: { group: "client", label: "Discover", icon: "Compass", order: 1 } },
   { path: "/app/talent/:id", element: <TalentProfile />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
-  { path: "/app/inquire/:id", element: <Inquiry />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/saved", element: <Saved />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Saved", icon: "Heart", order: 2 } },
   { path: "/app/collections/:id", element: <CollectionDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
-  { path: "/app/inquiries", element: <Inquiries />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Inquiries", icon: "MessageSquare", order: 3 } },
-  { path: "/app/inquiries/:id", element: <InquiryDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
-  { path: "/app/messages", element: <Messages />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Messages", icon: "MessageSquare", order: 4 } },
+  { path: "/app/messages", element: <Messages />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Messages", icon: "MessageSquare", order: 3 } },
   { path: "/app/messages/:id", element: <Conversation />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
-  { path: "/app/bookings", element: <Bookings />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Bookings", icon: "Calendar", order: 5 } },
-  { path: "/app/bookings/:id", element: <BookingDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
-  { path: "/app/proposals/:id", element: <ProposalDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
+  // The MESSAGE action lands here: it opens or reuses the management conversation for a
+  // talent, then replaces itself with the thread. A route (not an inline handler) because
+  // a guest returning from login can only resume by navigating to a URL.
+  { path: "/app/message/:slug", element: <StartConversation />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   // Reached from the header bell rather than the bottom bar: the client navigation is a
   // six-column grid, and a seventh item would break the approved layout.
   { path: "/app/notifications", element: <Notifications />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   // Safety reporting. Linked from talent profiles; the route was missing until Stage 12,
   // so "Report profile" silently 404'd.
   { path: "/app/report", element: <Report />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
-  { path: "/app/profile", element: <Profile />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Profile", icon: "User", order: 6 } },
+  { path: "/app/profile", element: <Profile />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Profile", icon: "User", order: 4 } },
 
   // ---- Talent portal ----
   { path: "/talent-portal", element: <TalentPortal />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },

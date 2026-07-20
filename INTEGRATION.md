@@ -11,7 +11,73 @@ Backend inventory as audited: **33 controllers, 187 endpoints**, 2 health
 endpoints, 1 SignalR hub. 250 backend tests pass in Debug and Release.
 
 Status legend: ✅ integrated · 🟡 partially wired · 🔴 mock-only · ⛔ backend
-endpoint missing (must be implemented in this workstream).
+endpoint missing (must be implemented in this workstream) · ⚪ **legacy/deferred
+— exists but deliberately NOT on the product surface**.
+
+---
+
+## 0. THE PRODUCT MODEL (corrected)
+
+> This section supersedes the inquiry → proposal → booking model that Stages 4
+> and 6 built for the Client. Read it before changing anything below it.
+
+**Lustra is discreet and concierge-led. The Client does not participate in a
+booking lifecycle.** They browse, they message Management, and Management
+arranges everything — in the conversation or privately off-platform.
+
+### The Client journey, end to end
+
+```
+Browse talent → open a profile → MESSAGE
+  → authenticate if needed (talent context preserved across login)
+  → land back on the same talent
+  → a private conversation with Lustra MANAGEMENT opens
+  → arrange everything by messaging
+```
+
+### What the Client must NOT be asked to do
+
+Structured inquiry forms · receive a formal proposal · accept or decline one ·
+confirm a booking · view a booking record, calendar or settlement · track
+internal statuses · read internal notes · touch operational paperwork.
+
+**Client discretion is a product requirement, not a preference.**
+
+### The authenticated Client workspace is exactly
+
+Discover · talent profiles · saved talent · conversations · message
+notifications · account/profile · security & sessions. Nothing else.
+
+### Conversation ownership
+
+Clients message **Management**, never talent directly. The selected talent is
+attached to the conversation as **context**; the talent does **not** become a
+participant. Management alone decides whether and when talent is contacted.
+
+The Client never receives: talent private contact details, internal talent
+notes, internal availability commentary, management discussion, or any other
+client's information.
+
+### The internal booking
+
+After Management and the Client agree privately, authorised staff record an
+**internal booking**. It exists so Management remembers the arrangement, the
+talent's schedule is blocked, assigned talent see what they need to turn up,
+double-booking is avoided, and reminders can fire.
+
+**It is not a Client workflow. The Client has neither UI nor API access to it.**
+
+Assigned talent see the operational schedule and instructions only — never
+financial discussion, management notes, settlement administration, or
+unnecessary client contact detail.
+
+### Consequence: endpoints that exist but are OFF the product surface
+
+The backend still carries the Client-facing inquiry, proposal and booking
+endpoints from Stages 4 and 6. Per instruction they are **not deleted** — they
+are marked ⚪ legacy/deferred, must not be called by the frontend, and must not
+be expanded. They await a separate product decision. Building the Client through
+them "because they already exist" is explicitly the wrong move.
 
 ---
 
@@ -56,7 +122,37 @@ endpoint missing (must be implemented in this workstream).
 `AuthUserDto` supplies `roles[]` (PascalCase) and `permissions[]`; the frontend
 normalizes via `domain/roles.ts` and gates on real claims only.
 
-## 3. Client workspace
+## 2b. The Client workspace as built (corrected model)
+
+| Frontend route | Backend endpoint | Status |
+| --- | --- | --- |
+| `/app/discover` | `GET /public/talents` | ✅ |
+| `/app/talent/:id` | `GET /public/talents/{slug}` | ✅ |
+| `/app/message/:slug` | `POST /client/conversations` (start-or-find) | ✅ |
+| `/app/messages` | `GET /client/conversations` | ✅ |
+| `/app/messages/:id` | `GET/POST …/{id}/messages`, `…/read` + SignalR | ✅ |
+| `/app/saved`, `/app/collections/:id` | `GET /client/saved-talents`, `/client/collections` | ✅ |
+| `/app/notifications` | `GET /notifications` | ✅ |
+| `/app/report` | `POST /reports` | ✅ |
+| `/app/profile` | `GET/PUT /client/profile` | ✅ |
+
+**Four navigation entries: Discover · Saved · Messages · Profile.** A fifth would
+mean the lifecycle crept back; `platform.test.ts` asserts the exact set.
+
+### Withdrawn from the Client surface
+
+Routes `/app/inquire/:id`, `/app/inquiries[/:id]`, `/app/bookings[/:id]` and
+`/app/proposals/:id` are **unregistered**, and their pages and feature hooks are
+deleted (recoverable from git history — the commit before this change). A test
+asserts none of them is routable, so re-adding one is a failure rather than a
+silent regression.
+
+The **backend** endpoints behind them survive untouched and are marked ⚪
+legacy/deferred below. Nothing in the frontend calls them.
+
+## 3. Client workspace — ⚪ LEGACY/DEFERRED
+> Everything in this section is **off the product surface**. It is listed for the
+> later product decision, not as work to finish. Do not wire it up.
 
 | Frontend route | Backend endpoint | Exists | Stage |
 | --- | --- | --- | --- |
@@ -374,6 +470,29 @@ conversation bodies never) therefore have nothing to configure. Introducing one
 in a hardening pass would be a significant behaviour change, not cleanup, so it
 is left as a deliberate decision for later. Note that the media `Cache-Control`
 headers added in Stage 10 already encode the same policy at the HTTP layer.
+
+## 7k. Backend changes for the concierge model
+
+| Change | Why |
+| --- | --- |
+| `Conversation.TalentProfileId` (+ migration, composite index on `Type,TalentProfileId`) | Records the talent a thread is ABOUT. Context, not participation — adding a talent participant would give them read access to the client's private messages with management. |
+| `POST /client/conversations` (start-or-find) | The client's only entry point beyond browsing. Reuses the existing thread for a client+talent pair rather than stacking empty duplicates. Only an **Approved && IsPublic** talent may be used as context, so a client cannot probe for hidden profiles by watching which ids succeed. |
+| `TalentProfileId`/`TalentDisplayName`/`TalentSlug` on conversation DTOs | Public identity only, so management sees who a thread concerns and the client can navigate back. |
+| `ConversationId` on direct booking create | Traces a booking to the discussion that produced it, and reuses that thread instead of opening a second one. Ownership-checked: the conversation must belong to the client being booked. |
+
+**No message is ever auto-sent.** `StartConversation` opens the thread with zero
+messages and passes a suggested opener as navigation state; the composer shows it
+as a draft the client edits or deletes. Management only reads words the client
+chose to send. Pinned by `No_message_is_sent_on_the_clients_behalf`.
+
+### The completion proof (`ConciergeWorkflowTests`, 15 tests)
+
+Guest → Message → auth (talent context parked in sessionStorage, 30-min TTL) →
+back to the talent → conversation opens with talent context visible to management
+→ real messages both ways → internal note the client cannot read → internal
+booking created from the conversation → visible on the management calendar →
+assigned talent sees the engagement → **client gets 403 on every internal
+booking, list and calendar endpoint** → an unassigned talent gets 404.
 
 ## 8. Base44 removal inventory (Stage 2)
 

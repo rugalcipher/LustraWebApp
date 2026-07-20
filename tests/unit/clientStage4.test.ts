@@ -2,11 +2,18 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import { queryKeys, USER_SCOPED_NAMESPACES } from "@/api/queryKeys";
 import { clearUserScopedCaches } from "@/services/cache";
-import { inquirySchema, toCreateInquiryInput } from "@/features/inquiries/schema";
 import * as clientService from "@/services/clientService";
 import * as inquiryService from "@/services/inquiryService";
 import { adoptAuthResult, endSession } from "@/api/authTokenCoordinator";
 
+/**
+ * Client workspace: saved talent, collections and cache isolation.
+ *
+ * The inquiry-FORM suite that used to live here was removed with the form itself: Lustra
+ * is concierge-led, so a client messages management rather than completing structured
+ * paperwork (INTEGRATION.md §0). `inquiryService.presentStatus` is still exercised below
+ * because the MANAGEMENT pipeline renders those statuses.
+ */
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -14,79 +21,6 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function validInquiry(overrides: Record<string, unknown> = {}) {
-  return {
-    engagementCategoryId: "cat-1",
-    preferredDate: "2099-01-01",
-    alternativeDate: "",
-    preferredStartTime: "19:30",
-    estimatedDurationMinutes: "240",
-    cityId: "city-1",
-    venueTypeId: "",
-    attendeeCount: "2",
-    travelRequired: false,
-    clientMessage: "A quiet dinner.",
-    additionalRequirements: "",
-    acknowledged: true as const,
-    ...overrides,
-  };
-}
-
-describe("inquiry form validation", () => {
-  it("accepts a well-formed inquiry", () => {
-    expect(inquirySchema.safeParse(validInquiry()).success).toBe(true);
-  });
-
-  it("requires an engagement category chosen from real reference data", () => {
-    const result = inquirySchema.safeParse(validInquiry({ engagementCategoryId: "" }));
-    expect(result.success).toBe(false);
-  });
-
-  it("requires the client to acknowledge this is an inquiry, not a booking", () => {
-    const result = inquirySchema.safeParse(validInquiry({ acknowledged: false }));
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects a date in the past", () => {
-    const result = inquirySchema.safeParse(validInquiry({ preferredDate: "2000-01-01" }));
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.includes("preferredDate"))).toBe(true);
-    }
-  });
-
-  it("rejects nonsensical duration and attendee counts", () => {
-    expect(inquirySchema.safeParse(validInquiry({ estimatedDurationMinutes: "-30" })).success).toBe(false);
-    expect(inquirySchema.safeParse(validInquiry({ attendeeCount: "-5" })).success).toBe(false);
-  });
-
-  it("submits reference-data IDs, never display labels", () => {
-    const parsed = inquirySchema.parse(validInquiry());
-    const payload = toCreateInquiryInput(parsed, "talent-guid");
-
-    expect(payload.engagementCategoryId).toBe("cat-1");
-    expect(payload.cityId).toBe("city-1");
-    expect(payload.talentProfileId).toBe("talent-guid");
-    // Empty optional selections become null, not "".
-    expect(payload.venueTypeId).toBeNull();
-    expect(payload.alternativeDate).toBeNull();
-    // Time is sent as HH:mm:ss to match the backend's TimeOnly.
-    expect(payload.preferredStartTime).toBe("19:30:00");
-    expect(payload.estimatedDurationMinutes).toBe(240);
-  });
-
-  it("never sends a client id or a price — those are server-owned or absent", () => {
-    const parsed = inquirySchema.parse(validInquiry());
-    const payload = toCreateInquiryInput(parsed, "talent-guid") as Record<string, unknown>;
-
-    expect(payload).not.toHaveProperty("clientId");
-    expect(payload).not.toHaveProperty("clientUserId");
-    expect(payload).not.toHaveProperty("price");
-    expect(payload).not.toHaveProperty("amount");
-    expect(payload).not.toHaveProperty("status");
-    expect(payload).not.toHaveProperty("createdAtUtc");
-  });
-});
 
 describe("client service requests", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

@@ -23,7 +23,7 @@ export default function TalentStory({
   onSlideJump,
   saved,
   onToggleSave,
-  onInquire,
+  onMessage,
   reduced,
 }) {
   const slides = [
@@ -44,7 +44,7 @@ export default function TalentStory({
       talent={talent}
       saved={saved}
       onToggleSave={onToggleSave}
-      onInquire={onInquire}
+      onMessage={onMessage}
       reduced={reduced}
     />,
   ];
