@@ -1,7 +1,7 @@
 import React, { Suspense } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, CalendarClock, Calendar, Settings, Circle,
+  LayoutDashboard, CalendarClock, Calendar, Settings, Circle, User, Image, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
@@ -9,7 +9,7 @@ import { navForGroup } from "@/app/routeRegistry";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import RouteFallback from "@/components/RouteFallback";
 
-const ICONS = { LayoutDashboard, CalendarClock, Calendar, Settings, Circle };
+const ICONS = { LayoutDashboard, CalendarClock, Calendar, Settings, Circle, User, Image, Star };
 
 /**
  * Talent portal shell — strongly responsive (talent manage availability, media,

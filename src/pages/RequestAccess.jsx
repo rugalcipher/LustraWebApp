@@ -2,14 +2,13 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import LustraButton from "@/components/lustra/Button";
-import PublicPageLayout from "@/components/lustra/public/PublicPageLayout";
-import { MarketingIntro } from "@/components/lustra/public/MarketingBlocks";
+import PublicMarketingLayout from "@/components/lustra/public/PublicMarketingLayout";
 import { PUBLIC_IMAGES } from "@/components/lustra/public/publicImages";
 
 /**
- * Membership / Request Access — a premium invitation experience. The form is
- * embedded in the shared cinematic PublicPageLayout (image-led, public header)
- * rather than sitting raw on a dark background.
+ * CLIENT Request Access — a private-access request for prospective clients (NOT
+ * a talent application; that lives at /for-talent). Reached from the homepage
+ * "Request Access" CTA. Concierge follows up manually; no automatic approval.
  */
 export default function RequestAccess() {
   const [form, setForm] = useState({ name: "", email: "", city: "", referral: "", agree: false });
@@ -28,16 +27,22 @@ export default function RequestAccess() {
   };
 
   return (
-    <PublicPageLayout image={PUBLIC_IMAGES.membership} footerNote="Private by Design">
+    <PublicMarketingLayout
+      eyebrow="Private Access"
+      title="Request Access"
+      image={PUBLIC_IMAGES.membership}
+      footerNote="Private by Design"
+      bareTop={submitted}
+    >
       {submitted ? (
         <div className="max-w-md">
           <div className="w-16 h-16 rounded-full border border-rose-gold/40 flex items-center justify-center">
             <Check className="w-7 h-7 text-rose-gold" strokeWidth={1.2} />
           </div>
-          <h1 className="font-heading font-light text-4xl text-ivory mt-6">Application Received</h1>
+          <h1 className="font-heading font-light text-3xl sm:text-4xl text-ivory mt-6">Request Received</h1>
           <p className="font-body text-sm text-soft-ivory/70 mt-4 leading-relaxed">
-            Thank you, {form.name || "guest"}. Our membership team reviews each application personally. If your
-            request is approved, you will receive an invitation to complete your registration.
+            Thank you, {form.name || "guest"}. Our concierge team reviews each request personally and will be in
+            touch discreetly to complete your access.
           </p>
           <div className="mt-6 p-4 bg-card-black/60 border border-rose-gold/20 rounded-md">
             <p className="text-[0.55rem] tracking-luxe uppercase text-muted-grey">Reference</p>
@@ -51,13 +56,12 @@ export default function RequestAccess() {
         </div>
       ) : (
         <>
-          <MarketingIntro eyebrow="By Invitation" title="Membership by Invitation" />
-          <p className="mt-6 font-body text-base text-soft-ivory/75 leading-relaxed max-w-xl">
-            Lustra is a private network of exceptional individuals. Submit your request and our team will respond
-            discreetly.
+          <p className="font-body text-sm sm:text-base text-soft-ivory/75 leading-relaxed max-w-md">
+            Lustra is a private booking platform. Submit a request and our concierge team will be in touch to
+            complete your access.
           </p>
 
-          <form onSubmit={submit} className="mt-9 max-w-md space-y-4">
+          <form onSubmit={submit} className="mt-7 max-w-md space-y-4">
             <Input label="Full Name" value={form.name} onChange={(v) => set("name", v)} placeholder="Your full name" />
             <Input label="Email" type="email" value={form.email} onChange={(v) => set("email", v)} placeholder="you@email.com" required />
             <Input label="City" value={form.city} onChange={(v) => set("city", v)} placeholder="Your city" />
@@ -75,8 +79,8 @@ export default function RequestAccess() {
             <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
               <input type="checkbox" checked={form.agree} onChange={(e) => set("agree", e.target.checked)} className="accent-rose-gold w-4 h-4 mt-0.5 shrink-0" />
               <span className="text-[0.65rem] text-muted-grey leading-relaxed">
-                I confirm I am over 21 and agree to be contacted regarding membership. I understand exclusivity is at
-                our discretion.
+                I confirm I am over 18 and agree to be contacted by Lustra regarding access. Access is granted at
+                Lustra's discretion.
               </span>
             </label>
 
@@ -86,7 +90,7 @@ export default function RequestAccess() {
           </form>
         </>
       )}
-    </PublicPageLayout>
+    </PublicMarketingLayout>
   );
 }
 

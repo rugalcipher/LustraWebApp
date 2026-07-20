@@ -4,8 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClientInstance } from "@/lib/query-client";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import PageNotFound from "@/lib/PageNotFound";
-import { AuthProvider, useAuth } from "@/lib/AuthContext";
-import UserNotRegisteredError from "@/components/UserNotRegisteredError";
+import { AuthProvider } from "@/auth/AuthProvider";
 import ScrollToTop from "@/components/ScrollToTop";
 import { DevPreviewProvider } from "@/auth/devPreview";
 import { PrincipalProvider } from "@/auth/PrincipalContext";
@@ -21,27 +20,12 @@ import { publicRoutes, clientRoutes, internalRoutes } from "@/app/routeRegistry"
  * — the single source of truth for path/access/shell/nav. Guards, sidebars, and
  * bottom nav all derive from the same registry, so route-role logic is not
  * duplicated here.
+ *
+ * PUBLIC ROUTES RENDER IMMEDIATELY. Only guarded routes wait for the session to
+ * hydrate (RoleRoute shows the branded loader), so a guest browsing Discover is
+ * never blocked behind an auth round trip.
  */
-function AuthenticatedApp() {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
-
-  if (isLoadingPublicSettings || isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (authError) {
-    if (authError.type === "user_not_registered") {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === "auth_required") {
-      navigateToLogin();
-      return null;
-    }
-  }
-
+function AppRoutes() {
   return (
     <Routes>
       {/* Public routes (dev-only routes registered only when the dev preview is enabled) */}
@@ -77,21 +61,44 @@ function AuthenticatedApp() {
   );
 }
 
+/**
+ * Development-only guard: refuses to render if a production build is somehow
+ * left in mock mode, so mock data can never reach a production deployment.
+ */
+function ModeGuard({ children }: { children: React.ReactNode }) {
+  if (env.isProd && env.isMock) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-noir p-8 text-center">
+        <div className="max-w-md">
+          <p className="font-display text-lg text-rose-gold">Configuration error</p>
+          <p className="mt-3 font-body text-sm text-muted-grey">
+            This production build is configured for mock data (VITE_API_MODE=mock). Set
+            VITE_API_MODE=api and VITE_API_BASE_URL before deploying.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
-    <AuthProvider>
-      <DevPreviewProvider>
-        <PrincipalProvider>
-          <QueryClientProvider client={queryClientInstance}>
-            <Router>
-              <ScrollToTop />
-              <AuthenticatedApp />
-              <RoleSwitcher />
-            </Router>
-            <Toaster />
-          </QueryClientProvider>
-        </PrincipalProvider>
-      </DevPreviewProvider>
-    </AuthProvider>
+    <ModeGuard>
+      <QueryClientProvider client={queryClientInstance}>
+        <Router>
+          <AuthProvider>
+            <DevPreviewProvider>
+              <PrincipalProvider>
+                <ScrollToTop />
+                <AppRoutes />
+                <RoleSwitcher />
+                <Toaster />
+              </PrincipalProvider>
+            </DevPreviewProvider>
+          </AuthProvider>
+        </Router>
+      </QueryClientProvider>
+    </ModeGuard>
   );
 }

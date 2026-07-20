@@ -1,0 +1,20 @@
+# Files that never need to be uploaded to Vercel's build step.
+# (node_modules and .git are excluded by Vercel automatically.)
+
+# Image masters — large originals; only the generated derivatives ship.
+# Leading slash anchors this to the repo root so `src/assets/` (which the build
+# imports) is NOT excluded.
+/assets/
+
+# Local test output and captures
+/screenshots/
+/test-results/
+/playwright-report/
+/coverage/
+
+# Local build output (Vercel builds from source)
+/dist/
+
+# Local-only tooling / notes
+/.vercel/
+*.log

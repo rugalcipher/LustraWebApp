@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { TALENT } from "@/mocks/talent";
+import { useDiscoveryUiStore, countActiveFilters } from "@/stores/discoveryUiStore";
+import {
+  useDiscoverySearch,
+  usePrefetchTalent,
+  useDiscoveryFilterOptions,
+} from "@/features/discovery/hooks";
 
-const STORAGE_KEY = "lustra-discover-session";
 export const TOTAL_SLIDES = 7;
 
 export const SLIDE_TITLES = [
@@ -14,169 +18,171 @@ export const SLIDE_TITLES = [
   "Profile Summary",
 ];
 
-function loadSession() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveSession(data) {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    /* ignore */
-  }
-}
-
 /**
- * Centralised discover-session state. Holds filters, sort, the current
- * talent index, the current profile-slide index, skipped / recently-viewed
- * talent, and the Immersive / Browse-All view mode. Persists to
- * sessionStorage so that returning from an inquiry restores the exact
- * talent and slide the client was viewing.
+ * Centralised discover-session state, backed by the real API.
+ *
+ * Server data (the talent list) comes from React Query via `useDiscoverySearch`;
+ * client state (filters, sort, cursor, skipped/recently-viewed ids, view mode) lives in
+ * `discoveryUiStore` and persists to sessionStorage — so returning from an inquiry or a
+ * sign-in detour restores the exact talent and slide the client was viewing.
+ *
+ * No talent records are ever stored in the client store.
  */
 export function useDiscoverState() {
-  const session = useRef(loadSession());
+  const appliedFilters = useDiscoveryUiStore((s) => s.appliedFilters);
+  const sort = useDiscoveryUiStore((s) => s.sort);
+  const mode = useDiscoveryUiStore((s) => s.mode);
+  const currentIndex = useDiscoveryUiStore((s) => s.currentIndex);
+  const slideIndex = useDiscoveryUiStore((s) => s.slideIndex);
+  const recentlyViewedIds = useDiscoveryUiStore((s) => s.recentlyViewedIds);
+  const skippedIds = useDiscoveryUiStore((s) => s.skippedIds);
+  const location = useDiscoveryUiStore((s) => s.location);
 
-  const [query, setQuery] = useState(session.current?.query || "");
-  const [sort, setSort] = useState(session.current?.sort || "Featured");
-  const [filters, setFilters] = useState(
-    session.current?.filters || { city: "", category: "", travel: "" }
-  );
-  const [mode, setMode] = useState(session.current?.mode || "immersive");
-  const [currentIndex, setCurrentIndex] = useState(session.current?.currentIndex ?? 0);
-  const [slideIndex, setSlideIndex] = useState(session.current?.slideIndex ?? 0);
-  const [skipped, setSkipped] = useState(session.current?.skipped || []);
-  const [recentlyViewed, setRecentlyViewed] = useState(session.current?.recentlyViewed || []);
-  const [loaded, setLoaded] = useState(false);
+  const setQueryText = useDiscoveryUiStore((s) => s.setQuery);
+  const setSortValue = useDiscoveryUiStore((s) => s.setSort);
+  const setModeValue = useDiscoveryUiStore((s) => s.setMode);
+  const setCurrentIndex = useDiscoveryUiStore((s) => s.setCurrentIndex);
+  const setSlideIndex = useDiscoveryUiStore((s) => s.setSlideIndex);
+  const setDraftFilters = useDiscoveryUiStore((s) => s.setDraftFilters);
+  const applyFilters = useDiscoveryUiStore((s) => s.applyFilters);
+  const resetFiltersInStore = useDiscoveryUiStore((s) => s.resetFilters);
+  const markViewed = useDiscoveryUiStore((s) => s.markViewed);
+  const markSkipped = useDiscoveryUiStore((s) => s.markSkipped);
+  const undoSkipInStore = useDiscoveryUiStore((s) => s.undoSkip);
+
+  const search = useDiscoverySearch({ pageSize: 48 });
+  const prefetchTalent = usePrefetchTalent();
+  const filterOptions = useDiscoveryFilterOptions();
+
   const [direction, setDirection] = useState(0);
+  const results = search.talent;
 
-  // Cinematic loading delay
+  // Clamp the cursor when the result set shrinks (a filter narrowed it).
   useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 700);
-    return () => clearTimeout(t);
-  }, []);
-
-  const results = useMemo(() => {
-    let list = [...TALENT];
-    if (query) {
-      const q = query.toLowerCase();
-      list = list.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          t.city.toLowerCase().includes(q) ||
-          t.category.toLowerCase().includes(q)
-      );
+    if (results.length > 0 && currentIndex >= results.length) {
+      setCurrentIndex(0);
     }
-    if (filters.city) list = list.filter((t) => t.city === filters.city);
-    if (filters.category) list = list.filter((t) => t.engagements.includes(filters.category));
-    if (filters.travel === "yes") list = list.filter((t) => t.travel);
+  }, [results.length, currentIndex, setCurrentIndex]);
 
-    if (sort === "Featured") list.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
-    if (sort === "Newest") list.reverse();
-    if (sort === "Rate: Low to High") list.sort((a, b) => a.startingRate - b.startingRate);
-    if (sort === "Rate: High to Low") list.sort((a, b) => b.startingRate - a.startingRate);
-    return list;
-  }, [query, sort, filters]);
+  const current = results[currentIndex] ?? null;
 
-  // Clamp index when results shrink
+  // Record the viewed talent, and prefetch the next couple so advancing is instant.
+  const lastViewed = useRef(null);
   useEffect(() => {
-    if (currentIndex >= results.length && results.length > 0) setCurrentIndex(0);
-  }, [results.length, currentIndex]);
-
-  const current = results[currentIndex];
-
-  // Persist session
-  useEffect(() => {
-    saveSession({
-      query,
-      sort,
-      filters,
-      mode,
-      currentIndex,
-      slideIndex,
-      skipped,
-      recentlyViewed,
-    });
-  }, [query, sort, filters, mode, currentIndex, slideIndex, skipped, recentlyViewed]);
+    if (!current || lastViewed.current === current.id) return;
+    lastViewed.current = current.id;
+    markViewed(current.id);
+    prefetchTalent(results[currentIndex + 1]?.slug);
+    prefetchTalent(results[currentIndex + 2]?.slug);
+  }, [current, currentIndex, results, markViewed, prefetchTalent]);
 
   const goNextTalent = useCallback(() => {
-    setRecentlyViewed((prev) =>
-      current ? [...new Set([current.id, ...prev])].slice(0, 10) : prev
-    );
-    setSkipped((prev) =>
-      current && !prev.includes(current.id) ? [...prev, current.id] : prev
-    );
+    if (current) markSkipped(current.id);
     setSlideIndex(0);
     setDirection(1);
-    setCurrentIndex((i) => Math.min(i + 1, results.length - 1));
-  }, [current, results.length]);
+    setCurrentIndex(Math.min(currentIndex + 1, Math.max(results.length - 1, 0)));
+  }, [current, currentIndex, results.length, markSkipped, setCurrentIndex, setSlideIndex]);
 
   const goPrevTalent = useCallback(() => {
     setSlideIndex(0);
     setDirection(-1);
-    setCurrentIndex((i) => Math.max(i - 1, 0));
-  }, []);
+    setCurrentIndex(Math.max(currentIndex - 1, 0));
+  }, [currentIndex, setCurrentIndex, setSlideIndex]);
 
   const undoSkip = useCallback(() => {
     setSlideIndex(0);
     setDirection(-1);
-    setCurrentIndex((i) => Math.max(i - 1, 0));
-    setSkipped((prev) => prev.slice(0, -1));
-  }, []);
+    setCurrentIndex(Math.max(currentIndex - 1, 0));
+    undoSkipInStore();
+  }, [currentIndex, setCurrentIndex, setSlideIndex, undoSkipInStore]);
 
   const goToTalent = useCallback(
     (idx) => {
       setSlideIndex(0);
       setDirection(idx > currentIndex ? 1 : -1);
-      setCurrentIndex(Math.max(0, Math.min(idx, results.length - 1)));
+      setCurrentIndex(Math.max(0, Math.min(idx, Math.max(results.length - 1, 0))));
     },
-    [currentIndex, results.length]
+    [currentIndex, results.length, setCurrentIndex, setSlideIndex]
   );
 
   const goNextSlide = useCallback(
-    () => setSlideIndex((s) => Math.min(s + 1, TOTAL_SLIDES - 1)),
-    []
+    () => setSlideIndex(Math.min(slideIndex + 1, TOTAL_SLIDES - 1)),
+    [slideIndex, setSlideIndex]
   );
-  const goPrevSlide = useCallback(() => setSlideIndex((s) => Math.max(s - 1, 0)), []);
+  const goPrevSlide = useCallback(
+    () => setSlideIndex(Math.max(slideIndex - 1, 0)),
+    [slideIndex, setSlideIndex]
+  );
   const goToSlide = useCallback(
     (i) => setSlideIndex(Math.max(0, Math.min(i, TOTAL_SLIDES - 1))),
-    []
+    [setSlideIndex]
   );
 
   const resetFilters = useCallback(() => {
-    setQuery("");
-    setFilters({ city: "", category: "", travel: "" });
-    setSort("Featured");
-    setCurrentIndex(0);
-    setSlideIndex(0);
-  }, []);
+    resetFiltersInStore();
+    setDirection(0);
+  }, [resetFiltersInStore]);
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  // The filter sheet still speaks in names; translate ids ↔ names at this boundary so
+  // the presentational components stay unchanged.
+  const filters = useMemo(() => {
+    const city = filterOptions.cities.find((c) => c.id === appliedFilters.cityId);
+    const engagement = filterOptions.engagementCategories.find(
+      (e) => e.id === appliedFilters.engagementCategoryId
+    );
+    return {
+      city: city?.name ?? "",
+      category: engagement?.name ?? "",
+      travel: appliedFilters.travelOnly ? "yes" : "",
+    };
+  }, [appliedFilters, filterOptions.cities, filterOptions.engagementCategories]);
+
+  const setFilters = useCallback(
+    (next) => {
+      const city = filterOptions.cities.find((c) => c.name === next.city);
+      const engagement = filterOptions.engagementCategories.find((e) => e.name === next.category);
+      setDraftFilters({
+        cityId: city?.id ?? null,
+        engagementCategoryId: engagement?.id ?? null,
+        travelOnly: next.travel === "yes",
+      });
+      applyFilters();
+    },
+    [filterOptions.cities, filterOptions.engagementCategories, setDraftFilters, applyFilters]
+  );
+
+  /** Look up an already-loaded talent by id, for the "recently viewed" strip. */
+  const findLoadedTalent = useCallback((id) => results.find((t) => t.id === id) ?? null, [results]);
 
   return {
-    loaded,
+    // Loading reflects the real request, not a cosmetic timer.
+    loaded: !search.isLoading,
+    isFetching: search.isFetching,
+    isError: search.isError,
+    error: search.error,
+    gate: search.gate,
+    totalCount: search.totalCount,
+
     results,
     current,
     currentIndex,
     slideIndex,
     mode,
     direction,
-    query,
+    query: appliedFilters.query,
     sort,
     filters,
-    skipped,
-    recentlyViewed,
-    activeFilterCount,
+    location,
+    skipped: skippedIds,
+    recentlyViewed: recentlyViewedIds,
+    activeFilterCount: countActiveFilters(appliedFilters),
     totalSlides: TOTAL_SLIDES,
-    setQuery,
-    setSort,
+    filterOptions,
+
+    setQuery: setQueryText,
+    setSort: setSortValue,
     setFilters,
-    setMode,
+    setMode: setModeValue,
     goNextTalent,
     goPrevTalent,
     undoSkip,
@@ -185,6 +191,8 @@ export function useDiscoverState() {
     goPrevSlide,
     goToSlide,
     resetFilters,
+    findLoadedTalent,
+    refetch: search.refetch,
   };
 }
 

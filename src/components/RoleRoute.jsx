@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { usePrincipal } from "@/auth/PrincipalContext";
 import { allowedRolesFor, requiredPermissionsFor } from "@/app/routeRegistry";
+import { useAuthStore } from "@/stores/authStore";
 import Monogram from "@/lib/lustra/Monogram";
 
 /**
@@ -19,16 +20,16 @@ function HydrationLoader() {
 }
 
 /**
- * Route guard driven by the canonical principal.
+ * Route guard driven by the canonical principal (roles/permissions come from
+ * the real `GET /auth/me` claims — never from hidden navigation links).
  *
  * 1. Waits for the principal to settle (branded loader) — never decides on a
  *    loading/unsettled principal.
- * 2. Resolves allowed roles from the centralized ROUTE_ACCESS map (or explicit
- *    `allowed` prop) and checks them against the principal's roles.
- * 3. Optionally enforces fine-grained `requiredPermissions` (all must be held) —
- *    the hook the .NET permission claims plug into.
- * 4. On denial, redirects to /unauthorized (not home), passing the attempted
- *    route + requirements so the user can resume after switching.
+ * 2. UNAUTHENTICATED → /login, recording the attempted route so the user is
+ *    returned there after signing in.
+ * 3. AUTHENTICATED but wrong role/permission → /unauthorized (not home), so a
+ *    signed-in user is never bounced to a sign-in form they don't need.
+ * 4. Suspended/inactive accounts are denied even when the role matches.
  *
  * @param {{
  *   allowed?: string[];
@@ -37,13 +38,27 @@ function HydrationLoader() {
  * }} props
  */
 export default function RoleRoute({ allowed, requiredPermissions, children }) {
-  const { isLoading, hasAnyRole, hasPermission } = usePrincipal();
+  const { isLoading, principal, hasAnyRole, hasPermission } = usePrincipal();
+  const setIntendedRoute = useAuthStore((s) => s.setIntendedRoute);
   const location = useLocation();
 
   if (isLoading) return <HydrationLoader />;
 
   const permittedRoles = allowed ?? allowedRolesFor(location.pathname);
   const perms = requiredPermissions ?? requiredPermissionsFor(location.pathname);
+  const attempted = `${location.pathname}${location.search}`;
+
+  // Not signed in → sign-in, preserving where they were heading.
+  if (!principal.isAuthenticated) {
+    setIntendedRoute(attempted);
+    return <Navigate to="/login" replace state={{ from: attempted }} />;
+  }
+
+  // Signed in but the account is not usable (suspended, pending closure…).
+  if (principal.accountStatus && principal.accountStatus !== "Active") {
+    return <Navigate to="/unauthorized" replace state={{ from: attempted, reason: principal.accountStatus }} />;
+  }
+
   const roleOk = !permittedRoles || hasAnyRole(permittedRoles);
   const permsOk = !perms || perms.every(hasPermission);
 
@@ -52,7 +67,7 @@ export default function RoleRoute({ allowed, requiredPermissions, children }) {
       <Navigate
         to="/unauthorized"
         replace
-        state={{ from: location.pathname, required: permittedRoles, requiredPermissions: perms }}
+        state={{ from: attempted, required: permittedRoles, requiredPermissions: perms }}
       />
     );
   }

@@ -1,16 +1,27 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Compass, Heart, MessageSquare, Calendar, User, Circle } from "lucide-react";
+import { Compass, Heart, MessageSquare, Calendar, User, Circle, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
 import { navForGroup } from "@/app/routeRegistry";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
+import {
+  useConversationListLiveUpdates,
+  useUnreadConversationCount,
+} from "@/features/conversations/hooks";
+import { useUnreadNotificationCount } from "@/features/notifications/hooks";
 
 const ICONS = { Compass, Heart, MessageSquare, Calendar, User };
 
 export default function AppShell() {
   const { role, user } = useRole();
   const location = useLocation();
+
+  // One shared chat connection for the whole client area, so the Messages badge stays
+  // live while the client is on another screen.
+  useConversationListLiveUpdates();
+  const unreadCount = useUnreadConversationCount();
+  const unreadNotifications = useUnreadNotificationCount();
   // Computed at render (not module-eval) to avoid a circular-import TDZ: several
   // client pages import useSavedTalent from this module, which pulls AppShell
   // into the route registry's init graph.
@@ -24,11 +35,32 @@ export default function AppShell() {
           <Link to="/" aria-label="Lustra home" className="flex items-center">
             <LustraHorizontalLogo className="h-6 w-auto" eager />
           </Link>
-          <div className="text-right">
-            <p className="text-[0.55rem] tracking-luxe uppercase text-muted-grey leading-none">
-              {role}
-            </p>
-            <p className="text-xs font-body text-soft-ivory/80 leading-none mt-0.5">{user.name}</p>
+          <div className="flex items-center gap-4">
+            {/* The bell lives here rather than in the bottom bar: that bar is a fixed
+                six-column grid and a seventh item would break the approved layout. */}
+            <Link
+              to="/app/notifications"
+              aria-label={
+                unreadNotifications > 0
+                  ? `Notifications, ${unreadNotifications} unread`
+                  : "Notifications"
+              }
+              className="relative text-muted-grey hover:text-rose-gold transition p-1"
+            >
+              <Bell className="w-[18px] h-[18px]" strokeWidth={1.2} />
+              {unreadNotifications > 0 && (
+                <span className="absolute top-0 right-0 min-w-[0.9rem] h-[0.9rem] px-1 rounded-full bg-rose-gold text-noir text-[0.45rem] font-body flex items-center justify-center">
+                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                </span>
+              )}
+            </Link>
+
+            <div className="text-right">
+              <p className="text-[0.55rem] tracking-luxe uppercase text-muted-grey leading-none">
+                {role}
+              </p>
+              <p className="text-xs font-body text-soft-ivory/80 leading-none mt-0.5">{user.name}</p>
+            </div>
           </div>
         </div>
       </header>
@@ -54,7 +86,17 @@ export default function AppShell() {
                   active ? "text-rose-gold" : "text-muted-grey hover:text-soft-ivory"
                 )}
               >
-                <Icon className="w-[18px] h-[18px]" strokeWidth={1.2} />
+                <span className="relative">
+                  <Icon className="w-[18px] h-[18px]" strokeWidth={1.2} />
+                  {to === "/app/messages" && unreadCount > 0 && (
+                    <span
+                      aria-label={`${unreadCount} unread`}
+                      className="absolute -top-1 -right-1.5 min-w-[0.9rem] h-[0.9rem] px-1 rounded-full bg-rose-gold text-noir text-[0.45rem] font-body flex items-center justify-center"
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </span>
                 <span className="text-[0.5rem] tracking-wide-luxe uppercase font-body">{label}</span>
               </Link>
             );
@@ -65,25 +107,12 @@ export default function AppShell() {
   );
 }
 
-/** Hook for saved-talent state, shared across client pages. */
-const SAVED_KEY = "lustra-saved";
-export function useSavedTalent() {
-  const [saved, setSaved] = useState(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(localStorage.getItem(SAVED_KEY) || "[]");
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(saved));
-  }, [saved]);
-
-  const toggle = useCallback((id) => {
-    setSaved((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }, []);
-
-  return { saved, toggle, isSaved: (id) => saved.includes(id) };
-}
+/**
+ * Back-compat re-export of the saved-talent action.
+ *
+ * This used to be a localStorage list. The canonical saved list is now SERVER-OWNED
+ * (`/api/v1/client/saved-talents`) and read through a user-scoped React Query key, so
+ * it survives across devices, is isolated per client, and cannot leak between accounts.
+ * See `@/features/client/useSaveTalentAction`.
+ */
+export { useSaveTalentAction as useSavedTalent } from "@/features/client/useSaveTalentAction";

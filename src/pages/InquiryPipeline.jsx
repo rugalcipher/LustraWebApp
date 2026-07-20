@@ -1,122 +1,151 @@
 import React, { useState } from "react";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { Link } from "react-router-dom";
+import { Loader2, Clock, ChevronRight, AlertCircle } from "lucide-react";
 import InternalHeader from "@/components/lustra/InternalHeader";
 import { Card, Eyebrow } from "@/components/lustra/Primitives";
-import { ACTIVE_INQUIRIES, PIPELINE_STAGES } from "@/mocks/internal";
 import { cn } from "@/lib/utils";
+import { toUserMessage } from "@/api/problemDetails";
+import { presentStatus } from "@/services/inquiryService";
+import { formatBookingDate } from "@/services/bookingService";
+import { PIPELINE_COLUMNS, priorityTone } from "@/services/managementService";
+import { useInquiryPipeline } from "@/features/management/hooks";
 
-const PRIORITY = {
-  high: "text-error",
-  medium: "text-warning",
-  low: "text-muted-grey",
-};
-
-const COLUMN_META = {
-  new: { label: "New", accent: "text-warning" },
-  pending: { label: "Pending", accent: "text-rose-gold" },
-  confirmed: { label: "Confirmed", accent: "text-success" },
-  declined: { label: "Declined", accent: "text-error" },
+/**
+ * The inquiry pipeline.
+ *
+ * A READ-ONLY board over real inquiry statuses. Drag-and-drop was removed deliberately:
+ * the previous version let a card be dragged between columns and mutated local state only,
+ * so the change looked applied but reached no server and vanished on refresh. Status is a
+ * real transition with server-side rules, so it is changed on the inquiry itself where
+ * the outcome can be reported honestly.
+ */
+const COLUMN_ACCENT = {
+  New: "text-warning",
+  Reviewing: "text-rose-gold",
+  Proposal: "text-light-rose-gold",
+  Closed: "text-muted-grey",
 };
 
 export default function InquiryPipeline() {
-  const [columns, setColumns] = useState(() => {
-    const init = { new: [], pending: [], confirmed: [], declined: [] };
-    ACTIVE_INQUIRIES.forEach((i) => init[i.stage]?.push(i));
-    return init;
-  });
-
-  const onDragEnd = (result) => {
-    const { source, destination } = result;
-    if (!destination || source.droppableId === destination.droppableId && source.index === destination.index) return;
-    setColumns((prev) => {
-      const next = { ...prev };
-      const [moved] = next[source.droppableId].splice(source.index, 1);
-      moved.stage = destination.droppableId;
-      next[destination.droppableId].splice(destination.index, 0, moved);
-      return next;
-    });
-  };
+  const { columns, total, isPending, isError, error } = useInquiryPipeline();
+  const [focused, setFocused] = useState(null);
 
   return (
-    <div className="lustra-marble min-h-screen pb-16">
+    <div className="w-full">
       <InternalHeader
         eyebrow="Management"
         title="Inquiry Pipeline"
-        subtitle="Drag inquiries through stages — new, pending, confirmed, declined."
+        subtitle={isPending ? "Loading…" : `${total} ${total === 1 ? "inquiry" : "inquiries"} in view.`}
       />
-      <div className="w-full px-5 lg:px-8 py-6">
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {PIPELINE_STAGES.map((stage) => {
-              const meta = COLUMN_META[stage];
-              const items = columns[stage];
+
+      <div className="px-5 lg:px-8 py-6">
+        {isPending ? (
+          <div className="py-24 flex justify-center">
+            <Loader2 className="w-5 h-5 text-rose-gold animate-spin" strokeWidth={1.4} />
+          </div>
+        ) : isError ? (
+          <div className="py-24 text-center">
+            <p className="font-heading text-2xl text-ivory">Couldn't load the pipeline</p>
+            <p className="mt-3 font-body text-sm text-muted-grey">{toUserMessage(error)}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+            {PIPELINE_COLUMNS.map((column) => {
+              const items = columns[column.id] ?? [];
               return (
-                <div key={stage} className="flex flex-col">
-                  <div className="flex items-center justify-between mb-2 px-1">
-                    <span className={cn("font-body text-[0.6rem] tracking-luxe uppercase", meta.accent)}>
-                      {meta.label}
-                    </span>
-                    <span className="font-body text-[0.6rem] text-muted-grey">{items.length}</span>
+                <div key={column.id}>
+                  <div className="flex items-center justify-between mb-3">
+                    <Eyebrow>
+                      <span className={COLUMN_ACCENT[column.id]}>{column.label}</span>
+                    </Eyebrow>
+                    <span className="text-[0.6rem] font-body text-muted-grey">{items.length}</span>
                   </div>
-                  <Droppable droppableId={stage}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={cn(
-                          "flex-1 min-h-[200px] rounded-md border border-white/[0.06] bg-deep-black/40 p-2 space-y-2 transition",
-                          snapshot.isDraggingOver && "border-rose-gold/40 bg-rose-gold/5"
-                        )}
-                      >
-                        {items.map((item, idx) => (
-                          <Draggable key={item.id} draggableId={item.id} index={idx}>
-                            {(prov, snap) => (
-                              <div
-                                ref={prov.innerRef}
-                                {...prov.draggableProps}
-                                {...prov.dragHandleProps}
-                                className={cn(
-                                  "bg-card-black/90 border border-white/[0.08] rounded-sm p-3 cursor-grab active:cursor-grabbing transition",
-                                  snap.isDragging && "border-rose-gold/50 shadow-lg shadow-black/40"
-                                )}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <p className="font-body text-sm text-ivory truncate">{item.client}</p>
-                                  <span className={cn("w-1.5 h-1.5 rounded-full bg-current", PRIORITY[item.priority])} />
-                                </div>
-                                <p className="font-body text-[0.65rem] text-muted-grey mt-1">
-                                  {item.talent}
-                                </p>
-                                <p className="font-body text-[0.6rem] text-soft-ivory/50 mt-1.5">
-                                  {item.engagement} · {item.city}
-                                </p>
-                                <p className="font-body text-[0.55rem] tracking-wide-luxe uppercase text-rose-gold/60 mt-2">
-                                  {item.date}
-                                </p>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                        {items.length === 0 && (
-                          <p className="text-center text-[0.6rem] text-muted-grey/50 py-6 font-body">Drop here</p>
-                        )}
-                      </div>
+
+                  <div className="space-y-2">
+                    {items.length === 0 ? (
+                      <Card className="p-4 border-dashed border-white/[0.06]">
+                        <p className="font-body text-[0.65rem] text-muted-grey text-center">Empty</p>
+                      </Card>
+                    ) : (
+                      items.map((inquiry) => (
+                        <InquiryCard
+                          key={inquiry.id}
+                          inquiry={inquiry}
+                          expanded={focused === inquiry.id}
+                          onToggle={() => setFocused(focused === inquiry.id ? null : inquiry.id)}
+                        />
+                      ))
                     )}
-                  </Droppable>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </DragDropContext>
-
-        <Card className="p-4 mt-6">
-          <Eyebrow>How it works</Eyebrow>
-          <p className="font-body text-sm text-soft-ivory/70 mt-2 leading-relaxed">
-            Move inquiries left-to-right as they progress. Declined inquiries remain archived for reporting. Each move updates the concierge dashboard in real time.
-          </p>
-        </Card>
+        )}
       </div>
+    </div>
+  );
+}
+
+function InquiryCard({ inquiry, expanded, onToggle }) {
+  const status = presentStatus(inquiry.status);
+  const tone = priorityTone(inquiry.priority);
+
+  return (
+    <Card className={cn("p-3.5 transition", expanded && "border-rose-gold/30")}>
+      <button onClick={onToggle} className="w-full text-left">
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-body text-sm text-ivory truncate min-w-0">{inquiry.talentDisplayName}</p>
+          {tone === "high" && (
+            <AlertCircle className="w-3.5 h-3.5 text-error shrink-0 mt-0.5" strokeWidth={1.4} />
+          )}
+        </div>
+        <p className="font-body text-[0.65rem] text-muted-grey mt-1 truncate">
+          {inquiry.engagementCategory}
+        </p>
+        <div className="flex items-center gap-2.5 mt-2 text-[0.6rem] text-muted-grey">
+          <span className="inline-flex items-center gap-1">
+            <Clock className="w-2.5 h-2.5" strokeWidth={1.2} />
+            {inquiry.preferredDate ? formatBookingDate(inquiry.preferredDate) : "Flexible"}
+          </span>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-2">
+          <Row label="Status" value={status.label} />
+          <Row label="Priority" value={inquiry.priority} />
+          <Row label="Received" value={new Date(inquiry.createdAtUtc).toLocaleDateString()} />
+          <Row
+            label="Assigned"
+            value={inquiry.assignedManagementUserId ? "Assigned" : "Unassigned"}
+          />
+
+          <div className="flex gap-2 pt-1">
+            <Link
+              to={`/inquiry-pipeline/${inquiry.id}`}
+              className="flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-sm border border-rose-gold/40 text-rose-gold text-[0.55rem] tracking-luxe uppercase hover:bg-rose-gold/10 transition"
+            >
+              Open <ChevronRight className="w-3 h-3" strokeWidth={1.3} />
+            </Link>
+            <Link
+              to={`/management-conversations/${inquiry.conversationId}`}
+              className="flex-1 inline-flex items-center justify-center py-2 rounded-sm border border-white/10 text-muted-grey text-[0.55rem] tracking-luxe uppercase hover:text-ivory hover:border-white/25 transition"
+            >
+              Conversation
+            </Link>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div className="flex justify-between gap-3 items-baseline">
+      <span className="text-[0.55rem] tracking-luxe uppercase text-muted-grey shrink-0">{label}</span>
+      <span className="text-[0.7rem] font-body text-soft-ivory/85 text-right truncate">{value}</span>
     </div>
   );
 }

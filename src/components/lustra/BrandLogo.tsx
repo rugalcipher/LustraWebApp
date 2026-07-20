@@ -69,12 +69,14 @@ export function LustraVerticalLogo(props: BrandLogoProps) {
   );
 }
 
-/** Horizontal lockup — monogram on the left, then wordmark. For sidebars, headers, nav. */
+/** Horizontal lockup — monogram on the left, then wordmark. For sidebars, headers, nav.
+ *  Uses the canonical `/logo_x.png` public asset (root-relative, lowercase → safe
+ *  on case-sensitive Linux hosting). */
 export function LustraHorizontalLogo(props: BrandLogoProps) {
   return (
     <BrandImg
       {...props}
-      src="/lustra-logo-horizontal.png"
+      src="/logo_x.png"
       intrinsic={INTRINSIC.horizontal}
       alt={props.alt ?? "Lustra"}
     />

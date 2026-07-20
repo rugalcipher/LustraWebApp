@@ -2,7 +2,18 @@ import React from "react";
 import { Search, SlidersHorizontal, X, LayoutGrid, Maximize } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SORTS = ["Featured", "Newest", "Rate: Low to High", "Rate: High to Low"];
+/**
+ * Sort options. `value` is the canonical token shared with the discovery store and
+ * mapped to the backend's `TalentSortOption` in `discoveryService` — the label is
+ * presentation only, so the two can never drift apart.
+ */
+const SORTS = [
+  { value: "Featured", label: "Featured" },
+  { value: "Newest", label: "Newest" },
+  { value: "Rating", label: "Top Rated" },
+  { value: "RateAsc", label: "Rate: Low to High" },
+  { value: "RateDesc", label: "Rate: High to Low" },
+];
 
 /**
  * Compact toolbar above the immersive stage — search, filter, sort, result
@@ -56,16 +67,16 @@ export default function DiscoverToolbar({
           <div className="flex gap-1.5 overflow-x-auto lustra-scroll-hide -mx-1 px-1">
             {SORTS.map((s) => (
               <button
-                key={s}
-                onClick={() => onSort(s)}
+                key={s.value}
+                onClick={() => onSort(s.value)}
                 className={cn(
                   "shrink-0 text-[0.5rem] tracking-wide-luxe uppercase px-2.5 py-1 rounded-full border font-body transition",
-                  sort === s
+                  sort === s.value
                     ? "border-rose-gold/50 text-rose-gold bg-rose-gold/5"
                     : "border-white/[0.06] text-muted-grey hover:text-soft-ivory"
                 )}
               >
-                {s}
+                {s.label}
               </button>
             ))}
           </div>

@@ -2,13 +2,18 @@ import React from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { CITIES, ENGAGEMENT_CATEGORIES } from "@/mocks/talent";
+import { useDiscoveryFilterOptions } from "@/features/discovery/hooks";
 
 /**
- * Bottom-sheet filter modal for refining the talent roster. Extracted from
- * the legacy Discover grid so it can be reused by the immersive toolbar.
+ * Bottom-sheet filter modal for refining the talent roster.
+ *
+ * Options come from the real reference-data endpoints (cities, engagement categories),
+ * so a city added in the Admin portal appears here without a frontend deploy.
  */
 export default function TalentFilterSheet({ open, onClose, filters, onChange, onReset, reduced }) {
+  const { cities, engagementCategories, isLoading } = useDiscoveryFilterOptions();
+  const cityNames = cities.map((c) => c.name);
+  const engagementNames = engagementCategories.map((e) => e.name);
   return (
     <AnimatePresence>
       {open && (
@@ -35,16 +40,22 @@ export default function TalentFilterSheet({ open, onClose, filters, onChange, on
               </button>
             </div>
 
+            {isLoading && (
+              <p className="mb-6 text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">
+                Loading options…
+              </p>
+            )}
+
             <FilterGroup
               label="City"
               value={filters.city}
-              options={CITIES}
+              options={cityNames}
               onChange={(v) => onChange({ ...filters, city: filters.city === v ? "" : v })}
             />
             <FilterGroup
               label="Engagement"
               value={filters.category}
-              options={ENGAGEMENT_CATEGORIES}
+              options={engagementNames}
               onChange={(v) =>
                 onChange({ ...filters, category: filters.category === v ? "" : v })
               }

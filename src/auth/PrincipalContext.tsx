@@ -1,13 +1,9 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/auth/AuthProvider";
 import { useDevPreview } from "@/auth/devPreview";
 import type { Principal } from "@/auth/principal";
-import {
-  GUEST_PRINCIPAL,
-  LOADING_PRINCIPAL,
-  principalFromAuthUser,
-  principalFromDevPreview,
-} from "@/auth/principal";
+import { GUEST_PRINCIPAL, LOADING_PRINCIPAL, principalFromDevPreview } from "@/auth/principal";
+import { mapAuthUserToPrincipal } from "@/services/dto/authDto";
 import type { Role } from "@/domain/roles";
 import { primaryRole as pickPrimaryRole, GUEST } from "@/domain/roles";
 import { isVipActive, MEMBERSHIP_TIER } from "@/domain/entitlements";
@@ -52,25 +48,17 @@ export function PrincipalProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // 2. Real auth (wait for it to settle before deciding)
-    if (auth.isLoadingAuth || auth.isLoadingPublicSettings) {
+    // 2. Real auth from GET /auth/me (wait for it to settle before deciding)
+    if (auth.isLoadingAuth) {
       return LOADING_PRINCIPAL;
     }
     if (auth.isAuthenticated && auth.user) {
-      return principalFromAuthUser(auth.user);
+      return mapAuthUserToPrincipal(auth.user);
     }
 
     // 3. Guest
     return GUEST_PRINCIPAL;
-  }, [
-    dev.isActive,
-    dev.role,
-    dev.membershipTier,
-    auth.isLoadingAuth,
-    auth.isLoadingPublicSettings,
-    auth.isAuthenticated,
-    auth.user,
-  ]);
+  }, [dev.isActive, dev.role, dev.membershipTier, auth.isLoadingAuth, auth.isAuthenticated, auth.user]);
 
   const api = useMemo<PrincipalContextValue>(() => {
     const roles = principal.roles;

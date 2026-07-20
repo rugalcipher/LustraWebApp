@@ -1,4 +1,5 @@
 import React from "react";
+import { Navigate } from "react-router-dom";
 import type { Role } from "@/domain/roles";
 
 // Pages (default exports from the existing .jsx pages)
@@ -6,6 +7,7 @@ import Landing from "@/pages/Landing";
 import BrowseTalent from "@/pages/BrowseTalent";
 import TalentProfile from "@/pages/TalentProfile";
 import RequestAccess from "@/pages/RequestAccess";
+import TalentApplication from "@/pages/TalentApplication";
 import InfoPage from "@/pages/InfoPage";
 import Unauthorized from "@/pages/Unauthorized";
 import DevRoles from "@/pages/DevRoles";
@@ -17,17 +19,30 @@ import Discover from "@/pages/Discover";
 import Inquiry from "@/pages/Inquiry";
 import Saved from "@/pages/Saved";
 import Inquiries from "@/pages/Inquiries";
+import InquiryDetail from "@/pages/InquiryDetail";
+import CollectionDetail from "@/pages/CollectionDetail";
 import Messages from "@/pages/Messages";
+import Conversation from "@/pages/Conversation";
 import Bookings from "@/pages/Bookings";
+import BookingDetail from "@/pages/BookingDetail";
+import ProposalDetail from "@/pages/ProposalDetail";
+import Notifications from "@/pages/Notifications";
+import Report from "@/pages/Report";
 import Profile from "@/pages/Profile";
 
 // Internal-shell pages are lazy-loaded (route-level code splitting): they are
 // not needed for the initial public/client load, and this moves recharts (only
 // used by AgencyAnalytics) and the rest of the internal area into split chunks.
 const TalentPortal = React.lazy(() => import("@/pages/TalentPortal"));
+const TalentProfileEditor = React.lazy(() => import("@/pages/TalentProfileEditor"));
+const TalentMedia = React.lazy(() => import("@/pages/TalentMedia"));
+const TalentReviews = React.lazy(() => import("@/pages/TalentReviews"));
+const TalentBookingDetail = React.lazy(() => import("@/pages/TalentBookingDetail"));
 const TalentAvailability = React.lazy(() => import("@/pages/TalentAvailability"));
 const ManagementDashboard = React.lazy(() => import("@/pages/ManagementDashboard"));
 const InquiryPipeline = React.lazy(() => import("@/pages/InquiryPipeline"));
+const ManagementInquiryDetail = React.lazy(() => import("@/pages/ManagementInquiryDetail"));
+const ManagementConversation = React.lazy(() => import("@/pages/ManagementConversation"));
 const ProposalBuilder = React.lazy(() => import("@/pages/ProposalBuilder"));
 const ClientDirectory = React.lazy(() => import("@/pages/ClientDirectory"));
 const ModerationQueue = React.lazy(() => import("@/pages/ModerationQueue"));
@@ -100,6 +115,10 @@ export const ROUTES: RouteDef[] = [
   { path: "/talent", element: <BrowseTalent />, access: "public", shell: "public" },
   { path: "/talent/:id", element: <TalentProfile />, access: "public", shell: "public" },
   { path: "/request-access", element: <RequestAccess />, access: "public", shell: "public" },
+  { path: "/for-talent", element: <TalentApplication />, access: "public", shell: "public" },
+  // Friendly aliases for the talent application (shared in campaigns / QR codes).
+  { path: "/apply", element: <Navigate to="/for-talent" replace />, access: "public", shell: "public" },
+  { path: "/become-talent", element: <Navigate to="/for-talent" replace />, access: "public", shell: "public" },
   { path: "/about", element: <InfoPage page="about" />, access: "public", shell: "public" },
   { path: "/how-it-works", element: <InfoPage page="how-it-works" />, access: "public", shell: "public" },
   { path: "/privacy", element: <InfoPage page="privacy" />, access: "public", shell: "public" },
@@ -117,18 +136,35 @@ export const ROUTES: RouteDef[] = [
   { path: "/app/talent/:id", element: <TalentProfile />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/inquire/:id", element: <Inquiry />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/saved", element: <Saved />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Saved", icon: "Heart", order: 2 } },
+  { path: "/app/collections/:id", element: <CollectionDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/inquiries", element: <Inquiries />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Inquiries", icon: "MessageSquare", order: 3 } },
+  { path: "/app/inquiries/:id", element: <InquiryDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/messages", element: <Messages />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Messages", icon: "MessageSquare", order: 4 } },
+  { path: "/app/messages/:id", element: <Conversation />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/bookings", element: <Bookings />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Bookings", icon: "Calendar", order: 5 } },
+  { path: "/app/bookings/:id", element: <BookingDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
+  { path: "/app/proposals/:id", element: <ProposalDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
+  // Reached from the header bell rather than the bottom bar: the client navigation is a
+  // six-column grid, and a seventh item would break the approved layout.
+  { path: "/app/notifications", element: <Notifications />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
+  // Safety reporting. Linked from talent profiles; the route was missing until Stage 12,
+  // so "Report profile" silently 404'd.
+  { path: "/app/report", element: <Report />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/profile", element: <Profile />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Profile", icon: "User", order: 6 } },
 
   // ---- Talent portal ----
   { path: "/talent-portal", element: <TalentPortal />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },
-  { path: "/talent-availability", element: <TalentAvailability />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Availability", icon: "CalendarClock", order: 2 } },
+  { path: "/talent-profile", element: <TalentProfileEditor />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Profile", icon: "User", order: 2 } },
+  { path: "/talent-media", element: <TalentMedia />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Media", icon: "Image", order: 3 } },
+  { path: "/talent-availability", element: <TalentAvailability />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Availability", icon: "CalendarClock", order: 4 } },
+  { path: "/talent-reviews", element: <TalentReviews />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Reviews", icon: "Star", order: 5 } },
+  { path: "/talent-bookings/:id", element: <TalentBookingDetail />, access: "protected", roles: ["talent", ...STAFF], shell: "internal" },
 
   // ---- Management console ----
   { path: "/management-dashboard", element: <ManagementDashboard />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },
   { path: "/inquiry-pipeline", element: <InquiryPipeline />, access: "protected", roles: STAFF, permissions: ["Inquiries.View"], shell: "internal", nav: { group: "management", label: "Inquiries", icon: "Inbox", order: 2 } },
+  { path: "/inquiry-pipeline/:id", element: <ManagementInquiryDetail />, access: "protected", roles: STAFF, permissions: ["Inquiries.View"], shell: "internal" },
+  { path: "/management-conversations/:id", element: <ManagementConversation />, access: "protected", roles: STAFF, permissions: ["Conversations.View"], shell: "internal" },
   { path: "/proposal-builder", element: <ProposalBuilder />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Proposals", icon: "FileText", order: 3 } },
   { path: "/management-clients", element: <ClientDirectory />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Clients", icon: "Users", order: 5 } },
   { path: "/moderation", element: <ModerationQueue />, access: "protected", roles: STAFF, permissions: ["Talent.ModerateMedia"], shell: "internal", nav: { group: "management", label: "Moderation", icon: "ShieldCheck", order: 6 } },

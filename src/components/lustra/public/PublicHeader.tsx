@@ -5,27 +5,40 @@ import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import { Sparkle } from "@/lib/lustra/Brand";
 import { cn } from "@/lib/utils";
 
+/**
+ * The ONE public marketing header, used by the homepage hero AND every public
+ * marketing page. Canonical navigation only — About, How It Works, Safety, For
+ * Talent, Sign In. Controlled variants:
+ *   - variant="solid"       (default) noir bar for internal marketing pages
+ *   - variant="transparent" over the homepage hero image (no bar/border)
+ *   - sticky                pins to the top (default true; hero passes false)
+ */
 const NAV = [
-  { to: "/talent", label: "Discover" },
   { to: "/about", label: "About" },
   { to: "/how-it-works", label: "How It Works" },
-  { to: "/safety", label: "Standards" },
-  { to: "/request-access", label: "Membership" },
+  { to: "/safety", label: "Safety" },
+  { to: "/for-talent", label: "For Talent" },
 ];
 
-/**
- * Shared public marketing header — the top-level website chrome for every public
- * page outside the app (logo, public navigation, Sign In). Sticky, translucent
- * noir, with an active-link rose-gold underline and a mobile menu. Keeps the
- * marketing pages visually attached to the homepage.
- */
-export default function PublicHeader() {
+interface Props {
+  variant?: "solid" | "transparent";
+  sticky?: boolean;
+}
+
+export default function PublicHeader({ variant = "solid", sticky = true }: Props) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const isActive = (to: string) => pathname === to || pathname.startsWith(to + "/");
+  const solid = variant === "solid";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-noir/80 backdrop-blur-md safe-top">
+    <header
+      className={cn(
+        "z-50 safe-top",
+        sticky ? "sticky top-0" : "relative",
+        solid ? "border-b border-white/[0.06] bg-noir/80 backdrop-blur-md" : "bg-transparent"
+      )}
+    >
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-16 h-16 flex items-center justify-between">
         <Link to="/" aria-label="Lustra home" className="flex items-center">
           <LustraHorizontalLogo className="h-6 sm:h-7 w-auto" eager />

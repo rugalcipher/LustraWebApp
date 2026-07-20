@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { cn } from "@/lib/utils";
-import { previewSrc, type ExperienceSlide } from "./experienceSlides";
+import type { ExperienceSlide } from "./experienceSlides";
 
 interface Props {
   slides: ExperienceSlide[];
@@ -22,8 +22,6 @@ function PreviewPanel({
   progress: number;
   onClick: () => void;
 }) {
-  const [errored, setErrored] = useState(false);
-  const src = previewSrc(errored ? slide.fallbackId : slide.photoId);
   return (
     <button
       type="button"
@@ -36,11 +34,11 @@ function PreviewPanel({
       )}
     >
       <img
-        src={src}
+        src={slide.preview}
         alt=""
         loading="lazy"
+        decoding="async"
         draggable={false}
-        onError={() => !errored && setErrored(true)}
         className={cn(
           "absolute inset-0 w-full h-full object-cover transition duration-500",
           active ? "opacity-75" : "opacity-35 grayscale group-hover:opacity-60"

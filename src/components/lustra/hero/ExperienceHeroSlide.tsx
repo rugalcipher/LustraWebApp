@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { slideSrcSet, type ExperienceSlide } from "./experienceSlides";
+import type { ExperienceSlide } from "./experienceSlides";
 
 interface Props {
   slide: ExperienceSlide;
@@ -13,17 +13,24 @@ interface Props {
 }
 
 /**
- * One full-bleed cinematic slide: responsive image with per-slide focal point,
- * a slow ken-burns drift while active (disabled for reduced motion), and layered
- * gradients (side darkening + bottom vignette) that keep text readable WITHOUT a
- * single flat dark overlay — preserving the scene's detail. Crossfades via
- * opacity; graceful load (image fades in over noir).
+ * One full-bleed cinematic slide: the approved Lustra artwork served through a
+ * <picture> — the portrait `mobile` composition below 768px, the landscape
+ * `wide` composition from 768px up — each as a WebP srcset with a JPEG
+ * fallback. Per-slide focal point, a slow ken-burns drift while active
+ * (disabled for reduced motion), and layered gradients (side darkening + bottom
+ * vignette) that keep text readable WITHOUT a single flat dark overlay —
+ * preserving the scene's detail. Crossfades via opacity; graceful load (image
+ * fades in over noir).
  */
 export default function ExperienceHeroSlide({ slide, active, mounted, priority, reducedMotion }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
-  const [errored, setErrored] = useState(false);
-  const id = errored ? slide.fallbackId : slide.photoId;
-  const { src, srcSet, sizes } = slideSrcSet(id);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Cached-image race: if the image completed before onLoad attached, reveal it.
+  useEffect(() => {
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) setImgLoaded(true);
+  }, [mounted]);
 
   return (
     <div
@@ -37,23 +44,29 @@ export default function ExperienceHeroSlide({ slide, active, mounted, priority, 
       <div className="absolute inset-0 bg-deep-black lustra-marble" />
 
       {mounted && (
-        <img
-          key={`${slide.id}-${active ? "on" : "off"}`}
-          src={src}
-          srcSet={srcSet}
-          sizes={sizes}
-          alt=""
-          draggable={false}
-          loading={priority ? "eager" : "lazy"}
-          onLoad={() => setImgLoaded(true)}
-          onError={() => (errored ? undefined : setErrored(true))}
-          style={{ "--focal-m": slide.focalMobile, "--focal-d": slide.focalDesktop } as React.CSSProperties}
-          className={cn(
-            "hero-focal absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
-            imgLoaded ? "opacity-100" : "opacity-0",
-            active && !reducedMotion && "animate-ken-burns"
-          )}
-        />
+        <picture>
+          {/* Tablet / laptop / desktop — landscape composition */}
+          <source media="(min-width: 768px)" type="image/webp" srcSet={slide.wide.srcSet} sizes="100vw" />
+          <source media="(min-width: 768px)" srcSet={slide.wide.fallback} />
+          {/* Mobile — portrait composition */}
+          <source type="image/webp" srcSet={slide.mobile.srcSet} sizes="100vw" />
+          <img
+            ref={imgRef}
+            src={slide.mobile.fallback}
+            alt=""
+            draggable={false}
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : undefined}
+            decoding="async"
+            onLoad={() => setImgLoaded(true)}
+            style={{ "--focal-m": slide.focalMobile, "--focal-d": slide.focalDesktop } as React.CSSProperties}
+            className={cn(
+              "hero-focal absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
+              imgLoaded ? "opacity-100" : "opacity-0",
+              active && !reducedMotion && "animate-ken-burns"
+            )}
+          />
+        </picture>
       )}
 
       {/* Side darkening — keeps the centre of the scene visible */}

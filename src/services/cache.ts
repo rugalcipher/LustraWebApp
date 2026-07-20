@@ -6,8 +6,15 @@ import { USER_SCOPED_NAMESPACES } from "@/services/queryKeys";
  * account's state (and any future protected media references) never bleeds into
  * the next session.
  */
+/**
+ * `lustra-saved` is a LEGACY key: saved talent used to live in localStorage and is now
+ * server-owned. It is still cleared so any value left on a device from before the
+ * migration is removed rather than lingering indefinitely.
+ */
 const USER_SCOPED_STORAGE_KEYS = ["lustra-saved"];
-const USER_SCOPED_SESSION_KEYS = ["lustra-discover"];
+
+/** Discovery position and any parked guest intent must not survive a sign-out. */
+const USER_SCOPED_SESSION_KEYS = ["lustra-discover", "lustra.intendedAction"];
 
 /**
  * Clear everything tied to the previous principal: React Query caches for

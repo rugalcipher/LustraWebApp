@@ -1,67 +1,69 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { PublicImage } from "./publicImages";
 
-interface Props {
-  image: PublicImage;
-  /** Which edge dissolves into the page noir (no hard split line). */
-  fade: "right" | "bottom";
-  /** Eager-load (above the fold). */
-  eager?: boolean;
-  className?: string;
-}
-
 /**
- * A cinematic, edge-to-edge image panel that blends into the page rather than
- * sitting in a visible box. The image fades into noir on its content-facing edge
- * (right on desktop side panels, bottom on mobile bands), with layered vignettes
- * for atmosphere and text contrast — never a single flat overlay. Per-image
- * responsive `object-position` keeps the subject framed. Falls back gracefully
- * if the placeholder source fails.
+ * The cinematic image element for the marketing layout. Fills its (absolute)
+ * image layer, framed by per-breakpoint `object-position` (via the `.mkt-img`
+ * CSS vars). Adds only atmospheric top/bottom vignettes — the HORIZONTAL blend
+ * into the content is owned by PublicMarketingLayout so the image can continue
+ * underneath the text gradient with no seam. Graceful load + onError fallback.
+ *
+ * Art direction: when a page supplies a portrait (9:16) phone master, a
+ * <picture> serves it below 560px — the same breakpoint as the frozen mobile
+ * focal point, so source and framing switch together. The browser picks exactly
+ * one candidate, so a phone never downloads the landscape file. On error both
+ * sources are dropped and the JPEG fallback is used directly.
  */
-export default function MarketingImage({ image, fade, eager, className }: Props) {
+export default function MarketingImage({ image, eager }: { image: PublicImage; eager?: boolean }) {
   const [errored, setErrored] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
   const src = errored ? image.fallbackSrc ?? image.src : image.src;
 
+  // Handle the cached-image race: if the image completed before onLoad attached,
+  // reveal it on mount so it never stays stuck at opacity 0.
+  useEffect(() => {
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) setLoaded(true);
+  }, [src]);
+
   return (
-    <div className={cn("absolute inset-0 overflow-hidden bg-deep-black", className)} aria-hidden="true">
-      <img
-        src={src}
-        srcSet={errored ? undefined : image.srcSet}
-        sizes={image.sizes}
-        alt=""
-        draggable={false}
-        loading={eager ? "eager" : "lazy"}
-        onLoad={() => setLoaded(true)}
-        onError={() => !errored && setErrored(true)}
-        style={{ "--focal-m": image.focalMobile, "--focal-d": image.focalDesktop } as React.CSSProperties}
-        className={cn(
-          "hero-focal absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
-          loaded ? "opacity-100" : "opacity-0"
+    <div className="absolute inset-0 overflow-hidden bg-deep-black" aria-hidden="true">
+      <picture>
+        {!errored && image.mobileSrcSet && (
+          <source media="(max-width: 560px)" type="image/webp" srcSet={image.mobileSrcSet} sizes="100vw" />
         )}
-      />
-
-      {/* Atmospheric darkening — keeps detail, adds mood */}
-      <div className="absolute inset-0 bg-gradient-to-t from-noir/70 via-noir/15 to-noir/35 pointer-events-none" />
-
-      {/* Dissolve into the page on the content-facing edge — reaches full noir
-          well before the panel edge so there is no hard split line. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            fade === "right"
-              ? "linear-gradient(90deg, rgba(11,11,13,0) 0%, rgba(11,11,13,0) 40%, rgba(11,11,13,0.85) 74%, #0B0B0D 92%)"
-              : "linear-gradient(180deg, rgba(11,11,13,0) 0%, rgba(11,11,13,0) 45%, rgba(11,11,13,0.9) 82%, #0B0B0D 100%)",
-        }}
-      />
-
-      {/* Soft corner vignette */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(115% 90% at 40% 40%, transparent 55%, rgba(11,11,13,0.5) 100%)" }}
-      />
+        {!errored && image.mobileFallbackSrc && (
+          <source media="(max-width: 560px)" srcSet={image.mobileFallbackSrc} />
+        )}
+        <img
+          ref={imgRef}
+          src={src}
+          srcSet={errored ? undefined : image.srcSet}
+          sizes={image.sizes}
+          alt=""
+          draggable={false}
+          loading={eager ? "eager" : "lazy"}
+          onLoad={() => setLoaded(true)}
+          onError={() => !errored && setErrored(true)}
+          style={
+            {
+              "--mkt-pos-d": image.posDesktop,
+              "--mkt-pos-t": image.posTablet,
+              "--mkt-pos-m": image.posMobile,
+              "--mkt-pos-xs": image.posNarrow,
+              "--mkt-anchor-xs": image.anchorNarrow,
+            } as React.CSSProperties
+          }
+          className={cn(
+            "mkt-img absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
+            loaded ? "opacity-100" : "opacity-0"
+          )}
+        />
+      </picture>
+      {/* Atmospheric top + bottom fades (into the header and page foot) */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-noir/45 via-transparent to-noir/85" />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronUp, ChevronDown, Undo2, Clock, X } from "lucide-react";
 import TalentCard from "@/components/lustra/TalentCard";
 import { useSavedTalent } from "@/layouts/AppShell";
-import { getTalent } from "@/mocks/talent";
+import DiscoveryGate from "@/components/lustra/immersive/DiscoveryGate";
+import { useInquireAction } from "@/features/inquiries/useInquireAction";
 import {
   useDiscoverState,
   usePrefersReducedMotion,
@@ -29,13 +29,16 @@ const DIRECTION_LOCK_THRESHOLD = 10;
  * up/down controls, or keyboard.
  */
 export default function ImmersiveTalentDiscovery() {
-  const navigate = useNavigate();
   const { isSaved, toggle } = useSavedTalent();
+  const inquire = useInquireAction();
   const state = useDiscoverState();
   const reduced = usePrefersReducedMotion();
 
   const {
     loaded,
+    gate,
+    totalCount,
+    findLoadedTalent,
     results,
     current,
     currentIndex,
@@ -136,20 +139,30 @@ export default function ImmersiveTalentDiscovery() {
     return () => window.removeEventListener("keydown", onKey);
   }, [mode, current, hasPrev, hasNext, goNextTalent, goPrevTalent, goNextSlide, goPrevSlide, showUndoToast]);
 
+  // Guests get their intent (talent + discovery position + slide) parked and are
+  // returned here after signing in.
   const handleInquire = useCallback(() => {
-    if (!current) return;
-    navigate(`/app/inquire/${current.id}`, {
-      state: { source: "immersive", slideIndex, talentId: current.id },
-    });
-  }, [current, slideIndex, navigate]);
+    if (current) inquire(current);
+  }, [current, inquire]);
 
   const handleToggleSave = useCallback(() => {
-    if (current) toggle(current.id);
+    if (current) toggle(current);
   }, [current, toggle]);
 
   const currentFilterLabel = [filters.city, filters.category, filters.travel === "yes" ? "Travels" : ""]
     .filter(Boolean)
     .join(" · ");
+
+  // A policy gate (members-only, preview limit reached) replaces the stage entirely —
+  // it must never render alongside the content it is gating. Placed after every hook so
+  // hook order stays stable across renders.
+  if (gate) {
+    return (
+      <div className="h-[calc(100dvh_-_3.5rem_-_env(safe-area-inset-top))] -mb-24">
+        <DiscoveryGate gate={gate} />
+      </div>
+    );
+  }
 
   // --- Grid (Browse All) mode ---
   if (mode === "grid") {
@@ -162,7 +175,7 @@ export default function ImmersiveTalentDiscovery() {
           onSort={setSort}
           onOpenFilters={() => setShowFilters(true)}
           activeFilterCount={activeFilterCount}
-          resultCount={results.length}
+          resultCount={totalCount}
           currentFilterLabel={currentFilterLabel}
           onReset={resetFilters}
           mode={mode}
@@ -190,7 +203,7 @@ export default function ImmersiveTalentDiscovery() {
                   >
                     <TalentCard
                       talent={t}
-                      saved={isSaved(t.id)}
+                      saved={isSaved(t.talentProfileId)}
                       onToggleSave={toggle}
                       variant="compact"
                     />
@@ -249,7 +262,9 @@ export default function ImmersiveTalentDiscovery() {
                 className="flex gap-2 overflow-x-auto lustra-scroll-hide"
               >
                 {recentlyViewed.slice(0, 6).map((id) => {
-                  const t = getTalent(id);
+                  // Only ids still present in the loaded results can be jumped to; we
+                  // never refetch a profile just to render a 20px avatar.
+                  const t = findLoadedTalent(id);
                   if (!t) return null;
                   const idx = results.findIndex((r) => r.id === id);
                   return (
@@ -342,7 +357,7 @@ export default function ImmersiveTalentDiscovery() {
                   totalSlides={totalSlides}
                   slideTitles={SLIDE_TITLES}
                   onSlideJump={goToSlide}
-                  saved={isSaved(current.id)}
+                  saved={isSaved(current.talentProfileId)}
                   onToggleSave={handleToggleSave}
                   onInquire={handleInquire}
                   reduced={reduced}
@@ -396,7 +411,7 @@ export default function ImmersiveTalentDiscovery() {
       {current && (
         <div className="shrink-0 py-2.5 px-3 mb-[calc(52px_+_env(safe-area-inset-bottom))]">
           <TalentActionBar
-            saved={isSaved(current.id)}
+            saved={isSaved(current.talentProfileId)}
             onToggleSave={handleToggleSave}
             onInquire={handleInquire}
             onPrev={goPrevTalent}

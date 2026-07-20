@@ -42,6 +42,19 @@ export interface AuthResultDto {
 }
 
 /**
+ * Mirrors the backend `SessionDto`. Note it deliberately carries no refresh
+ * token or token hash — only descriptive metadata for the sessions screen.
+ */
+export interface SessionDto {
+  id: string;
+  deviceDescription: string | null;
+  createdByIp: string | null;
+  createdAtUtc: string;
+  lastSeenAtUtc: string;
+  isCurrent: boolean;
+}
+
+/**
  * Explicit mapper: AuthUserDto → canonical Principal. Isolates the app from
  * backend naming/shape differences — future DTO changes are absorbed here.
  */

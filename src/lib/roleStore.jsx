@@ -31,10 +31,13 @@ export function useRole() {
 
   const role = primaryRole; // canonical token or "guest"
   const demo = DEMO_USERS[role] || DEMO_USERS[GUEST];
+  // Demo identities are ONLY used for the development role preview. A real
+  // authenticated principal never has placeholder names substituted in.
+  const useDemoIdentity = dev.isActive;
   const user = {
     role,
-    name: principal.displayName || demo.name,
-    email: principal.email || demo.email,
+    name: principal.displayName || (useDemoIdentity ? demo.name : ""),
+    email: principal.email || (useDemoIdentity ? demo.email : ""),
     membership: demo.membership,
   };
 

@@ -7,8 +7,15 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const STATUS_BORDER = {
   available: "border-rose-gold/50 bg-rose-gold/10",
   blackout: "border-error/40 bg-error/10",
+  travel: "border-warning/40 bg-warning/10",
   event: "border-white/[0.06] bg-card-black/40",
   default: "border-white/[0.06] bg-card-black/40 hover:border-white/15",
+};
+
+const STATUS_TEXT = {
+  available: "text-rose-gold",
+  blackout: "text-error",
+  travel: "text-warning",
 };
 
 /**
@@ -19,7 +26,12 @@ const STATUS_BORDER = {
  * }} props
  */
 export default function MonthGrid({ dayStatus, dayContent, onDayClick }) {
-  const [cursor, setCursor] = useState(() => new Date(2026, 6, 1));
+  // Opens on the CURRENT month. This used to be a hardcoded July 2026 from the mock era,
+  // which showed every caller the wrong month once that date passed.
+  const [cursor, setCursor] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const first = new Date(year, month, 1);
@@ -67,16 +79,19 @@ export default function MonthGrid({ dayStatus, dayContent, onDayClick }) {
             <button
               key={i}
               onClick={() => onDayClick?.(date, dIso)}
+              // Without a click handler this is a read-only cell, so it must not offer a
+              // pointer or take focus as though it were actionable.
+              disabled={!onDayClick}
               className={cn(
                 "min-h-[58px] rounded-sm border text-left p-1.5 transition flex flex-col gap-1 align-top",
-                status ? STATUS_BORDER[status] : STATUS_BORDER.default,
-                status === "available" && onDayClick ? "cursor-pointer" : onDayClick ? "cursor-pointer" : ""
+                status ? STATUS_BORDER[status] ?? STATUS_BORDER.default : STATUS_BORDER.default,
+                onDayClick ? "cursor-pointer" : "cursor-default"
               )}
             >
               <span
                 className={cn(
                   "text-[0.65rem] font-body leading-none",
-                  status === "available" ? "text-rose-gold" : status === "blackout" ? "text-error" : "text-soft-ivory/70"
+                  STATUS_TEXT[status] ?? "text-soft-ivory/70"
                 )}
               >
                 {date.getDate()}

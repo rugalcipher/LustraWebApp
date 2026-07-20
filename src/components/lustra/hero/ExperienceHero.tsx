@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { Crown, ShieldCheck, Clock, Gem } from "lucide-react";
 import Monogram from "@/lib/lustra/Monogram";
-import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
+import PublicHeader from "@/components/lustra/public/PublicHeader";
 import { EXPERIENCE_SLIDES, AUTOPLAY_MS } from "./experienceSlides";
 import { useExperienceHero } from "./useExperienceHero";
 import ExperienceHeroSlide from "./ExperienceHeroSlide";
@@ -10,13 +9,6 @@ import ExperienceHeroContent from "./ExperienceHeroContent";
 import ExperienceHeroControls from "./ExperienceHeroControls";
 import ExperienceHeroProgress from "./ExperienceHeroProgress";
 import ExperienceHeroPreviews from "./ExperienceHeroPreviews";
-
-const NAV_LINKS = [
-  { to: "/about", label: "About" },
-  { to: "/how-it-works", label: "How It Works" },
-  { to: "/safety", label: "Safety" },
-  { to: "/request-access", label: "For Talent" },
-];
 
 const BENEFITS = [
   { icon: Crown, title: "Curated Excellence", copy: "Carefully selected talent for exceptional experiences." },
@@ -111,31 +103,8 @@ export default function ExperienceHero() {
 
         {/* Foreground */}
         <div className="absolute inset-0 z-20 flex flex-col">
-          {/* Top nav */}
-          <header className="flex items-center justify-between px-6 sm:px-10 lg:px-16 pt-[max(0.9rem,env(safe-area-inset-top))] pb-4">
-            <Link to="/" aria-label="Lustra home" className="flex items-center">
-              <LustraHorizontalLogo className="h-6 sm:h-7 w-auto" eager />
-            </Link>
-            <nav className="flex items-center gap-6 lg:gap-8">
-              <div className="hidden lg:flex items-center gap-8">
-                {NAV_LINKS.map((l) => (
-                  <Link
-                    key={l.label}
-                    to={l.to}
-                    className="font-body text-[0.6rem] tracking-luxe uppercase text-soft-ivory/70 hover:text-rose-gold transition"
-                  >
-                    {l.label}
-                  </Link>
-                ))}
-              </div>
-              <Link
-                to="/login"
-                className="font-body text-[0.6rem] tracking-luxe uppercase text-soft-ivory/85 border border-white/20 hover:border-rose-gold/60 hover:text-rose-gold rounded-sm px-3.5 py-2 transition"
-              >
-                Sign In
-              </Link>
-            </nav>
-          </header>
+          {/* Shared public header (transparent over the hero image) */}
+          <PublicHeader variant="transparent" sticky={false} />
 
           {/* Content */}
           <div className="relative flex-1 min-h-0">

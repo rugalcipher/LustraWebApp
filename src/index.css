@@ -140,3 +140,208 @@
     object-position: var(--focal-d, 50% 50%);
   }
 }
+
+/* ── Public marketing layout — one continuous layered composition ──
+   A tall image panel sits at the left; `--mkt-fade` is where the image visually
+   dissolves into noir. The panel is drawn ~18% WIDER than the fade so its own
+   edge lands inside the fully-noir zone → there is never a visible seam, and the
+   image continues faintly beneath the content gradient. Side-by-side at every
+   width (never stacked). All values come from each page's image config. */
+.mkt-fade-scope { --mkt-fade: var(--mkt-fade-m, 54%); }
+@media (min-width: 1024px) { .mkt-fade-scope { --mkt-fade: var(--mkt-fade-d, 56%); } }
+
+.mkt-img-layer { width: calc(var(--mkt-fade) + 18%); }
+
+.mkt-img { object-position: var(--mkt-pos-m, 45% center); }
+/* ≤560px — CLAMPED focal point.
+   `object-fit: cover` resolves an object-position percentage against the
+   OVERFLOW, not the image: as the viewport narrows, the visible window gets
+   narrower and a fixed percentage marches its left edge to the right, walking
+   the subject off the left of the screen. Below 560px we stop following the
+   viewport and pin a focal point chosen so the subject stays in frame. There is
+   no viewport-derived left/translateX anywhere in this layout — nothing keeps
+   growing negative as the screen shrinks. */
+@media (max-width: 560px) { .mkt-img { object-position: var(--mkt-pos-xs, var(--mkt-pos-m, 45% center)); } }
+/* Portrait-ish phones (the real case): the panel is 100svh tall and the masters
+   are landscape, so `cover` always scales by HEIGHT and the displayed width is
+   exactly `aspect × 100svh`. An object-position expressed as an svh LENGTH
+   therefore pins one fixed source point to the left edge of the screen at every
+   width — a true anchor, not a viewport-following calculation. The aspect guard
+   keeps this off short/landscape viewports, where cover scales by width and a
+   length would push the image out of view; those fall back to `--mkt-pos-xs`. */
+@media (max-width: 560px) and (max-aspect-ratio: 16 / 10) {
+  .mkt-img { object-position: var(--mkt-anchor-xs, var(--mkt-pos-xs, var(--mkt-pos-m, 45% center))); }
+}
+@media (min-width: 768px) { .mkt-img { object-position: var(--mkt-pos-t, 40% center); } }
+@media (min-width: 1024px) { .mkt-img { object-position: var(--mkt-pos-d, 34% center); } }
+
+/* Content inset from the left. Percentages come from each page's image config
+   (form-heavy pages inset much less so the fields get real width); the
+   safe-area term keeps the copy clear of a notch in landscape. The ≤380px tier
+   lets very narrow phones shrink the visual band further. */
+.mkt-content { padding-left: calc(var(--mkt-cpl-m, 42%) + env(safe-area-inset-left, 0px)); }
+@media (max-width: 380px) {
+  .mkt-content { padding-left: calc(var(--mkt-cpl-xs, var(--mkt-cpl-m, 42%)) + env(safe-area-inset-left, 0px)); }
+}
+@media (min-width: 640px) { .mkt-content { padding-left: calc(var(--mkt-cpl-s, 43%) + env(safe-area-inset-left, 0px)); } }
+@media (min-width: 1024px) { .mkt-content { padding-left: calc(var(--mkt-cpl-d, 45%) + env(safe-area-inset-left, 0px)); } }
+
+/* Right-hand gutter for the content column — matches the old pr-5/10/16 scale
+   but never lets a notch or rounded corner clip the fields. */
+.mkt-gutter-r { padding-right: max(1rem, env(safe-area-inset-right, 0px)); }
+@media (min-width: 640px) { .mkt-gutter-r { padding-right: max(2.5rem, env(safe-area-inset-right, 0px)); } }
+@media (min-width: 1024px) { .mkt-gutter-r { padding-right: max(4rem, env(safe-area-inset-right, 0px)); } }
+
+/* Horizontal dissolve into noir — full noir by ~fade+6% (before the panel edge). */
+.mkt-blend {
+  background: linear-gradient(
+    90deg,
+    rgba(11, 11, 13, 0) 0%,
+    rgba(11, 11, 13, 0) calc(var(--mkt-fade) - 30%),
+    rgba(11, 11, 13, 0.4) calc(var(--mkt-fade) - 12%),
+    rgba(11, 11, 13, 0.82) calc(var(--mkt-fade) - 2%),
+    #0b0b0d calc(var(--mkt-fade) + 6%)
+  );
+}
+
+/* ── Overlap treatment (form-heavy pages, below `lg`) ────────────────────────
+   The photograph runs full-bleed BEHIND the composition instead of ending in
+   noir: the left `--mkt-fade` band stays clear, then a progressive scrim
+   darkens it to ~0.93 under the form. It is never a flat opaque block — the
+   image stays faintly readable. Readability comes from the DARKNESS of that
+   gradient, not from blur: the backdrop blur is a whisper (1.5px, masked to the
+   text area only) so the subject's face, outline and clothing stay recognisable
+   instead of smeared. Desktop is untouched. */
+@media (max-width: 1023px) {
+  .mkt-overlap .mkt-img-layer {
+    width: 100%;
+  }
+  .mkt-overlap .mkt-blend {
+    background: linear-gradient(
+      90deg,
+      rgba(11, 11, 13, 0) 0%,
+      rgba(11, 11, 13, 0.08) calc(var(--mkt-fade) - 8%),
+      rgba(11, 11, 13, 0.6) calc(var(--mkt-fade) + 1%),
+      rgba(11, 11, 13, 0.9) calc(var(--mkt-fade) + 7%),
+      rgba(11, 11, 13, 0.94) calc(var(--mkt-fade) + 18%),
+      rgba(11, 11, 13, 0.95) 100%
+    );
+  }
+  .mkt-overlap .mkt-scrim {
+    backdrop-filter: blur(1.5px);
+    -webkit-backdrop-filter: blur(1.5px);
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent calc(var(--mkt-fade) - 2%),
+      #000 calc(var(--mkt-fade) + 10%),
+      #000 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent calc(var(--mkt-fade) - 2%),
+      #000 calc(var(--mkt-fade) + 10%),
+      #000 100%
+    );
+  }
+}
+/* ≤560px the pages switch to the PORTRAIT (9:16) masters, which are composed for
+   the phone frame: the subject is placed within the picture rather than cropped
+   out of a landscape scene, and there is almost no horizontal crop left, so she
+   sits wherever the photographer put her — often behind the content column. The
+   scrim therefore eases off slightly here (ceiling 0.88 instead of 0.95) so the
+   composition stays perceptible through the dimmed area, which is exactly what
+   the portrait art is for. Text still sits on >=0.82 noir plus the blur. */
+@media (max-width: 560px) {
+  .mkt-overlap .mkt-blend {
+    background: linear-gradient(
+      90deg,
+      rgba(11, 11, 13, 0) 0%,
+      rgba(11, 11, 13, 0.05) calc(var(--mkt-fade) - 8%),
+      rgba(11, 11, 13, 0.42) calc(var(--mkt-fade) + 1%),
+      rgba(11, 11, 13, 0.74) calc(var(--mkt-fade) + 7%),
+      rgba(11, 11, 13, 0.8) calc(var(--mkt-fade) + 18%),
+      rgba(11, 11, 13, 0.82) 100%
+    );
+  }
+}
+
+/* Desktop keeps the original composition — no full-bleed, no blur. */
+@media (min-width: 1024px) {
+  .mkt-overlap .mkt-scrim {
+    display: none;
+  }
+}
+
+/* ── Auth pages — background mood layer ──────────────────────────────────────
+   The figure is framed per breakpoint and kept deliberately low-key: full
+   presence on desktop where there is room beside the card, halved on phones
+   where the card occupies most of the screen. The spotlight scrim pools noir
+   behind the card so headings, labels, inputs and buttons always sit on a dark,
+   even field — no bright hotspot can land under text. */
+.auth-bg-img {
+  object-position: var(--auth-pos-m, 50% 42%);
+  opacity: var(--auth-op-m, 0.5);
+}
+@media (min-width: 768px) {
+  .auth-bg-img {
+    object-position: var(--auth-pos-t, 66% 45%);
+    opacity: var(--auth-op-d, 0.85);
+  }
+}
+@media (min-width: 1024px) {
+  .auth-bg-img {
+    object-position: var(--auth-pos-d, 72% 45%);
+  }
+}
+/* While loading, the fade-in must win over the resting opacity above. */
+.auth-bg-img.opacity-0 {
+  opacity: 0;
+}
+
+.auth-bg-spot {
+  background: radial-gradient(
+    120% 90% at 50% 45%,
+    rgba(11, 11, 13, 0.94) 0%,
+    rgba(11, 11, 13, 0.86) 32%,
+    rgba(11, 11, 13, 0.6) 58%,
+    rgba(11, 11, 13, 0.42) 100%
+  );
+}
+@media (min-width: 1024px) {
+  /* Wide screens: tighten the pool around the card so more of the figure reads. */
+  .auth-bg-spot {
+    background: radial-gradient(
+      70% 85% at 42% 48%,
+      rgba(11, 11, 13, 0.95) 0%,
+      rgba(11, 11, 13, 0.88) 34%,
+      rgba(11, 11, 13, 0.55) 62%,
+      rgba(11, 11, 13, 0.3) 100%
+    );
+  }
+}
+
+/* ── Global Lustra scrollbar (rose-gold on noir) ── */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #b8876b #0b0b0d;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0b0d;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d8ab91 0%, #b8876b 55%, #8f634f 100%);
+  border: 2px solid #0b0b0d;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d8ab91;
+}
+::-webkit-scrollbar-corner {
+  background: #0b0b0d;
+}

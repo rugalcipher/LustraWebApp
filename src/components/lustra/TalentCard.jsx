@@ -2,7 +2,18 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Heart, MapPin, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatRate } from "@/domain/talent";
 import { AvailabilityPill } from "./Primitives";
+
+/** A neutral placeholder while a talent has no approved public cover image. */
+const COVER_PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='900' height='1200'>
+       <rect width='100%' height='100%' fill='#141013'/>
+       <path d='M450 520 L520 590 L450 660 L380 590 Z' fill='none' stroke='#B8876B' stroke-width='1.5' opacity='0.5'/>
+     </svg>`
+  );
 
 /**
  * @param {{
@@ -20,9 +31,10 @@ export default function TalentCard({ talent, saved, onToggleSave, variant = "edi
     >
       <div className="relative aspect-[3/4] overflow-hidden">
         <img
-          src={talent.cover}
+          src={talent.cover || COVER_PLACEHOLDER}
           alt={talent.name}
           loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover grayscale-[0.15] transition-all duration-700 group-hover:scale-[1.03] group-hover:grayscale-0"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-noir via-noir/20 to-transparent" />
@@ -36,7 +48,9 @@ export default function TalentCard({ talent, saved, onToggleSave, variant = "edi
         <button
           onClick={(e) => {
             e.preventDefault();
-            onToggleSave?.(talent.id);
+            // Pass the whole talent: the save action needs the profile id, while the
+            // card routes on the slug.
+            onToggleSave?.(talent);
           }}
           className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-noir/50 backdrop-blur-sm border border-white/10 hover:border-rose-gold/50 transition"
           aria-label={saved ? "Remove from saved" : "Save talent"}
@@ -80,8 +94,10 @@ export default function TalentCard({ talent, saved, onToggleSave, variant = "edi
           <span className="text-[0.55rem] tracking-luxe uppercase text-muted-grey font-body">
             Starting
           </span>
+          {/* Never fabricate a price: talent with no published public rate show
+              "On request", which is what management will quote against. */}
           <span className="font-heading text-lg text-light-rose-gold">
-            ${talent.startingRate.toLocaleString()}
+            {formatRate(talent.startingRate, talent.startingRateCurrency)}
           </span>
         </div>
       )}

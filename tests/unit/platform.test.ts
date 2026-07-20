@@ -1,0 +1,116 @@
+import { describe, it, expect } from "vitest";
+import { ROUTES, allowedRolesFor, requiredPermissionsFor } from "@/app/routeRegistry";
+import { queryKeys } from "@/api/queryKeys";
+
+/**
+ * Route-registry integrity.
+ *
+ * The registry is the single source of truth for access control, navigation and the
+ * generated `<Routes>`. A link pointing at a path with no route silently 404s, which is
+ * exactly the bug this suite exists to prevent.
+ */
+describe("route registry", () => {
+  const paths = new Set(ROUTES.map((r) => r.path));
+
+  it("registers every management route the console links to", () => {
+    // These were linked from the pipeline board before they existed, and 404'd.
+    expect(paths).toContain("/inquiry-pipeline/:id");
+    expect(paths).toContain("/management-conversations/:id");
+  });
+
+  it("registers every talent-portal route", () => {
+    for (const path of [
+      "/talent-portal", "/talent-profile", "/talent-media",
+      "/talent-availability", "/talent-reviews", "/talent-bookings/:id",
+    ]) {
+      expect(paths).toContain(path);
+    }
+  });
+
+  it("registers every client route", () => {
+    for (const path of [
+      "/app/discover", "/app/saved", "/app/inquiries", "/app/inquiries/:id",
+      "/app/messages", "/app/messages/:id", "/app/bookings", "/app/bookings/:id",
+      "/app/proposals/:id", "/app/notifications", "/app/profile",
+    ]) {
+      expect(paths).toContain(path);
+    }
+  });
+
+  it("has no duplicate paths", () => {
+    // A duplicate means one definition silently wins and the other's roles or permissions
+    // are never applied.
+    expect(paths.size).toBe(ROUTES.length);
+  });
+
+  it("keeps every client-area route protected", () => {
+    // The client area holds inquiries, conversations and bookings. A public one would be
+    // a straightforward data leak.
+    //
+    // Matched on "/app/" with the trailing slash, NOT "/app": the latter also catches the
+    // public "/apply" marketing redirect, which is correctly public.
+    const clientArea = ROUTES.filter((r) => r.path.startsWith("/app/"));
+    expect(clientArea.length).toBeGreaterThan(5);
+    for (const route of clientArea) {
+      expect(route.access).toBe("protected");
+      expect(route.shell).toBe("client");
+    }
+  });
+
+  it("keeps the public /apply redirect out of the client area", () => {
+    // Guards the prefix trap above: /apply is public by design and must not be
+    // "fixed" into the protected area by a future prefix-matching change.
+    const apply = ROUTES.find((r) => r.path === "/apply");
+    expect(apply?.access).toBe("public");
+    expect(apply?.shell).toBe("public");
+  });
+
+  it("keeps every management and admin route staff-only", () => {
+    const internal = ROUTES.filter(
+      (r) =>
+        r.path.startsWith("/admin") ||
+        r.path.startsWith("/management") ||
+        r.path.startsWith("/inquiry-pipeline") ||
+        r.path.startsWith("/moderation")
+    );
+    expect(internal.length).toBeGreaterThan(0);
+    for (const route of internal) {
+      expect(route.access).toBe("protected");
+      expect(route.roles).toBeDefined();
+      // No client or talent may reach a management surface.
+      expect(route.roles).not.toContain("client");
+      expect(route.roles).not.toContain("talent");
+    }
+  });
+
+  it("resolves roles for a nested management path", () => {
+    const roles = allowedRolesFor("/inquiry-pipeline/some-guid");
+    expect(roles).not.toBeNull();
+    expect(roles).not.toContain("client");
+  });
+
+  it("requires a permission on the routes that carry one", () => {
+    expect(requiredPermissionsFor("/inquiry-pipeline")).toContain("Inquiries.View");
+    expect(requiredPermissionsFor("/management-conversations/:id")).toContain("Conversations.View");
+  });
+
+  it("never marks an admin route as public", () => {
+    for (const route of ROUTES.filter((r) => r.path.startsWith("/admin"))) {
+      expect(route.access).toBe("protected");
+    }
+  });
+});
+
+describe("management conversation cache keys", () => {
+  it("separates message pages per conversation", () => {
+    const a = JSON.stringify(queryKeys.management.conversationMessages("c1", 1));
+    const b = JSON.stringify(queryKeys.management.conversationMessages("c2", 1));
+    const c = JSON.stringify(queryKeys.management.conversationMessages("c1", 2));
+    expect(new Set([a, b, c]).size).toBe(3);
+  });
+
+  it("nests message pages under the management namespace so they clear on sign-out", () => {
+    // These carry client conversation bodies; they must not survive an account switch.
+    expect(queryKeys.management.conversationMessages("c1", 1)[0]).toBe("management");
+  });
+});

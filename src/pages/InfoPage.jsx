@@ -3,8 +3,8 @@ import {
   KeyRound, Crown, BellRing, Search, Mail, Eye, Check,
   Lock, EyeOff, SlidersHorizontal, FileText, Landmark, ScrollText,
 } from "lucide-react";
-import PublicPageLayout from "@/components/lustra/public/PublicPageLayout";
-import { MarketingIntro, MarketingValueBlock, MarketingClosing } from "@/components/lustra/public/MarketingBlocks";
+import PublicMarketingLayout from "@/components/lustra/public/PublicMarketingLayout";
+import { MarketingValueBlock, MarketingClosing } from "@/components/lustra/public/MarketingBlocks";
 import { PUBLIC_IMAGES } from "@/components/lustra/public/publicImages";
 
 /**
@@ -86,22 +86,20 @@ export default function InfoPage({ page }) {
   const image = PUBLIC_IMAGES[content.imageKey];
 
   return (
-    <PublicPageLayout image={image} footerNote={content.footerNote}>
-      <MarketingIntro eyebrow={content.eyebrow} title={content.title} />
-
+    <PublicMarketingLayout eyebrow={content.eyebrow} title={content.title} image={image} footerNote={content.footerNote}>
       {content.statement && (
-        <p className="mt-6 font-body text-base sm:text-lg text-soft-ivory/75 leading-relaxed max-w-xl">
+        <p className="font-body text-sm sm:text-base text-soft-ivory/75 leading-relaxed max-w-md">
           {content.statement}
         </p>
       )}
 
-      <div className="mt-10 lg:mt-12 space-y-9 lg:space-y-11">
+      <div className="mt-6 sm:mt-8 lg:mt-10 space-y-6 sm:space-y-8 lg:space-y-10">
         {content.sections.map((s) => (
           <MarketingValueBlock key={s.heading} icon={s.icon} marker={s.marker} heading={s.heading} copy={s.copy} />
         ))}
       </div>
 
-      {content.closing && <MarketingClosing lines={content.closing} className="mt-12 lg:mt-14" />}
-    </PublicPageLayout>
+      {content.closing && <MarketingClosing lines={content.closing} className="mt-8 sm:mt-11 lg:mt-14" />}
+    </PublicMarketingLayout>
   );
 }

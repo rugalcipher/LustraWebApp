@@ -1,6 +1,10 @@
 #env
 .env
 .env.*
+# ...but the template must be committed: it documents every variable the app
+# reads and carries no values. Without it a new developer cannot configure a
+# local build, and the deployment contract in ENVIRONMENT.md has no counterpart.
+!.env.example
 
 # Logs
 /logs
@@ -30,6 +34,9 @@ dist-ssr
 .env
 .vite
 base44/.app.jsonc
+
+# Vercel local project metadata (contains the linked project/org ids)
+.vercel
 
 # Test / Playwright artifacts
 /test-results

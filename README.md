@@ -60,6 +60,17 @@ VITE_BASE44_APP_BASE_URL=https://your-app.base44.app
 
 When you use `base44 dev`, the command injects the local Base44 values for you, so `.env.local` is mainly needed for frontend-only workflows.
 
+## Deploy (Vercel)
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the full guide: build settings,
+`vercel.json`, the Preview/Production environment-variable checklist, backend
+CORS requirements, and the dashboard + CLI deployment paths.
+
+Short version: framework **Vite**, build `npm run build`, output `dist`, all
+routes rewritten to `/index.html`. A deployed frontend needs a publicly
+reachable **https** API — set `VITE_DATA_MODE=api` and `VITE_API_BASE_URL`, and
+add the deployment origin to the API's `Cors:AllowedOrigins`.
+
 ## Publish Your Changes
 
 After pushing your changes to git, open the Base44 dashboard and publish the app:

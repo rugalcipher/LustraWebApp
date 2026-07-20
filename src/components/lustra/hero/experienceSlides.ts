@@ -1,14 +1,27 @@
 /**
  * Centralized configuration for the Experience Hero carousel.
  *
- * Copy is the approved Lustra wording. Photography uses the project's editorial
- * Unsplash sources (each with an on-error fallback to a confirmed-good image so
- * a failed CDN request never breaks the hero). `focalDesktop`/`focalMobile`
- * give per-slide `object-position` so faces/subjects stay framed and uncovered
- * by the copy across breakpoints.
+ * Copy is the approved Lustra wording. Photography is the approved Lustra
+ * campaign artwork (source PNGs live in `assets/home/`, optimised derivatives
+ * are served from `public/home/`). Each slide has a dedicated MOBILE (portrait)
+ * and WIDE (landscape) composition — the wide art is used from 768px up, the
+ * mobile art below it, via <picture>. `focalDesktop`/`focalMobile` remain the
+ * per-slide `object-position` knobs for fine framing.
+ *
+ * To swap an image: drop the new file in `assets/home/`, re-run the derivative
+ * generation (WebP 1672/1440/1080 wide · 900/640 mobile + a JPEG fallback and a
+ * 480w preview), keeping the same `home-{n}-{kind}-{w}` naming.
  */
 
 export type SlideAlign = "center" | "left" | "right";
+
+/** Responsive sources for one composition (portrait or landscape). */
+export interface SlideArt {
+  /** WebP srcset (width-descriptor). */
+  srcSet: string;
+  /** JPEG fallback for browsers without WebP. */
+  fallback: string;
+}
 
 export interface ExperienceSlide {
   id: string;
@@ -16,31 +29,32 @@ export interface ExperienceSlide {
   label: string;
   headline: string;
   copy: string;
-  /** Unsplash photo id (without the `photo-` prefix handled below). */
-  photoId: string;
-  /** Fallback photo id (confirmed to load) if the primary errors. */
-  fallbackId: string;
+  /** Portrait artwork, used below 768px. */
+  mobile: SlideArt;
+  /** Landscape artwork, used from 768px up. */
+  wide: SlideArt;
+  /** Small preview crop for the panel strip. */
+  preview: string;
   focalDesktop: string;
   focalMobile: string;
   align: SlideAlign;
 }
 
-const UNSPLASH = (id: string, w: number) =>
-  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=${w > 1100 ? 80 : 68}`;
+const WIDE_WIDTHS = [1080, 1440, 1672];
+const MOBILE_WIDTHS = [640, 900];
 
-/** Responsive sources for a photo id: mobile (768) + desktop (1920). */
-export function slideSrcSet(id: string): { src: string; srcSet: string; sizes: string } {
-  return {
-    src: UNSPLASH(id, 1920),
-    srcSet: `${UNSPLASH(id, 768)} 768w, ${UNSPLASH(id, 1280)} 1280w, ${UNSPLASH(id, 1920)} 1920w`,
-    sizes: "100vw",
-  };
-}
+const art = (n: number, kind: "wide" | "mobile"): SlideArt => ({
+  srcSet: (kind === "wide" ? WIDE_WIDTHS : MOBILE_WIDTHS)
+    .map((w) => `/home/home-${n}-${kind}-${w}.webp ${w}w`)
+    .join(", "),
+  fallback: `/home/home-${n}-${kind}.jpg`,
+});
 
-/** Small preview crop. */
-export function previewSrc(id: string): string {
-  return UNSPLASH(id, 480);
-}
+const slideArt = (n: number) => ({
+  mobile: art(n, "mobile"),
+  wide: art(n, "wide"),
+  preview: `/home/home-${n}-preview.webp`,
+});
 
 export const EXPERIENCE_SLIDES: ExperienceSlide[] = [
   {
@@ -48,10 +62,9 @@ export const EXPERIENCE_SLIDES: ExperienceSlide[] = [
     label: "The Brand",
     headline: "Desire, Reserved.",
     copy: "A private standard of introductions, curated around you.",
-    photoId: "1524504388940-b1c1722653e1",
-    fallbackId: "1524504388940-b1c1722653e1",
-    focalDesktop: "60% 30%",
-    focalMobile: "60% 25%",
+    ...slideArt(1),
+    focalDesktop: "50% 50%",
+    focalMobile: "50% 45%",
     align: "center",
   },
   {
@@ -59,10 +72,9 @@ export const EXPERIENCE_SLIDES: ExperienceSlide[] = [
     label: "Private Events",
     headline: "Make every entrance unforgettable.",
     copy: "Curated talent for private celebrations, premieres and distinguished occasions.",
-    photoId: "1519741497674-611481863552",
-    fallbackId: "1517841905240-472988babdf9",
-    focalDesktop: "70% 35%",
-    focalMobile: "65% 30%",
+    ...slideArt(2),
+    focalDesktop: "50% 50%",
+    focalMobile: "50% 45%",
     align: "left",
   },
   {
@@ -70,10 +82,9 @@ export const EXPERIENCE_SLIDES: ExperienceSlide[] = [
     label: "Travel & Experiences",
     headline: "Wherever the occasion takes you.",
     copy: "Tailored social and travel experiences, arranged with care and discretion.",
-    photoId: "1566073771259-6a8506099945",
-    fallbackId: "1510812431401-41d2bd2722f3",
-    focalDesktop: "50% 40%",
-    focalMobile: "50% 40%",
+    ...slideArt(3),
+    focalDesktop: "50% 50%",
+    focalMobile: "50% 45%",
     align: "right",
   },
   {
@@ -81,10 +92,9 @@ export const EXPERIENCE_SLIDES: ExperienceSlide[] = [
     label: "Curated Talent",
     headline: "Exceptional presence. Personally selected.",
     copy: "Explore a private roster chosen for confidence, character and professionalism.",
-    photoId: "1509631179647-0177331693ae",
-    fallbackId: "1544005313-94ddf0286df2",
-    focalDesktop: "50% 25%",
-    focalMobile: "50% 20%",
+    ...slideArt(4),
+    focalDesktop: "50% 50%",
+    focalMobile: "50% 45%",
     align: "left",
   },
   {
@@ -92,13 +102,15 @@ export const EXPERIENCE_SLIDES: ExperienceSlide[] = [
     label: "Concierge Service",
     headline: "Every detail, handled privately.",
     copy: "From your first inquiry to the final arrangement, Lustra Management remains at your service.",
-    photoId: "1551218808-94e220e084d2",
-    fallbackId: "1487412720507-e7ab37603c6f",
-    focalDesktop: "50% 45%",
-    focalMobile: "55% 45%",
+    ...slideArt(5),
+    focalDesktop: "50% 50%",
+    focalMobile: "50% 45%",
     align: "center",
   },
 ];
+
+/** The first slide's artwork — preloaded/eager so the hero paints immediately. */
+export const FIRST_SLIDE = EXPERIENCE_SLIDES[0];
 
 /** Autoplay interval (ms) — restrained luxury pacing (6–8s). */
 export const AUTOPLAY_MS = 7000;

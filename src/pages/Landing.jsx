@@ -5,10 +5,11 @@ import LustraButton from "@/components/lustra/Button";
 import { StarDivider, MonogramSeal } from "@/lib/lustra/Brand";
 import { LustraVerticalLogo } from "@/components/lustra/BrandLogo";
 import ExperienceHero from "@/components/lustra/hero/ExperienceHero";
+import { marketingAsset } from "@/components/lustra/public/publicImages";
 import { Eyebrow, Heading } from "@/components/lustra/Primitives";
 import TalentCard from "@/components/lustra/TalentCard";
 import { useSavedTalent } from "@/layouts/AppShell";
-import { TALENT } from "@/mocks/talent";
+import { useFeaturedTalent } from "@/features/discovery/hooks";
 
 const PILLARS = [
   { title: "Members Only", sub: "Exclusive access", icon: Lock },
@@ -32,7 +33,7 @@ const FAQS = [
 
 export default function Landing() {
   const { isSaved, toggle } = useSavedTalent();
-  const featured = TALENT.filter((t) => t.featured).slice(0, 3);
+  const { talent: featured, isLoading: featuredLoading } = useFeaturedTalent(3);
 
   return (
     <div className="lustra-marble min-h-screen">
@@ -64,11 +65,32 @@ export default function Landing() {
               <StarDivider />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {featured.map((t) => (
-              <TalentCard key={t.id} talent={t} saved={isSaved(t.id)} onToggleSave={toggle} />
-            ))}
-          </div>
+          {featuredLoading ? (
+            // Reserve the grid's height so the page doesn't jump when cards arrive.
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="aspect-[3/4] rounded-lg border border-white/[0.06] bg-card-black animate-pulse"
+                />
+              ))}
+            </div>
+          ) : featured.length === 0 ? (
+            <p className="text-center font-body text-sm text-muted-grey">
+              Our roster is being curated. Please check back shortly.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {featured.map((t) => (
+                <TalentCard
+                  key={t.id}
+                  talent={t}
+                  saved={isSaved(t.talentProfileId)}
+                  onToggleSave={toggle}
+                />
+              ))}
+            </div>
+          )}
           <div className="text-center mt-10">
             <LustraButton as={Link} to="/talent" variant="outline" size="md">
               Browse All Talent <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.2} />
@@ -102,8 +124,10 @@ export default function Landing() {
       <section className="relative py-24 px-6 overflow-hidden">
         <div className="absolute inset-0 opacity-25">
           <img
-            src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=1200&q=80"
+            src={marketingAsset("safety", 1200)}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover grayscale"
           />
           <div className="absolute inset-0 bg-noir/70" />

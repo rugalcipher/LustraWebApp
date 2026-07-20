@@ -17,7 +17,8 @@ export default defineConfig({
   timeout: 30_000,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:5173",
+    // Must match `server.port` in vite.config.js, which sets strictPort.
+    baseURL: "http://localhost:5181",
     trace: "off",
     screenshot: "off",
     viewport: { width: 1440, height: 900 },
@@ -25,7 +26,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:5173",
+    url: "http://localhost:5181",
     reuseExistingServer: true,
     timeout: 60_000,
   },

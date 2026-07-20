@@ -1,34 +1,58 @@
 # AGENTS.md
 
-## Project Context
+## Project context
 
-This is a Base44 app repository. Treat it as user-owned application code, keep changes focused on the user's request, and preserve existing project conventions.
+Lustra web frontend — React + TypeScript + Vite. Originally exported from
+Base44; Base44 has been removed from all runtime flows (Stage 2). The app now
+integrates directly with the Lustra .NET 8 API.
 
-Start with `README.md` for local setup, environment variables, and publish workflow.
+- Backend repo: `P:\Rugal Cipher\Companies\Lustra\Softwares\LustraPlatform`
+- API base: `/api/v1` · SignalR hub: `/hubs/chat`
+- Integration plan and route→endpoint matrix: `INTEGRATION.md`
 
-## Base44 References
+Lustra is a premium booking-inquiry platform for a private entertainment agency
+(adults only). Clients browse represented Talent and submit **inquiries**;
+Management confirms bookings. There is no payment, checkout, wallet or payout
+anywhere in the product, and no public Talent self-registration.
 
-- CLI overview: https://docs.base44.com/developers/references/cli/get-started/overview.md
-- Agent skills: https://docs.base44.com/developers/backend/overview/skills.md
+## Architecture rules
 
-If your agent supports Agent Skills, install or update Base44 skills before Base44-specific work:
+Data flows one way and only one way:
 
-```bash
-npx skills add base44/skills
+```
+page → feature hook → React Query → typed service → src/api/client.ts → .NET API
 ```
 
-## Key Files
+- Never call `fetch`/axios from a component. `src/api/client.ts` is the single
+  HTTP boundary (auth headers, refresh, ProblemDetails, idempotency, timeouts).
+- Never touch tokens outside `src/api/tokenStorage.ts` and
+  `src/api/authTokenCoordinator.ts`.
+- All server state lives in React Query, keyed through `src/api/queryKeys.ts`.
+  Zustand (`src/stores/`) is for client state only — never server collections.
+- Roles and permissions come from `GET /auth/me` claims. Hidden navigation is
+  not a security control, and the dev role switcher never grants real access.
+- `src/app/routeRegistry.tsx` is the single source of truth for route → access,
+  shell and navigation. Don't duplicate role logic in pages or shells.
 
-- `src/`: frontend application source.
-- `src/api/base44Client.js`: frontend Base44 SDK client.
-- `vite.config.js`: Vite config and Base44 Vite plugin setup.
-- `.env.local`: local-only environment values; never commit secrets.
+## Mock vs API mode
 
-## Working Notes
+`VITE_DATA_MODE` (`mock` | `api`) selects the adapter; see `.env.example`.
+In API mode there is **no** silent fallback to mock data, no fabricated success
+and no hidden failure — unimplemented paths throw `NotImplementedInApiModeError`
+loudly. A production build refuses to start in mock mode.
 
-- Use `base44 dev` as the default local development command when you need the local Base44 backend. It can run the backend and frontend together.
-- When docs or code mention the frontend being started automatically, that usually means the Base44 project config includes `site.serveCommand`, for example `"serveCommand": "npm run dev"` in `base44/config.jsonc`.
-- Use `npm run dev` only for frontend-only work against the hosted Base44 backend.
-- Prefer the existing Base44 CLI workflow over adding new npm scripts for Base44-specific tasks.
-- Reuse the existing SDK client and Vite plugin patterns before adding new Base44 integration paths.
-- Run the relevant checks from `package.json` before finishing code changes.
+## Checks to run before finishing
+
+```bash
+npm run typecheck
+npm run lint
+npm run test        # vitest unit tests
+npm run build
+```
+
+`npm run test:e2e` runs the Playwright smoke suite.
+
+## Design
+
+Do not rewrite the approved Lustra visual design, and do not remove the
+immersive one-Talent-at-a-time Discover experience.

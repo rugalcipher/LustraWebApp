@@ -1,0 +1,78 @@
+{
+  "about": {
+    "outputs": [
+      "about-1200.webp",
+      "about-1600.webp",
+      "about-2200.webp",
+      "about-768.webp",
+      "about.jpg"
+    ],
+    "sha256": "5983bfe66b91d280f12bc2b42c616cc150bb304581cc3f7196c36ec9713e936f"
+  },
+  "about-mobile": {
+    "outputs": [
+      "about-mobile-1080.webp",
+      "about-mobile-480.webp",
+      "about-mobile-720.webp",
+      "about-mobile.jpg"
+    ],
+    "sha256": "9083ff0a8107994f9129dec8736501c7ec5e420bd0e29bd2d190e693656e4f72"
+  },
+  "how-it-works": {
+    "outputs": [
+      "how-it-works-1200.webp",
+      "how-it-works-1600.webp",
+      "how-it-works-2200.webp",
+      "how-it-works-768.webp",
+      "how-it-works.jpg"
+    ],
+    "sha256": "c50f35987fd1f167c2278691586180626a58146b284912d447709c0f932f59c3"
+  },
+  "how-it-works-mobile": {
+    "outputs": [
+      "how-it-works-mobile-1080.webp",
+      "how-it-works-mobile-480.webp",
+      "how-it-works-mobile-720.webp",
+      "how-it-works-mobile.jpg"
+    ],
+    "sha256": "bfb84e6493dee6e9897ec72922f88b51979083048ffafbaaa46cc393509f9ea8"
+  },
+  "safety": {
+    "outputs": [
+      "safety-1200.webp",
+      "safety-1600.webp",
+      "safety-2200.webp",
+      "safety-768.webp",
+      "safety.jpg"
+    ],
+    "sha256": "20736e43aae1786e0e99bfbcbd5ff1f209471e830cd3191370d52071d9c15524"
+  },
+  "safety-mobile": {
+    "outputs": [
+      "safety-mobile-1080.webp",
+      "safety-mobile-480.webp",
+      "safety-mobile-720.webp",
+      "safety-mobile.jpg"
+    ],
+    "sha256": "ca9c0f3388bec42a0d650d6b5f61e2e5b0c12f8e1f8872b95185fe23be1d6d50"
+  },
+  "talent": {
+    "outputs": [
+      "talent-1200.webp",
+      "talent-1600.webp",
+      "talent-2200.webp",
+      "talent-768.webp",
+      "talent.jpg"
+    ],
+    "sha256": "37d46ac9f38e598896319fe90204092ff9d88af03d99da4b4f5df87aacc6cad4"
+  },
+  "talent-mobile": {
+    "outputs": [
+      "talent-mobile-1080.webp",
+      "talent-mobile-480.webp",
+      "talent-mobile-720.webp",
+      "talent-mobile.jpg"
+    ],
+    "sha256": "1fc431f01276adf23c6431a4e766c0c146c441e3fd09679eb7913cf0489a3731"
+  }
+}

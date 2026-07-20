@@ -1,222 +1,275 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Checkbox } from "@/components/ui/checkbox";
+import { UserPlus, Mail, Lock, User, Loader2, CheckCircle2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
+import { registerSchema } from "@/features/auth/schemas";
+import {
+  useRegisterClient,
+  useResendVerification,
+  usePostAuthRedirect,
+  applyServerErrors,
+} from "@/features/auth/hooks";
 
+/**
+ * Client registration against `POST /api/v1/auth/client/register`.
+ *
+ * Lustra is an adults-only platform and there is no public Talent
+ * self-registration — this form creates Client accounts only. The API returns a
+ * session immediately, but the account stays unverified until the emailed link
+ * is followed, so the verification step is shown before continuing.
+ */
 export default function Register() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showOtp, setShowOtp] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
+  const [registered, setRegistered] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    setLoading(true);
-    try {
-      await base44.auth.register({ email, password });
-      setShowOtp(true);
-    } catch (err) {
-      setError(err.message || "Registration failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      displayName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      isAdultDeclaration: false,
+      acceptTerms: false,
+      acceptPrivacy: false,
+    },
+  });
 
-  const handleVerify = async () => {
-    setError("");
-    setLoading(true);
+  const registerClient = useRegisterClient();
+  const resendVerification = useResendVerification();
+  const redirect = usePostAuthRedirect();
+
+  const onSubmit = async (values) => {
     try {
-      const result = await base44.auth.verifyOtp({ email, otpCode });
-      if (result?.access_token) {
-        base44.auth.setToken(result.access_token);
-      }
-      window.location.href = "/";
-    } catch (err) {
-      setError(err.message || "Invalid verification code");
-    } finally {
-      setLoading(false);
+      const result = await registerClient.mutateAsync({
+        email: values.email,
+        password: values.password,
+        displayName: values.displayName,
+        acceptTerms: values.acceptTerms,
+        acceptPrivacy: values.acceptPrivacy,
+        isAdultDeclaration: values.isAdultDeclaration,
+      });
+      setRegistered(result);
+    } catch (error) {
+      applyServerErrors(error, setError);
     }
   };
 
   const handleResend = async () => {
-    setError("");
     try {
-      await base44.auth.resendOtp(email);
+      await resendVerification.mutateAsync(registered.user.email);
+      toast({ title: "Verification email sent", description: "Check your inbox for the new link." });
+    } catch {
       toast({
-        title: "Code sent",
-        description: "Check your email for the new code.",
+        title: "Couldn't resend",
+        description: "Please try again in a moment.",
+        variant: "destructive",
       });
-    } catch (err) {
-      setError(err.message || "Failed to resend code");
     }
   };
 
-  const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", "/");
-  };
-
-  if (showOtp) {
+  if (registered) {
     return (
       <AuthLayout
         icon={Mail}
         title="Verify your email"
-        subtitle={`We sent a code to ${email}`}
+        subtitle={`We sent a verification link to ${registered.user.email}`}
       >
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
-          </div>
-        )}
-        <div className="flex justify-center mb-6">
-          <InputOTP
-            maxLength={6}
-            value={otpCode}
-            onChange={setOtpCode}
-            autoFocus
-            autoComplete="one-time-code"
+        <div className="space-y-5 text-center">
+          <CheckCircle2 className="mx-auto h-10 w-10 text-primary" aria-hidden="true" />
+          <p className="text-sm text-muted-foreground">
+            Your account is ready. Follow the link in your email to verify your address — verification
+            is required before you can submit an inquiry.
+          </p>
+          <Button className="w-full h-12 font-medium" onClick={() => redirect(registered)}>
+            Continue to Lustra
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full h-12"
+            onClick={handleResend}
+            disabled={resendVerification.isPending}
           >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
+            {resendVerification.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Sending…
+              </>
+            ) : (
+              "Resend verification email"
+            )}
+          </Button>
         </div>
-        <Button
-          className="w-full h-12 font-medium"
-          onClick={handleVerify}
-          disabled={loading || otpCode.length < 6}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify"
-          )}
-        </Button>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Didn't receive the code?{" "}
-          <button onClick={handleResend} className="text-primary font-medium hover:underline">
-            Resend
-          </button>
-        </p>
       </AuthLayout>
     );
   }
 
+  const busy = isSubmitting || registerClient.isPending;
+
   return (
     <AuthLayout
       icon={UserPlus}
-      title="Create your account"
-      subtitle="Sign up to get started"
+      title="Request access"
+      subtitle="Create your Lustra client account"
       footer={
         <>
           Already have an account?{" "}
           <Link to="/login" className="text-primary font-medium hover:underline">
-            Log in
+            Sign in
           </Link>
         </>
       }
     >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Continue with Google
-      </Button>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">or</span>
-        </div>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
+      {errors.root && (
+        <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+          {errors.root.message}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <div className="space-y-2">
+          <Label htmlFor="displayName">Name</Label>
+          <div className="relative">
+            <User
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              id="displayName"
+              autoComplete="name"
+              autoFocus
+              placeholder="How we should address you"
+              className="pl-10 h-12"
+              aria-invalid={Boolean(errors.displayName)}
+              {...register("displayName")}
+            />
+          </div>
+          {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Mail
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
               id="email"
               type="email"
               autoComplete="email"
-              autoFocus
               placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               className="pl-10 h-12"
-              required
+              aria-invalid={Boolean(errors.email)}
+              {...register("email")}
             />
           </div>
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Lock
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
               id="password"
               type="password"
               autoComplete="new-password"
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               className="pl-10 h-12"
-              required
+              aria-invalid={Boolean(errors.password)}
+              {...register("password")}
             />
           </div>
+          {errors.password ? (
+            <p className="text-xs text-destructive">{errors.password.message}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              At least 8 characters, with upper and lower case, a number and a symbol.
+            </p>
+          )}
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="confirm">Confirm Password</Label>
+          <Label htmlFor="confirmPassword">Confirm password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Lock
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
-              id="confirm"
+              id="confirmPassword"
               type="password"
               autoComplete="new-password"
               placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
               className="pl-10 h-12"
-              required
+              aria-invalid={Boolean(errors.confirmPassword)}
+              {...register("confirmPassword")}
             />
           </div>
+          {errors.confirmPassword && (
+            <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
+          )}
         </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
-          {loading ? (
+
+        <div className="space-y-3 pt-2">
+          <ConsentCheckbox
+            id="isAdultDeclaration"
+            checked={watch("isAdultDeclaration")}
+            onChange={(v) => setValue("isAdultDeclaration", v, { shouldValidate: true })}
+            error={errors.isAdultDeclaration?.message}
+          >
+            I confirm I am 18 years of age or older.
+          </ConsentCheckbox>
+
+          <ConsentCheckbox
+            id="acceptTerms"
+            checked={watch("acceptTerms")}
+            onChange={(v) => setValue("acceptTerms", v, { shouldValidate: true })}
+            error={errors.acceptTerms?.message}
+          >
+            I accept the{" "}
+            <Link to="/terms" className="text-primary hover:underline">
+              Terms of Service
+            </Link>
+            .
+          </ConsentCheckbox>
+
+          <ConsentCheckbox
+            id="acceptPrivacy"
+            checked={watch("acceptPrivacy")}
+            onChange={(v) => setValue("acceptPrivacy", v, { shouldValidate: true })}
+            error={errors.acceptPrivacy?.message}
+          >
+            I accept the{" "}
+            <Link to="/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </ConsentCheckbox>
+        </div>
+
+        <Button type="submit" className="w-full h-12 font-medium" disabled={busy}>
+          {busy ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating account...
+              Creating account…
             </>
           ) : (
             "Create account"
@@ -224,5 +277,25 @@ export default function Register() {
         </Button>
       </form>
     </AuthLayout>
+  );
+}
+
+function ConsentCheckbox({ id, checked, onChange, error, children }) {
+  return (
+    <div>
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id={id}
+          checked={checked}
+          onCheckedChange={(v) => onChange(v === true)}
+          aria-invalid={Boolean(error)}
+          className="mt-0.5"
+        />
+        <Label htmlFor={id} className="text-sm font-normal leading-snug text-muted-foreground">
+          {children}
+        </Label>
+      </div>
+      {error && <p className="mt-1 ml-7 text-xs text-destructive">{error}</p>}
+    </div>
   );
 }

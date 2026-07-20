@@ -25,5 +25,41 @@ export default defineConfig({
     sourcemap: false,
     minify: 'terser',
     target: 'es2015',
+    rollupOptions: {
+      output: {
+        // Split the vendor libraries a first-time visitor must download.
+        //
+        // These are chunked by CHANGE RATE, not by size: React, the router, the query
+        // client and the animation library are stable across releases, so isolating them
+        // lets a returning visitor reuse the cached copies while only the (frequently
+        // changing) application chunk is re-fetched. Application code is left to Vite's
+        // own route-level splitting, which the route registry already drives.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+
+          if (id.includes('react-router')) return 'vendor-router'
+          // Must come after react-router: that package also matches /react/.
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/scheduler/')
+          ) {
+            return 'vendor-react'
+          }
+          if (id.includes('@tanstack')) return 'vendor-query'
+          if (id.includes('framer-motion')) return 'vendor-motion'
+          if (id.includes('lucide-react')) return 'vendor-icons'
+
+          // Everything else is left to Vite's automatic splitting — deliberately.
+          //
+          // An earlier version returned a catch-all 'vendor' chunk here, which HOISTED
+          // route-specific libraries out of their lazy chunks: recharts (~390 kB, used
+          // only by AgencyAnalytics) and @microsoft/signalr became part of a bundle every
+          // guest downloaded. Naming a chunk overrides the dynamic-import boundary, so
+          // only genuinely shared libraries may be listed above.
+          return undefined
+        },
+      },
+    },
   },
 })

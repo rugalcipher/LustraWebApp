@@ -7,12 +7,14 @@ type IconType = React.ComponentType<{ className?: string; strokeWidth?: number }
 /** Rose-gold diamond frame around an upright icon, with an optional marker (e.g. "I."). */
 export function DiamondIcon({ icon: Icon, marker }: { icon: IconType; marker?: string }) {
   return (
-    <div className="relative w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center">
-      <span className="absolute inset-1.5 border border-rose-gold/35 rotate-45" />
+    <div className="relative w-10 h-10 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center">
+      <span className="absolute inset-1 sm:inset-1.5 border border-rose-gold/35 rotate-45" />
       {marker && (
-        <span className="absolute top-0 font-body text-[0.45rem] tracking-luxe text-rose-gold/70">{marker}</span>
+        <span className="absolute top-0 font-body text-[0.4rem] sm:text-[0.45rem] tracking-luxe text-rose-gold/70">
+          {marker}
+        </span>
       )}
-      <Icon className="relative z-10 w-5 h-5 text-rose-gold" strokeWidth={1.3} />
+      <Icon className="relative z-10 w-4 h-4 sm:w-5 sm:h-5 text-rose-gold" strokeWidth={1.3} />
     </div>
   );
 }
@@ -21,11 +23,11 @@ export function DiamondIcon({ icon: Icon, marker }: { icon: IconType; marker?: s
 export function MarketingIntro({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div>
-      <p className="font-body text-[0.6rem] tracking-luxe uppercase text-rose-gold/80">{eyebrow}</p>
-      <h1 className="font-heading font-light text-ivory leading-[1.05] text-4xl sm:text-5xl lg:text-6xl mt-3">
+      <p className="font-body text-[0.55rem] sm:text-[0.6rem] tracking-luxe uppercase text-rose-gold/80">{eyebrow}</p>
+      <h1 className="font-heading font-light text-ivory leading-[1.05] text-3xl sm:text-4xl lg:text-6xl mt-2 sm:mt-3">
         {title}
       </h1>
-      <div className="mt-6 w-44 sm:w-52">
+      <div className="mt-4 sm:mt-6 w-36 sm:w-52">
         <StarDivider />
       </div>
     </div>
@@ -45,17 +47,19 @@ export function MarketingValueBlock({
   copy: string;
 }) {
   return (
-    <div className="flex items-stretch gap-4 sm:gap-6">
+    <div className="flex items-stretch gap-3 sm:gap-6">
       <div className="flex flex-col items-center shrink-0">
         <DiamondIcon icon={icon} marker={marker} />
       </div>
       <div className="w-px self-stretch bg-gradient-to-b from-rose-gold/30 via-rose-gold/12 to-transparent shrink-0" />
-      <div className="pt-1 min-w-0">
-        <h3 className="font-heading text-xl sm:text-2xl text-light-rose-gold">
-          {marker && <span className="text-rose-gold/60 mr-2">{marker}</span>}
+      <div className="pt-0.5 sm:pt-1 min-w-0">
+        <h3 className="font-heading text-lg sm:text-2xl text-light-rose-gold leading-tight">
+          {marker && <span className="text-rose-gold/60 mr-1.5 sm:mr-2">{marker}</span>}
           {heading}
         </h3>
-        <p className="font-body text-sm text-soft-ivory/70 mt-2 leading-relaxed max-w-xl">{copy}</p>
+        <p className="font-body text-[0.8rem] sm:text-sm text-soft-ivory/70 mt-1.5 sm:mt-2 leading-relaxed max-w-xl">
+          {copy}
+        </p>
       </div>
     </div>
   );
