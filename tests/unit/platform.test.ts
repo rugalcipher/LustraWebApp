@@ -57,6 +57,41 @@ describe("route registry", () => {
     );
   });
 
+  it("registers the internal appointment surfaces", () => {
+    for (const path of [
+      "/management-conversations", // the inbox; only the detail route existed before
+      "/create-appointment",
+      "/agency-calendar",
+      "/talent-appointments",
+      "/talent-bookings/:id",
+    ]) {
+      expect(paths).toContain(path);
+    }
+  });
+
+  it("keeps the proposal builder out of the console", () => {
+    // The formal proposal workflow is withdrawn. A mock Proposals entry in management
+    // navigation would advertise a lifecycle the product no longer has.
+    expect(paths).not.toContain("/proposal-builder");
+    const managementNav = ROUTES.filter((r) => r.nav?.group === "management");
+    expect(managementNav.map((r) => r.nav!.label)).not.toContain("Proposals");
+  });
+
+  it("guards appointment creation behind the create permission", () => {
+    expect(requiredPermissionsFor("/create-appointment")).toContain("Bookings.Create");
+    expect(requiredPermissionsFor("/management-conversations")).toContain("Conversations.View");
+  });
+
+  it("keeps the appointment surfaces off the client shell entirely", () => {
+    // The client must have no route to an appointment. Any of these appearing in the
+    // client shell would be a direct breach of the concierge model.
+    for (const path of ["/create-appointment", "/agency-calendar", "/talent-appointments"]) {
+      const route = ROUTES.find((r) => r.path === path);
+      expect(route?.shell).toBe("internal");
+      expect(route?.roles).not.toContain("client");
+    }
+  });
+
   it("has no duplicate paths", () => {
     // A duplicate means one definition silently wins and the other's roles or permissions
     // are never applied.

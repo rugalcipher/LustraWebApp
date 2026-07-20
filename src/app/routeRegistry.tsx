@@ -33,12 +33,14 @@ const TalentProfileEditor = React.lazy(() => import("@/pages/TalentProfileEditor
 const TalentMedia = React.lazy(() => import("@/pages/TalentMedia"));
 const TalentReviews = React.lazy(() => import("@/pages/TalentReviews"));
 const TalentBookingDetail = React.lazy(() => import("@/pages/TalentBookingDetail"));
+const TalentAppointments = React.lazy(() => import("@/pages/TalentAppointments"));
 const TalentAvailability = React.lazy(() => import("@/pages/TalentAvailability"));
 const ManagementDashboard = React.lazy(() => import("@/pages/ManagementDashboard"));
 const InquiryPipeline = React.lazy(() => import("@/pages/InquiryPipeline"));
 const ManagementInquiryDetail = React.lazy(() => import("@/pages/ManagementInquiryDetail"));
 const ManagementConversation = React.lazy(() => import("@/pages/ManagementConversation"));
-const ProposalBuilder = React.lazy(() => import("@/pages/ProposalBuilder"));
+const ManagementConversations = React.lazy(() => import("@/pages/ManagementConversations"));
+const CreateAppointment = React.lazy(() => import("@/pages/CreateAppointment"));
 const ClientDirectory = React.lazy(() => import("@/pages/ClientDirectory"));
 const ModerationQueue = React.lazy(() => import("@/pages/ModerationQueue"));
 const TalentMediaLibrary = React.lazy(() => import("@/pages/TalentMediaLibrary"));
@@ -155,16 +157,19 @@ export const ROUTES: RouteDef[] = [
   { path: "/talent-portal", element: <TalentPortal />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },
   { path: "/talent-profile", element: <TalentProfileEditor />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Profile", icon: "User", order: 2 } },
   { path: "/talent-media", element: <TalentMedia />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Media", icon: "Image", order: 3 } },
-  { path: "/talent-availability", element: <TalentAvailability />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Availability", icon: "CalendarClock", order: 4 } },
-  { path: "/talent-reviews", element: <TalentReviews />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Reviews", icon: "Star", order: 5 } },
+  { path: "/talent-appointments", element: <TalentAppointments />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Appointments", icon: "CalendarCheck", order: 4 } },
+  { path: "/talent-availability", element: <TalentAvailability />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Availability", icon: "CalendarClock", order: 5 } },
+  { path: "/talent-reviews", element: <TalentReviews />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Reviews", icon: "Star", order: 6 } },
   { path: "/talent-bookings/:id", element: <TalentBookingDetail />, access: "protected", roles: ["talent", ...STAFF], shell: "internal" },
 
   // ---- Management console ----
   { path: "/management-dashboard", element: <ManagementDashboard />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },
   { path: "/inquiry-pipeline", element: <InquiryPipeline />, access: "protected", roles: STAFF, permissions: ["Inquiries.View"], shell: "internal", nav: { group: "management", label: "Inquiries", icon: "Inbox", order: 2 } },
   { path: "/inquiry-pipeline/:id", element: <ManagementInquiryDetail />, access: "protected", roles: STAFF, permissions: ["Inquiries.View"], shell: "internal" },
+  { path: "/management-conversations", element: <ManagementConversations />, access: "protected", roles: STAFF, permissions: ["Conversations.View"], shell: "internal", nav: { group: "management", label: "Conversations", icon: "MessagesSquare", order: 3 } },
   { path: "/management-conversations/:id", element: <ManagementConversation />, access: "protected", roles: STAFF, permissions: ["Conversations.View"], shell: "internal" },
-  { path: "/proposal-builder", element: <ProposalBuilder />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Proposals", icon: "FileText", order: 3 } },
+  // Creating an appointment is a Bookings.Create action reached from a conversation.
+  { path: "/create-appointment", element: <CreateAppointment />, access: "protected", roles: STAFF, permissions: ["Bookings.Create"], shell: "internal" },
   { path: "/management-clients", element: <ClientDirectory />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Clients", icon: "Users", order: 5 } },
   { path: "/moderation", element: <ModerationQueue />, access: "protected", roles: STAFF, permissions: ["Talent.ModerateMedia"], shell: "internal", nav: { group: "management", label: "Moderation", icon: "ShieldCheck", order: 6 } },
   { path: "/media-library", element: <TalentMediaLibrary />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Media", icon: "Image", order: 7 } },

@@ -5,7 +5,7 @@ import InternalHeader from "@/components/lustra/InternalHeader";
 import { Card, Eyebrow } from "@/components/lustra/Primitives";
 import { cn } from "@/lib/utils";
 import { toUserMessage, isApiError } from "@/api/problemDetails";
-import { formatRate } from "@/domain/talent";
+
 import { presentBookingStatus, formatBookingDate, formatBookingTime } from "@/services/bookingService";
 import { useMyTalentBooking } from "@/features/talent/hooks";
 
@@ -104,8 +104,10 @@ export default function TalentBookingDetail() {
               <Row label="Duration" value={formatDuration(booking.durationMinutes)} />
             )}
             <Row label="Time zone" value={booking.timeZone} />
-            <Row label="Your fee" value={formatRate(booking.agreedAmount, booking.currencyCode)} />
           </div>
+          {/* No fee is shown. The agreed amount is the client's arrangement with Lustra,
+              not the talent's fee, and settlement is discussed privately — so the API
+              does not send it here. Do not add a money row back. */}
         </Card>
 
         <Card className="p-5">
@@ -132,11 +134,12 @@ export default function TalentBookingDetail() {
           )}
         </Card>
 
-        {booking.clientVisibleNotes && (
+        {/* The talent's own brief — written for them, not notes written for the client. */}
+        {booking.talentInstructions && (
           <Card className="p-5">
-            <Eyebrow>Engagement Notes</Eyebrow>
+            <Eyebrow>Your Instructions</Eyebrow>
             <p className="font-body text-sm text-soft-ivory/85 mt-3 leading-relaxed whitespace-pre-line">
-              {booking.clientVisibleNotes}
+              {booking.talentInstructions}
             </p>
           </Card>
         )}

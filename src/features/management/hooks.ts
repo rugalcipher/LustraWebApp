@@ -129,13 +129,85 @@ export function useReopenInquiry() {
 
 // ---- conversations ---------------------------------------------------------
 
-export function useManagementConversations(filters: { type?: string | null } = {}) {
+export function useManagementConversations(
+  filters: managementService.ManagementConversationFilters = {}
+) {
   const enabled = usePermission("Conversations.View");
   return useQuery({
     queryKey: queryKeys.management.conversations(filters),
     queryFn: ({ signal }) => managementService.listConversations(filters, signal),
     enabled,
     staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+export function useManagementConversation(conversationId: string | undefined) {
+  const enabled = usePermission("Conversations.View") && Boolean(conversationId);
+  return useQuery({
+    queryKey: queryKeys.management.conversation(conversationId ?? ""),
+    queryFn: ({ signal }) => managementService.getConversation(conversationId!, signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+/** The client summary panel. Staff-only, and never forwarded to a talent. */
+export function useConversationClientSummary(conversationId: string | undefined) {
+  const enabled = usePermission("Conversations.View") && Boolean(conversationId);
+  return useQuery({
+    queryKey: queryKeys.management.conversationClientSummary(conversationId ?? ""),
+    queryFn: ({ signal }) => managementService.getConversationClientSummary(conversationId!, signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+/** The appointment this conversation produced, or null before one exists. */
+export function useConversationAppointment(conversationId: string | undefined) {
+  const enabled = usePermission("Conversations.View") && Boolean(conversationId);
+  return useQuery({
+    queryKey: queryKeys.management.conversationAppointment(conversationId ?? ""),
+    queryFn: ({ signal }) => managementService.getConversationAppointment(conversationId!, signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+export function useConversationNotes(conversationId: string | undefined) {
+  const enabled = usePermission("Conversations.View") && Boolean(conversationId);
+  return useQuery({
+    queryKey: queryKeys.management.conversationNotes(conversationId ?? ""),
+    queryFn: ({ signal }) => managementService.listConversationNotes(conversationId!, signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+export function useAddConversationNote(conversationId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (note: string) => managementService.addConversationNote(conversationId!, note),
+    retry: false,
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.management.conversationNotes(conversationId ?? ""),
+      }),
+  });
+}
+
+export function useAssignConversation(conversationId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assignToUserId: string) =>
+      managementService.assignConversation(conversationId!, assignToUserId),
+    retry: false,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.management.conversation(conversationId ?? ""),
+      });
+      // The inbox shows the owner, so every filtered list is stale.
+      queryClient.invalidateQueries({ queryKey: ["management", "conversations"] });
+    },
   });
 }
 
@@ -332,5 +404,27 @@ export function useRevokeEntitlement() {
       managementService.revokeEntitlement(entitlementId, reason),
     retry: false,
     onSuccess: invalidate,
+  });
+}
+
+// ---- client directory ------------------------------------------------------
+
+export function useManagementClients(filters: { search?: string | null; page?: number } = {}) {
+  const enabled = usePermission("Clients.View");
+  return useQuery({
+    queryKey: queryKeys.management.clients(filters),
+    queryFn: ({ signal }) => managementService.listClients(filters, signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+export function useManagementClientConversations(clientUserId: string | undefined) {
+  const enabled = usePermission("Clients.View") && Boolean(clientUserId);
+  return useQuery({
+    queryKey: queryKeys.management.clientConversations(clientUserId ?? ""),
+    queryFn: ({ signal }) => managementService.listClientConversations(clientUserId!, signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
   });
 }

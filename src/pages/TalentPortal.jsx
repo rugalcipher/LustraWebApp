@@ -7,7 +7,7 @@ import InternalHeader from "@/components/lustra/InternalHeader";
 import { Card, Eyebrow } from "@/components/lustra/Primitives";
 import { cn } from "@/lib/utils";
 import { toUserMessage } from "@/api/problemDetails";
-import { formatRate } from "@/domain/talent";
+
 import { formatBookingDate, formatBookingTime, presentBookingStatus } from "@/services/bookingService";
 import { presentProfileStatus, presentAvailabilityStatus, AVAILABILITY_STATUSES } from "@/services/talentProfileService";
 import { presentModerationStatus } from "@/services/talentMediaService";
@@ -157,9 +157,11 @@ export default function TalentPortal() {
                         {booking.startTime ? ` · ${formatBookingTime(booking.startTime)}` : ""}
                       </p>
                     </div>
+                    {/* Category and status, not a fee — the appointment API sends the
+                        talent no money, by design. */}
                     <div className="text-right shrink-0">
-                      <p className="font-heading text-lg text-light-rose-gold">
-                        {formatRate(booking.agreedAmount, booking.currencyCode)}
+                      <p className="font-heading text-base text-light-rose-gold">
+                        {booking.engagementCategory}
                       </p>
                       <span className="text-[0.5rem] tracking-wide-luxe uppercase text-success mt-1 block">
                         {bookingStatus.label}

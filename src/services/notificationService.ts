@@ -64,13 +64,19 @@ export function updatePreferences(prefs: NotificationPreferenceDto): Promise<voi
 // ---- presentation ----------------------------------------------------------
 
 /**
- * Where a notification should take the client.
+ * Where a notification should take the reader.
  *
  * Derived from `type` + `relatedEntityId` rather than from `linkUrl`. Two reasons:
  * no server producer currently sets `linkUrl` at all, and it is a free-text column —
  * treating it as a destination would let anything that can write a notification steer a
- * signed-in client to an arbitrary address. When a relative in-app path does appear
+ * signed-in user to an arbitrary address. When a relative in-app path does appear
  * there it is accepted, but only after the same-origin check below.
+ *
+ * Booking notifications go to the TALENT PORTAL, not to a client route. Only the
+ * assigned talent receives one — an appointment is management's internal record and the
+ * client is never told it exists — so `/talent-bookings/:id` is the correct and only
+ * destination. Sending them to `/app/bookings/:id` used to be right; that client route
+ * no longer exists, and routing a talent into the client area would 404 them.
  */
 export function notificationTarget(notification: NotificationDto): string | null {
   const { type, relatedEntityId: id } = notification;
@@ -80,14 +86,16 @@ export function notificationTarget(notification: NotificationDto): string | null
       case "BookingConfirmed":
       case "BookingReminder":
       case "BookingCancelled":
-        return `/app/bookings/${id}`;
-      case "ProposalReceived":
-      case "ProposalExpired":
-        return `/app/proposals/${id}`;
-      case "InquiryUpdate":
-        return `/app/inquiries/${id}`;
+        return `/talent-bookings/${id}`;
       case "MessageReceived":
         return `/app/messages/${id}`;
+      case "ProposalReceived":
+      case "ProposalExpired":
+      case "InquiryUpdate":
+        // The withdrawn client lifecycle. No producer targets a client with these any
+        // more, and the routes they pointed at are gone — so resolve nothing rather
+        // than send someone to a 404.
+        return null;
       default:
         break;
     }

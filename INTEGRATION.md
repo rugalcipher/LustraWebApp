@@ -73,11 +73,14 @@ unnecessary client contact detail.
 
 ### Consequence: endpoints that exist but are OFF the product surface
 
-The backend still carries the Client-facing inquiry, proposal and booking
-endpoints from Stages 4 and 6. Per instruction they are **not deleted** — they
-are marked ⚪ legacy/deferred, must not be called by the frontend, and must not
-be expanded. They await a separate product decision. Building the Client through
-them "because they already exist" is explicitly the wrong move.
+The backend still carries the Client-facing inquiry and proposal endpoints from
+Stages 4 and 6. They are **not deleted** — they are marked ⚪ legacy/deferred,
+must not be called by the frontend, and must not be expanded. Building the
+Client through them "because they already exist" is explicitly the wrong move.
+
+The Client-facing BOOKING routes are the exception: they were **withdrawn** in
+the appointment stage, because leaving them live meant the appointment record
+itself was one request away from the person who must never see it. See §7l.
 
 ---
 
@@ -485,7 +488,7 @@ messages and passes a suggested opener as navigation state; the composer shows i
 as a draft the client edits or deletes. Management only reads words the client
 chose to send. Pinned by `No_message_is_sent_on_the_clients_behalf`.
 
-### The completion proof (`ConciergeWorkflowTests`, 15 tests)
+### The completion proof (`ConciergeWorkflowTests`)
 
 Guest → Message → auth (talent context parked in sessionStorage, 30-min TTL) →
 back to the talent → conversation opens with talent context visible to management
@@ -493,6 +496,102 @@ back to the talent → conversation opens with talent context visible to managem
 booking created from the conversation → visible on the management calendar →
 assigned talent sees the engagement → **client gets 403 on every internal
 booking, list and calendar endpoint** → an unassigned talent gets 404.
+
+---
+
+## 7l. Internal appointment operations
+
+The stage that finished the real workflow:
+
+> Conversation → Management confirms availability with Talent privately →
+> **CREATE APPOINTMENT** → Management calendar → assigned Talent's schedule →
+> reschedule / start / complete / cancel — with the Client seeing none of it.
+
+### The Client-facing booking API was withdrawn
+
+`ClientBookingsController` previously served the appointment record to the
+client: list, detail, settlement, change request and cancellation request. All
+five are **removed**. The frontend not calling them was not protection — the
+record was one request away from the only person who must never see it.
+
+Only the review routes remain on that controller. Their Application handlers
+survive, unrouted, as legacy.
+
+### Two leaks closed that the appointment flow itself created
+
+| Leak | Fix |
+| --- | --- |
+| Recording an appointment opens an inquiry on the client's behalf (a booking's schema requires one) carrying the **engagement date** — and `/client/inquiries` would have listed it | `Inquiry.IsManagementRaised` marks the holder row; client-facing inquiry queries exclude it |
+| Linking the conversation to its appointment put `BookingId` on a DTO the client also reads | `InquiryId` and `BookingId` are returned to **staff only** (`canViewAll`) |
+
+### Client-visible system messages removed
+
+Every booking status change used to post a system message into the client's
+conversation — *"Booking LB-… is now InProgress"*, settlement status included.
+That thread is the client's. The status history is the operational trail, and it
+is management-only.
+
+### Notifications: the client is told nothing about an appointment
+
+| Event | Before | Now |
+| --- | --- | --- |
+| Created | client **and** talent | talent only |
+| Rescheduled | **nobody** | talent only |
+| Cancelled | client and talent | talent only |
+| Reminder | client and talent | talent only |
+
+A reschedule notifying nobody was its own bug: the talent held the old slot and
+would have arrived at the wrong time.
+
+### What the Talent may see
+
+`TalentBookingDto` was narrowed. It no longer carries `AgreedAmount`,
+`CurrencyCode` or `ClientVisibleNotes`; it gained `TalentInstructions` — a new
+column, the talent's own brief, kept distinct from notes written for the client.
+The talent's list row is now `TalentAppointmentListItemDto` rather than the
+shared `BookingListItemDto`, which carried money and the inquiry linkage.
+Sharing one list DTO across three audiences is how money reaches a talent's
+screen.
+
+### Talent-availability acknowledgement
+
+`POST /management/bookings` requires `talentAvailabilityConfirmed: true` and
+rejects the request otherwise. It is an operational attestation by staff, **not**
+a talent-facing acceptance exchange — building one would recreate the rejected
+proposal model with the talent in the client's seat.
+
+No `TalentConfirmedAtUtc` column was added: `ConfirmedAtUtc` already records when,
+and the status-history row's `ChangedByUserId` records who. A second confirmation
+model for one real-world event is exactly what the brief forbids.
+
+### Status lifecycle
+
+No enum migration. The existing `BookingStatus` already had no client-facing
+states to remove. The UI maps to `Confirmed → Scheduled`, `InProgress`,
+`Completed`, `Cancelled`, `NoShow`; `Draft`, `Declined` and `UnderReview` belong
+to the withdrawn proposal path and are never offered. *Rescheduled* is an event,
+not a status — it is a history row, so the same appointment keeps its identity.
+
+### New management surfaces
+
+| Route | Purpose |
+| --- | --- |
+| `GET /management/conversations` (extended) | Inbox with search, `unreadOnly`, `unassignedOnly`; per-reader unread counts; client, talent, owner and appointment on each row |
+| `GET /management/conversations/{id}/client-summary` | The client panel — safe summary only |
+| `GET /management/conversations/{id}/appointment` | The linked appointment, staff-only |
+| `GET /management/clients` + `/{id}/conversations` | The client directory, on the pre-existing unused `Clients.View` permission |
+
+### Frontend
+
+`/management-conversations` (the inbox never existed), `/create-appointment`,
+`/talent-appointments`; `AgencyCalendar` and `ClientDirectory` rebuilt on real
+data; `ProposalBuilder` and its route **deleted** rather than repurposed —
+repurposing it would have carried proposal assumptions into the new form.
+
+`bookingService.ts` no longer calls the API at all; it is presentation helpers
+only. `notificationTarget` now resolves booking notifications to
+`/talent-bookings/:id` — they reach the talent alone, and the old
+`/app/bookings/:id` destination no longer exists.
 
 ## 8. Base44 removal inventory (Stage 2)
 

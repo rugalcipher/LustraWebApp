@@ -103,7 +103,7 @@ export function reopenInquiry(inquiryId: string): Promise<void> {
 
 // ---- conversations ---------------------------------------------------------
 
-/** Mirrors the backend `ConversationSummaryDto`. */
+/** Mirrors the backend `ConversationDetailDto` as management receives it. */
 export interface ManagementConversationDto {
   id: string;
   type: string;
@@ -112,16 +112,50 @@ export interface ManagementConversationDto {
   bookingId: string | null;
   lastMessageAtUtc: string | null;
   unreadCount: number;
+  /** The talent the thread is ABOUT. Context only — never a participant. */
+  talentProfileId?: string | null;
+  talentDisplayName?: string | null;
+  talentSlug?: string | null;
+}
+
+/** Mirrors `ManagementConversationListItemDto` — the inbox row. */
+export interface ManagementConversationRowDto {
+  id: string;
+  type: string;
+  subject: string | null;
+  clientUserId: string | null;
+  clientDisplayName: string | null;
+  talentProfileId: string | null;
+  talentDisplayName: string | null;
+  assignedToUserId: string | null;
+  assignedToDisplayName: string | null;
+  bookingId: string | null;
+  lastMessageAtUtc: string | null;
+  unreadCount: number;
+}
+
+export interface ManagementConversationFilters {
+  type?: string | null;
+  assignedTo?: string | null;
+  unassignedOnly?: boolean;
+  unreadOnly?: boolean;
+  search?: string | null;
+  page?: number;
 }
 
 export function listConversations(
-  filters: { type?: string | null; assignedTo?: string | null; page?: number } = {},
+  filters: ManagementConversationFilters = {},
   signal?: AbortSignal
-): Promise<PagedResult<ManagementConversationDto>> {
-  return api.get<PagedResult<ManagementConversationDto>>("/management/conversations", {
+): Promise<PagedResult<ManagementConversationRowDto>> {
+  return api.get<PagedResult<ManagementConversationRowDto>>("/management/conversations", {
     query: {
       type: filters.type ?? undefined,
       assignedTo: filters.assignedTo ?? undefined,
+      // Only send the booleans when true — an explicit `false` in the query string is
+      // noise that changes the cache key for no behavioural difference.
+      unassignedOnly: filters.unassignedOnly ? true : undefined,
+      unreadOnly: filters.unreadOnly ? true : undefined,
+      search: filters.search?.trim() || undefined,
       page: filters.page ?? 1,
       pageSize: 50,
     },
@@ -131,6 +165,73 @@ export function listConversations(
 
 export function getConversation(conversationId: string, signal?: AbortSignal) {
   return api.get<ManagementConversationDto>(`/management/conversations/${conversationId}`, { signal });
+}
+
+/**
+ * Mirrors `ManagementClientSummaryDto`.
+ *
+ * Everything here is information management is authorised to hold. None of it may be
+ * forwarded to a talent — management is always the intermediary.
+ */
+export interface ManagementClientSummaryDto {
+  userId: string;
+  displayName: string;
+  preferredName: string | null;
+  email: string | null;
+  phoneNumber: string | null;
+  contactPreference: string;
+  preferredCityName: string | null;
+  engagementPreferences: string | null;
+  isVerified: boolean;
+  hasActiveVip: boolean;
+  memberSinceUtc: string;
+}
+
+export function getConversationClientSummary(conversationId: string, signal?: AbortSignal) {
+  return api.get<ManagementClientSummaryDto>(
+    `/management/conversations/${conversationId}/client-summary`,
+    { signal }
+  );
+}
+
+/** Mirrors `ConversationAppointmentSummaryDto`; null when no appointment exists yet. */
+export interface ConversationAppointmentSummaryDto {
+  bookingId: string;
+  bookingReference: string;
+  status: string;
+  talentProfileId: string;
+  talentDisplayName: string;
+  confirmedDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  venueName: string | null;
+}
+
+export function getConversationAppointment(conversationId: string, signal?: AbortSignal) {
+  return api.get<ConversationAppointmentSummaryDto | null>(
+    `/management/conversations/${conversationId}/appointment`,
+    { signal }
+  );
+}
+
+export function assignConversation(conversationId: string, assignToUserId: string): Promise<void> {
+  return api.post<void>(`/management/conversations/${conversationId}/assign`, { assignToUserId });
+}
+
+/** A staff-only note on a conversation. Never rendered in the message thread. */
+export interface ConversationNoteDto {
+  id: string;
+  authorUserId: string;
+  note: string;
+  createdAtUtc: string;
+}
+
+export function listConversationNotes(conversationId: string, signal?: AbortSignal) {
+  return api.get<ConversationNoteDto[]>(`/management/conversations/${conversationId}/notes`, { signal });
+}
+
+export function addConversationNote(conversationId: string, note: string) {
+  return api.post<{ noteId: string }>(`/management/conversations/${conversationId}/notes`, { note });
 }
 
 /**
@@ -418,4 +519,56 @@ export function priorityTone(priority: string): "high" | "normal" | "low" {
   if (priority === "High" || priority === "Urgent") return "high";
   if (priority === "Low") return "low";
   return "normal";
+}
+
+// ---- client directory ------------------------------------------------------
+
+/**
+ * The client directory — a management OPERATIONAL TOOL for finding the person you are
+ * talking to and opening their conversation.
+ *
+ * It is not a booking system and must never become one. There is no create, no confirm
+ * and no schedule here.
+ */
+export interface ManagementClientListItemDto {
+  userId: string;
+  displayName: string;
+  preferredName: string | null;
+  email: string | null;
+  phoneNumber: string | null;
+  preferredCityName: string | null;
+  isVerified: boolean;
+  hasActiveVip: boolean;
+  conversationCount: number;
+  memberSinceUtc: string;
+}
+
+export interface ManagementClientConversationDto {
+  conversationId: string;
+  subject: string | null;
+  talentProfileId: string | null;
+  talentDisplayName: string | null;
+  bookingId: string | null;
+  lastMessageAtUtc: string | null;
+}
+
+export function listClients(
+  filters: { search?: string | null; page?: number } = {},
+  signal?: AbortSignal
+): Promise<PagedResult<ManagementClientListItemDto>> {
+  return api.get<PagedResult<ManagementClientListItemDto>>("/management/clients", {
+    query: {
+      search: filters.search?.trim() || undefined,
+      page: filters.page ?? 1,
+      pageSize: 25,
+    },
+    signal,
+  });
+}
+
+export function listClientConversations(clientUserId: string, signal?: AbortSignal) {
+  return api.get<ManagementClientConversationDto[]>(
+    `/management/clients/${clientUserId}/conversations`,
+    { signal }
+  );
 }

@@ -143,6 +143,11 @@ export const queryKeys = {
     conversation: (id: string) => ["management", "conversations", "detail", id] as const,
     conversationMessages: (id: string, page: number) =>
       ["management", "conversations", id, "messages", page] as const,
+    conversationClientSummary: (id: string) =>
+      ["management", "conversations", "detail", id, "client-summary"] as const,
+    conversationAppointment: (id: string) =>
+      ["management", "conversations", "detail", id, "appointment"] as const,
+    conversationNotes: (id: string) => ["management", "conversations", "detail", id, "notes"] as const,
     proposal: (id: string) => ["management", "proposals", id] as const,
     bookings: (filters?: Filters) => ["management", "bookings", filters ?? null] as const,
     booking: (id: string) => ["management", "bookings", "detail", id] as const,
@@ -157,6 +162,9 @@ export const queryKeys = {
     safetyCase: (id: string) => ["management", "safety", "cases", "detail", id] as const,
     vipRequests: (filters?: Filters) => ["management", "vip-requests", filters ?? null] as const,
     entitlements: (clientUserId: string) => ["management", "entitlements", clientUserId] as const,
+    clients: (filters?: Filters) => ["management", "clients", filters ?? null] as const,
+    clientConversations: (clientUserId: string) =>
+      ["management", "clients", clientUserId, "conversations"] as const,
   },
 
   // --- Analytics ---

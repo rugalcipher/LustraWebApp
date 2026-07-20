@@ -1,12 +1,12 @@
 import { api } from "@/api/client";
-import type { BookingListItemDto } from "@/services/bookingService";
 
 /**
- * The talent's own bookings and reviews — `/api/v1/talent/bookings*`, `/talent/reviews*`.
+ * The talent's own appointments and reviews — `/api/v1/talent/bookings*`, `/talent/reviews*`.
  *
- * The talent's booking view is OPERATIONAL: it carries the private location they need to
- * turn up, and deliberately carries no client identity, no settlement status and no
- * internal notes. Do not add them.
+ * The talent's view is OPERATIONAL: exactly what they need in order to attend, including
+ * the private address they must travel to, and nothing else. No client identity, no
+ * money, no settlement state, no internal notes, and none of the notes written for the
+ * client. The API withholds all of it — do not reintroduce any of it here.
  */
 
 /** Mirrors the backend `TalentBookingDto`. */
@@ -26,9 +26,27 @@ export interface TalentBookingDto {
   generalLocation: string | null;
   /** The private address. Talent-only — never render it on a shared or public surface. */
   privateLocationDetails: string | null;
-  agreedAmount: number | null;
-  currencyCode: string;
-  clientVisibleNotes: string | null;
+  /** The talent's operational brief: where to report, what to bring, who to ask for. */
+  talentInstructions: string | null;
+}
+
+/**
+ * Mirrors `TalentAppointmentListItemDto`.
+ *
+ * Separate from the management list row, which carries the agreed amount and the client
+ * linkage. Sharing one list type across audiences is how money ends up on a talent's
+ * screen.
+ */
+export interface TalentAppointmentListItemDto {
+  id: string;
+  bookingReference: string;
+  engagementCategory: string;
+  status: string;
+  confirmedDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  cityName: string | null;
+  venueName: string | null;
 }
 
 /** Mirrors the backend `TalentReviewDto` — carries NO client identity, by design. */
@@ -43,8 +61,8 @@ export interface TalentReviewDto {
   publishedAtUtc: string | null;
 }
 
-export function listMyBookings(signal?: AbortSignal): Promise<BookingListItemDto[]> {
-  return api.get<BookingListItemDto[]>("/talent/bookings", { signal });
+export function listMyBookings(signal?: AbortSignal): Promise<TalentAppointmentListItemDto[]> {
+  return api.get<TalentAppointmentListItemDto[]>("/talent/bookings", { signal });
 }
 
 export function getMyBooking(bookingId: string, signal?: AbortSignal): Promise<TalentBookingDto> {

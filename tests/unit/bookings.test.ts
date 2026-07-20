@@ -4,8 +4,8 @@ import {
   formatBookingDate, formatBookingTime,
 } from "@/services/bookingService";
 import {
-  presentProposalStatus, isAwaitingResponse, hasLapsed, proposalAmount,
-} from "@/services/proposalService";
+  APPOINTMENT_STATUSES, allowedActions, appointmentTone, presentAppointmentStatus,
+} from "@/services/appointmentService";
 import { notificationTarget, safeInternalPath } from "@/services/notificationService";
 import type { NotificationDto } from "@/services/notificationService";
 
@@ -100,35 +100,45 @@ describe("date formatting", () => {
   });
 });
 
-describe("proposals", () => {
-  it("only treats a Sent proposal as actionable", () => {
-    expect(isAwaitingResponse("Sent")).toBe(true);
-    for (const status of ["Accepted", "Declined", "Expired", "Withdrawn", "ConvertedToBooking", "ChangeRequested"]) {
-      expect(isAwaitingResponse(status)).toBe(false);
+describe("appointment lifecycle", () => {
+  it("offers only the actions the backend will accept", () => {
+    // A button the server is certain to refuse is worse than no button: staff click it,
+    // get a 422, and lose confidence in the console.
+    expect(allowedActions("Confirmed")).toContain("start");
+    expect(allowedActions("Confirmed")).toContain("cancel");
+    expect(allowedActions("InProgress")).toEqual(["complete", "cancel"]);
+
+    // Terminal states offer nothing.
+    for (const status of ["Completed", "Cancelled", "NoShow"]) {
+      expect(allowedActions(status)).toEqual([]);
     }
   });
 
-  it("treats a Sent proposal past its expiry as lapsed", () => {
-    // The expiry job may not have run yet, so the UI must not offer an Accept button the
-    // server is going to reject.
-    const past = new Date(Date.now() - 60_000).toISOString();
-    const future = new Date(Date.now() + 60_000).toISOString();
-
-    expect(hasLapsed({ status: "Sent", expiresAtUtc: past })).toBe(true);
-    expect(hasLapsed({ status: "Sent", expiresAtUtc: future })).toBe(false);
-    expect(hasLapsed({ status: "Sent", expiresAtUtc: null })).toBe(false);
-    // An already-accepted proposal is not "lapsed" whatever its expiry says.
-    expect(hasLapsed({ status: "Accepted", expiresAtUtc: past })).toBe(false);
+  it("never offers to start an appointment that already finished", () => {
+    expect(allowedActions("Completed")).not.toContain("start");
+    expect(allowedActions("Cancelled")).not.toContain("reschedule");
   });
 
-  it("prefers the agreed amount but never fabricates one", () => {
-    expect(proposalAmount({ agreedAmount: 1500, startingAmount: 1200 })).toBe(1500);
-    expect(proposalAmount({ agreedAmount: null, startingAmount: 1200 })).toBe(1200);
-    expect(proposalAmount({ agreedAmount: null, startingAmount: null })).toBeNull();
+  it("keeps the rejected client-facing states out of the picker", () => {
+    // These belong to the withdrawn formal booking workflow. Offering any of them would
+    // put the client back into a lifecycle Lustra deliberately does not have.
+    for (const rejected of [
+      "ClientPending", "AwaitingClientAcceptance", "ProposalSent", "PaymentPending", "ClientConfirmed",
+    ]) {
+      expect(APPOINTMENT_STATUSES).not.toContain(rejected);
+    }
   });
 
-  it("labels a Sent proposal as needing the client", () => {
-    expect(presentProposalStatus("Sent").tone).toBe("action");
+  it("shows Confirmed as Scheduled, because no client confirmed anything", () => {
+    // The backend status is `Confirmed`; the word must not suggest a client accepted a
+    // booking online.
+    expect(presentAppointmentStatus("Confirmed")).toBe("Scheduled");
+    expect(presentAppointmentStatus("NoShow")).toBe("No-show");
+  });
+
+  it("falls back to the raw status rather than showing nothing", () => {
+    expect(presentAppointmentStatus("SomeFutureStatus")).toBe("SomeFutureStatus");
+    expect(appointmentTone("SomeFutureStatus")).toBe("neutral");
   });
 });
 
@@ -149,11 +159,15 @@ describe("notification targets", () => {
   }
 
   it("derives the destination from the type and related entity", () => {
-    expect(notificationTarget(notification({ type: "BookingConfirmed" }))).toBe("/app/bookings/b1");
-    expect(notificationTarget(notification({ type: "BookingReminder" }))).toBe("/app/bookings/b1");
-    expect(notificationTarget(notification({ type: "ProposalReceived" }))).toBe("/app/proposals/b1");
+    // Booking notifications reach the assigned TALENT only, so they resolve into the
+    // talent portal. The client never receives one and has no booking route at all.
+    expect(notificationTarget(notification({ type: "BookingConfirmed" }))).toBe("/talent-bookings/b1");
+    expect(notificationTarget(notification({ type: "BookingReminder" }))).toBe("/talent-bookings/b1");
     expect(notificationTarget(notification({ type: "MessageReceived" }))).toBe("/app/messages/b1");
-    expect(notificationTarget(notification({ type: "InquiryUpdate" }))).toBe("/app/inquiries/b1");
+
+    // The withdrawn lifecycle resolves nowhere rather than to a route that 404s.
+    expect(notificationTarget(notification({ type: "ProposalReceived" }))).toBeNull();
+    expect(notificationTarget(notification({ type: "InquiryUpdate" }))).toBeNull();
   });
 
   it("ignores linkUrl when the type already resolves a destination", () => {
@@ -162,7 +176,7 @@ describe("notification targets", () => {
     const target = notificationTarget(
       notification({ type: "BookingConfirmed", linkUrl: "https://evil.test/steal" })
     );
-    expect(target).toBe("/app/bookings/b1");
+    expect(target).toBe("/talent-bookings/b1");
   });
 
   it("refuses an off-site linkUrl outright", () => {
@@ -170,12 +184,12 @@ describe("notification targets", () => {
     // Protocol-relative: the browser treats this as an absolute URL to another host.
     expect(safeInternalPath("//evil.test/path")).toBeNull();
     expect(safeInternalPath("javascript:alert(1)")).toBeNull();
-    expect(safeInternalPath("app/bookings/1")).toBeNull();
+    expect(safeInternalPath("app/messages/1")).toBeNull();
     expect(safeInternalPath(null)).toBeNull();
   });
 
   it("accepts a genuine in-app path", () => {
-    expect(safeInternalPath("/app/bookings/1")).toBe("/app/bookings/1");
+    expect(safeInternalPath("/app/messages/1")).toBe("/app/messages/1");
   });
 
   it("returns no destination for a type it cannot route", () => {

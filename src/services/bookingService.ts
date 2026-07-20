@@ -1,111 +1,15 @@
-import { api } from "@/api/client";
-
 /**
- * Client bookings, settlement and reviews — `/api/v1/client/bookings`.
+ * Engagement date/time/status PRESENTATION, shared by the management console and the
+ * talent portal.
  *
- * Settlement here is a MANUALLY MAINTAINED external status. The API processes no money:
- * there is no checkout, no card, no payout and no automated reconciliation, and the copy
- * in this module is written so a client cannot mistake it for any of those.
+ * This module no longer calls the API. The client-facing booking routes it used to wrap
+ * (`/client/bookings`, its detail, settlement, change and cancellation requests) are
+ * withdrawn: Lustra is concierge-led, the appointment is management's internal record,
+ * and a client who could fetch one would be reading operational data they were never
+ * shown. See ClientBookingsController in the API for the full list and the reasoning.
+ *
+ * Only formatting helpers remain. Do not add a fetch back to this file.
  */
-
-/** Mirrors the backend `BookingListItemDto`. */
-export interface BookingListItemDto {
-  id: string;
-  bookingReference: string;
-  inquiryId: string;
-  talentProfileId: string;
-  talentDisplayName: string;
-  status: string;
-  confirmedDate: string | null;
-  startTime: string | null;
-  currencyCode: string;
-  agreedAmount: number | null;
-  createdAtUtc: string;
-}
-
-/** Mirrors the backend `ClientBookingDto` — no private location, no internal notes. */
-export interface ClientBookingDto {
-  id: string;
-  bookingReference: string;
-  inquiryId: string;
-  talentProfileId: string;
-  talentDisplayName: string;
-  engagementCategory: string;
-  status: string;
-  confirmedDate: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  durationMinutes: number | null;
-  timeZone: string;
-  cityName: string | null;
-  venueType: string | null;
-  venueName: string | null;
-  generalLocation: string | null;
-  agreedAmount: number | null;
-  additionalCosts: number | null;
-  currencyCode: string;
-  settlementStatus: string;
-  clientVisibleNotes: string | null;
-  createdAtUtc: string;
-}
-
-/** Mirrors the backend `ClientSettlementDto` — status and the client-visible note only. */
-export interface ClientSettlementDto {
-  bookingId: string;
-  bookingReference: string;
-  status: string;
-  currencyCode: string;
-  agreedAmount: number | null;
-  clientVisibleNote: string | null;
-}
-
-/** Mirrors the backend `ClientReviewDto`. */
-export interface ClientReviewDto {
-  id: string;
-  bookingId: string;
-  talentProfileId: string;
-  rating: number;
-  title: string | null;
-  body: string;
-  status: string;
-  talentResponse: string | null;
-  createdAtUtc: string;
-}
-
-/** Mirrors the backend `CreateReviewRequest`. */
-export interface CreateReviewInput {
-  rating: number;
-  title: string | null;
-  body: string;
-}
-
-export function listBookings(signal?: AbortSignal): Promise<BookingListItemDto[]> {
-  return api.get<BookingListItemDto[]>("/client/bookings", { signal });
-}
-
-export function getBooking(bookingId: string, signal?: AbortSignal): Promise<ClientBookingDto> {
-  return api.get<ClientBookingDto>(`/client/bookings/${bookingId}`, { signal });
-}
-
-export function getSettlement(bookingId: string, signal?: AbortSignal): Promise<ClientSettlementDto> {
-  return api.get<ClientSettlementDto>(`/client/bookings/${bookingId}/settlement`, { signal });
-}
-
-export function requestBookingChange(bookingId: string, message: string): Promise<void> {
-  return api.post<void>(`/client/bookings/${bookingId}/request-change`, { message });
-}
-
-export function requestBookingCancellation(bookingId: string, message: string): Promise<void> {
-  return api.post<void>(`/client/bookings/${bookingId}/request-cancellation`, { message });
-}
-
-export function getReview(bookingId: string, signal?: AbortSignal): Promise<ClientReviewDto> {
-  return api.get<ClientReviewDto>(`/client/bookings/${bookingId}/review`, { signal });
-}
-
-export function createReview(bookingId: string, input: CreateReviewInput): Promise<{ reviewId: string }> {
-  return api.post<{ reviewId: string }>(`/client/bookings/${bookingId}/review`, input);
-}
 
 // ---- presentation ----------------------------------------------------------
 
