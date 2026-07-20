@@ -38,6 +38,11 @@ base44/.app.jsonc
 # Vercel local project metadata (contains the linked project/org ids)
 .vercel
 
+# Ad-hoc scratch scripts at the repo root (one-off Playwright checks and the
+# like). Real tests belong in tests/; anything left loose here is disposable.
+/*.cjs
+/*.mjs
+
 # Test / Playwright artifacts
 /test-results
 /playwright-report

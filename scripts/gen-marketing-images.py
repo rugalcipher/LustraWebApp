@@ -38,10 +38,11 @@ MARKETING_WIDTHS = (768, 1200, 1600, 2200)
 # below 560px via <picture>, so they only need phone-sized widths.
 MARKETING_MOBILE_WIDTHS = (480, 720, 1080)
 
-# Auth pages (login / register / forgot / reset) share one background mood image.
-# It sits behind a scrim and is never the subject, so it needs fewer widths.
+# Auth pages (login / register / forgot / reset) share one background mood image
+# (`login.webp` + `login-mobile.webp`). It sits behind a scrim and is never the
+# subject, so it needs fewer widths than the marketing set.
 AUTH_OUT = os.path.join(ROOT, "src", "assets", "auth")
-AUTH_NAMES = ["auth"]
+AUTH_NAMES = ["login"]
 AUTH_WIDTHS = (1200, 1800, 2560)
 AUTH_MOBILE_WIDTHS = (480, 720, 1080)
 

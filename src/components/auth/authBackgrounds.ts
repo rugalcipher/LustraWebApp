@@ -6,8 +6,8 @@
  * The image is NOT referenced by URL anywhere. Replace the two masters and
  * regenerate — nothing in this file or in any component needs to change:
  *
- *   1. Save the landscape artwork as  assets/other/auth.webp        (~16:9)
- *   2. Save the portrait artwork as   assets/other/auth-mobile.webp (~9:16)
+ *   1. Save the landscape artwork as  assets/other/login.webp        (~16:9)
+ *   2. Save the portrait artwork as   assets/other/login-mobile.webp (~9:16)
  *   3. Run  `npm run images`
  *
  * The generator hashes the masters, rebuilds only what changed, deletes the
@@ -16,8 +16,8 @@
  * if a master was replaced without regenerating.
  *
  * ── PER-PAGE ARTWORK (later, if wanted) ──────────────────────────────────────
- * Today login and register deliberately share one image. To give a page its own
- * look, add `auth-register.webp` / `auth-register-mobile.webp` masters, add the
+ * Login, register, forgot- and reset-password deliberately share one image. To
+ * give a page its own look, add `login-register.webp` + `-mobile` masters, add the
  * name to AUTH_NAMES in scripts/gen-marketing-images.py, add an entry below, and
  * pass `background="register"` from that page. The layout needs no changes.
  */
@@ -72,13 +72,15 @@ function build(name: string): AuthBackground | null {
       : undefined,
     fallbackSrc: ASSETS[`${name}.jpg`],
     mobileFallbackSrc: hasMobile ? ASSETS[`${name}-mobile.jpg`] : undefined,
-    // The card is centred, so the figure is framed right-of-centre on wide
-    // screens and centred (but dimmer) on phones.
-    posDesktop: "72% 45%",
-    posTablet: "66% 45%",
-    posMobile: "50% 42%",
-    intensityDesktop: 0.85,
-    intensityMobile: 0.5,
+    // She sits centre-left in the landscape master, so on wide screens the crop
+    // is pulled left and the card moves to the right half — figure and form each
+    // get their own side. On phones the portrait master is near-fully visible and
+    // simply dimmed, so she reads as mood behind the centred card.
+    posDesktop: "100% 42%",
+    posTablet: "80% 42%",
+    posMobile: "50% 38%",
+    intensityDesktop: 0.92,
+    intensityMobile: 0.55,
     alt: "",
   };
 }
@@ -86,5 +88,5 @@ function build(name: string): AuthBackground | null {
 export type AuthBackgroundKey = "default";
 
 export const AUTH_BACKGROUNDS: Record<AuthBackgroundKey, AuthBackground | null> = {
-  default: build("auth"),
+  default: build("login"),
 };

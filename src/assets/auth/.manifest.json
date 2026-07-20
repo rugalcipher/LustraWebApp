@@ -1,20 +1,20 @@
 {
-  "auth": {
+  "login": {
     "outputs": [
-      "auth-1200.webp",
-      "auth-1800.webp",
-      "auth-2560.webp",
-      "auth.jpg"
+      "login-1200.webp",
+      "login-1800.webp",
+      "login-2560.webp",
+      "login.jpg"
     ],
-    "sha256": "bf655c9d5f12243c850dc17d3e80dfaf361c337771639b4909e2d0718d5e5812"
+    "sha256": "9f9381bb6c2e8b2eab54cdb59693aeeb99fbbca1458d16561c3f3af470cb8aef"
   },
-  "auth-mobile": {
+  "login-mobile": {
     "outputs": [
-      "auth-mobile-1080.webp",
-      "auth-mobile-480.webp",
-      "auth-mobile-720.webp",
-      "auth-mobile.jpg"
+      "login-mobile-1080.webp",
+      "login-mobile-480.webp",
+      "login-mobile-720.webp",
+      "login-mobile.jpg"
     ],
-    "sha256": "e411fda034331c03850682272d42cfd2871f9ee8a6cf4644fc94b6bf5ecf8f98"
+    "sha256": "42e140bc175309df9528f71f0a710da3c606f6466e7987ffabab4d3a46b5e5cc"
   }
 }
