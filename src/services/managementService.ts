@@ -297,9 +297,36 @@ export function listProfileReviews(
   });
 }
 
-export function approveProfile(profileId: string, changeSummary?: string | null): Promise<void> {
+/**
+ * Approve a submitted profile.
+ *
+ * APPROVING IS NOT PUBLISHING. Approval records that the content passed review;
+ * `publishImmediately` is what puts a real person on the public site. Default false, so
+ * a reviewer who just wants to clear the queue never publishes by accident.
+ */
+export function approveProfile(
+  profileId: string,
+  changeSummary?: string | null,
+  publishImmediately = false
+): Promise<void> {
   return api.post<void>(`/management/profile-reviews/${profileId}/approve`, {
     changeSummary: changeSummary ?? null,
+    publishImmediately,
+  });
+}
+
+/** Publish an already-approved profile into public discovery. */
+export function publishProfile(profileId: string): Promise<void> {
+  return api.post<void>(`/management/profile-reviews/${profileId}/publish`, undefined);
+}
+
+/**
+ * Withdraw a profile from public discovery, leaving it approved so it can be republished
+ * without a second review.
+ */
+export function unpublishProfile(profileId: string, reason?: string | null): Promise<void> {
+  return api.post<void>(`/management/profile-reviews/${profileId}/unpublish`, {
+    reason: reason ?? null,
   });
 }
 
@@ -571,4 +598,52 @@ export function listClientConversations(clientUserId: string, signal?: AbortSign
     `/management/clients/${clientUserId}/conversations`,
     { signal }
   );
+}
+
+// ---- analytics -------------------------------------------------------------
+
+/** Mirrors `ExecutiveAnalyticsDto`. */
+export interface ExecutiveAnalyticsDto {
+  totalClients: number;
+  totalTalent: number;
+  approvedTalent: number;
+  totalInquiries: number;
+  totalBookings: number;
+  completedBookings: number;
+  inquiryToBookingConversionRate: number;
+  totalConfirmedValue: number;
+  currencyCode: string;
+  averageTalentRating: number;
+  totalReviews: number;
+}
+
+/** Mirrors `ClientAnalyticsDto`. */
+export interface ClientAnalyticsDto {
+  totalClients: number;
+  newClientsLast30Days: number;
+  clientsWithBookings: number;
+  registrationsByMonth: { period: string; count: number }[];
+}
+
+/** Mirrors `TalentAnalyticsDto`. */
+export interface TalentAnalyticsDto {
+  totalTalent: number;
+  approvedTalent: number;
+  averageRating: number;
+  totalReviews: number;
+  byStatus: { label: string; count: number }[];
+  topByBookings: { talentProfileId: string; displayName: string; value: number }[];
+  topByRating: { talentProfileId: string; displayName: string; value: number }[];
+}
+
+export function getExecutiveAnalytics(signal?: AbortSignal) {
+  return api.get<ExecutiveAnalyticsDto>("/management/analytics/executive", { signal });
+}
+
+export function getClientAnalytics(signal?: AbortSignal) {
+  return api.get<ClientAnalyticsDto>("/management/analytics/clients", { signal });
+}
+
+export function getTalentAnalytics(signal?: AbortSignal) {
+  return api.get<TalentAnalyticsDto>("/management/analytics/talent", { signal });
 }

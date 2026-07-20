@@ -1,0 +1,180 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/api/queryKeys";
+import { usePrincipal } from "@/auth/PrincipalContext";
+import * as adminService from "@/services/adminService";
+
+/**
+ * Admin-console hooks.
+ *
+ * Queries are gated on the caller actually holding the permission, so someone who reaches
+ * an admin route without it fires no request rather than collecting 403s. The server
+ * remains the authorization boundary — this only avoids pointless traffic.
+ */
+
+const ADMIN_STALE_TIME = 20_000;
+
+function usePermission(permission: string): boolean {
+  const { principal } = usePrincipal();
+  return principal.isAuthenticated && principal.permissions.includes(permission);
+}
+
+// ---- users -----------------------------------------------------------------
+
+export function useAdminUsers(filters: adminService.AdminUserFilters = {}) {
+  const enabled = usePermission("Users.View");
+  return useQuery({
+    queryKey: queryKeys.admin.users(filters),
+    queryFn: ({ signal }) => adminService.listUsers(filters, signal),
+    enabled,
+    staleTime: ADMIN_STALE_TIME,
+  });
+}
+
+/**
+ * Management staff, for an "assign to" picker.
+ *
+ * Deliberately a thin wrapper over the same user search: there is no separate staff
+ * directory endpoint, and Management holds `Users.View`, so this is the supported way to
+ * populate the picker rather than inventing a parallel route.
+ */
+export function useManagementStaff() {
+  const enabled = usePermission("Users.View");
+  const filters = { role: "Management", status: "Active", pageSize: 100 };
+  return useQuery({
+    queryKey: queryKeys.admin.users(filters),
+    queryFn: ({ signal }) => adminService.listUsers(filters, signal),
+    enabled,
+    // Staff lists change rarely; a longer window avoids refetching on every open.
+    staleTime: 5 * 60_000,
+  });
+}
+
+function useUserInvalidation() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+}
+
+export function useSuspendUser() {
+  const invalidate = useUserInvalidation();
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason: string }) =>
+      adminService.suspendUser(userId, reason),
+    retry: false,
+    onSuccess: invalidate,
+  });
+}
+
+export function useReactivateUser() {
+  const invalidate = useUserInvalidation();
+  return useMutation({
+    mutationFn: (userId: string) => adminService.reactivateUser(userId),
+    retry: false,
+    onSuccess: invalidate,
+  });
+}
+
+// ---- audit log -------------------------------------------------------------
+
+export function useAuditLogs(
+  filters: { action?: string | null; entityType?: string | null; page?: number } = {}
+) {
+  const enabled = usePermission("AuditLogs.View");
+  return useQuery({
+    queryKey: queryKeys.admin.auditLogs(filters),
+    queryFn: ({ signal }) => adminService.listAuditLogs(filters, signal),
+    enabled,
+    staleTime: ADMIN_STALE_TIME,
+  });
+}
+
+// ---- settings and feature flags --------------------------------------------
+
+export function usePlatformSettings() {
+  const enabled = usePermission("Settings.Manage");
+  return useQuery({
+    queryKey: queryKeys.admin.settings(),
+    queryFn: ({ signal }) => adminService.listSettings(signal),
+    enabled,
+    staleTime: ADMIN_STALE_TIME,
+  });
+}
+
+export function useUpdateSetting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) =>
+      adminService.updateSetting(key, value),
+    retry: false,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.settings() }),
+  });
+}
+
+export function useFeatureFlags() {
+  const enabled = usePermission("FeatureFlags.Manage");
+  return useQuery({
+    queryKey: queryKeys.admin.featureFlags(),
+    queryFn: ({ signal }) => adminService.listFeatureFlags(signal),
+    enabled,
+    staleTime: ADMIN_STALE_TIME,
+  });
+}
+
+export function useUpdateFeatureFlag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, isEnabled }: { key: string; isEnabled: boolean }) =>
+      adminService.updateFeatureFlag(key, isEnabled),
+    retry: false,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.featureFlags() }),
+  });
+}
+
+// ---- taxonomies ------------------------------------------------------------
+
+export function useTaxonomyAdmin(type: adminService.TaxonomyType) {
+  const { principal } = usePrincipal();
+  // Taxonomy routes require the admin ROLE, not a granular permission.
+  const enabled =
+    principal.isAuthenticated &&
+    principal.roles.some((role) => role === "admin" || role === "superadmin");
+  return useQuery({
+    queryKey: ["admin", "taxonomies", type],
+    queryFn: ({ signal }) => adminService.listTaxonomy(type, signal),
+    enabled,
+    staleTime: ADMIN_STALE_TIME,
+  });
+}
+
+export function useTaxonomyMutations(type: adminService.TaxonomyType) {
+  const queryClient = useQueryClient();
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "taxonomies", type] });
+    // Public reference data is derived from the same tables.
+    queryClient.invalidateQueries({ queryKey: ["reference"] });
+  };
+
+  const create = useMutation({
+    mutationFn: ({ name, sortOrder }: { name: string; sortOrder: number }) =>
+      adminService.createTaxonomyItem(type, name, sortOrder),
+    retry: false,
+    onSuccess: invalidate,
+  });
+
+  const update = useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: { id: string; name: string; sortOrder: number; isActive: boolean }) =>
+      adminService.updateTaxonomyItem(type, id, input),
+    retry: false,
+    onSuccess: invalidate,
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => adminService.deleteTaxonomyItem(type, id),
+    retry: false,
+    onSuccess: invalidate,
+  });
+
+  return { create, update, remove };
+}

@@ -81,7 +81,7 @@ export default function ManagementDashboard() {
       <section>
         <Eyebrow>Platform</Eyebrow>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-          <StatTile label="Active talent" value={data.activeTalent} icon={Users} to="/media-library" />
+          <StatTile label="Active talent" value={data.activeTalent} icon={Users} to="/moderation" />
           <StatTile label="Total clients" value={data.totalClients} icon={Crown} to="/management-clients" />
           {/* Surfaced deliberately: a growing outbox means external notifications are NOT
               being delivered, and silence here would look like everything is fine. */}

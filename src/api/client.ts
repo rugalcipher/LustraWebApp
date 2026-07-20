@@ -23,17 +23,6 @@ export const isApiMode = env.isApi;
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-/** Thrown when API mode is active but the endpoint/service is not yet wired. */
-export class NotImplementedInApiModeError extends Error {
-  constructor(what: string) {
-    super(
-      `API mode is enabled but "${what}" is not implemented yet. ` +
-        `Wire the .NET endpoint or run in mock mode (VITE_API_MODE=mock).`
-    );
-    this.name = "NotImplementedInApiModeError";
-  }
-}
-
 type ForbiddenHandler = (error: ApiError) => void;
 let onForbidden: ForbiddenHandler | null = null;
 

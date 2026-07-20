@@ -278,8 +278,22 @@ function useModerationInvalidation() {
 export function useModerateProfile() {
   const invalidate = useModerationInvalidation();
   return useMutation({
-    mutationFn: ({ profileId, action, reason }: { profileId: string; action: "approve" | "reject" | "request-changes"; reason?: string }) => {
-      if (action === "approve") return managementService.approveProfile(profileId, reason ?? null);
+    mutationFn: ({
+      profileId,
+      action,
+      reason,
+      publishImmediately,
+    }: {
+      profileId: string;
+      action: "approve" | "reject" | "request-changes" | "publish" | "unpublish";
+      reason?: string;
+      publishImmediately?: boolean;
+    }) => {
+      if (action === "approve") {
+        return managementService.approveProfile(profileId, reason ?? null, publishImmediately ?? false);
+      }
+      if (action === "publish") return managementService.publishProfile(profileId);
+      if (action === "unpublish") return managementService.unpublishProfile(profileId, reason ?? null);
       if (action === "reject") return managementService.rejectProfile(profileId, reason ?? "");
       return managementService.requestProfileChanges(profileId, reason ?? "");
     },
@@ -424,6 +438,38 @@ export function useManagementClientConversations(clientUserId: string | undefine
   return useQuery({
     queryKey: queryKeys.management.clientConversations(clientUserId ?? ""),
     queryFn: ({ signal }) => managementService.listClientConversations(clientUserId!, signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+// ---- analytics -------------------------------------------------------------
+
+export function useExecutiveAnalytics() {
+  const enabled = usePermission("Analytics.View");
+  return useQuery({
+    queryKey: queryKeys.management.analytics("executive"),
+    queryFn: ({ signal }) => managementService.getExecutiveAnalytics(signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+export function useClientAnalytics() {
+  const enabled = usePermission("Analytics.View");
+  return useQuery({
+    queryKey: queryKeys.management.analytics("clients"),
+    queryFn: ({ signal }) => managementService.getClientAnalytics(signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
+export function useTalentAnalytics() {
+  const enabled = usePermission("Analytics.View");
+  return useQuery({
+    queryKey: queryKeys.management.analytics("talent"),
+    queryFn: ({ signal }) => managementService.getTalentAnalytics(signal),
     enabled,
     staleTime: MANAGEMENT_STALE_TIME,
   });

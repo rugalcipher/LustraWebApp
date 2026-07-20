@@ -1,39 +1,95 @@
-import React from "react";
-import { ScrollText, PlugZap } from "lucide-react";
-import { Card, Eyebrow } from "@/components/lustra/Primitives";
+import React, { useState } from "react";
+import { ScrollText, Loader2, Search } from "lucide-react";
+import { Card, Eyebrow, EmptyState } from "@/components/lustra/Primitives";
+import { toUserMessage } from "@/api/problemDetails";
+import { useAuditLogs } from "@/features/admin/hooks";
 
 /**
- * Audit Log — placeholder. The backend audit domain is not yet implemented
- * (see Lustra.API: no audit entity/endpoint exists). This page intentionally
- * shows NO fabricated audit events; it documents the pending integration in the
- * real Lustra internal style so the /admin/audit destination is never a broken
- * link.
+ * Admin → Audit Log. Real entries from `/admin/audit-logs`.
+ *
+ * This page was an honest "awaiting backend integration" placeholder — it never showed
+ * fabricated events, which was the right call at the time. The endpoint exists now, so
+ * the placeholder was simply out of date and hiding a working audit trail.
+ *
+ * Entries are read-only by design: an audit record that can be edited from the console it
+ * audits is not evidence of anything.
  */
 export default function AdminAudit() {
+  const [action, setAction] = useState("");
+  const logs = useAuditLogs({ action: action || null });
+  const rows = logs.data?.items ?? [];
+
   return (
     <div className="px-5 lg:px-8 py-6 lg:py-8 w-full">
       <div className="mb-6">
         <Eyebrow>Administrator</Eyebrow>
         <h1 className="font-heading font-light text-3xl lg:text-4xl text-ivory mt-1">Audit Log</h1>
         <p className="font-body text-sm text-muted-grey mt-2 max-w-2xl">
-          A tamper-evident record of administrative and moderation actions across the platform.
+          A record of administrative and moderation actions across the platform. Read-only.
         </p>
       </div>
 
-      <Card className="p-10 flex flex-col items-center text-center">
-        <div className="w-14 h-14 rounded-full border border-rose-gold/30 bg-deep-black/40 flex items-center justify-center">
-          <ScrollText className="w-6 h-6 text-rose-gold/80" strokeWidth={1.2} />
+      <div className="relative w-full sm:w-80 mb-4">
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-grey"
+          strokeWidth={1.2}
+        />
+        <input
+          value={action}
+          onChange={(e) => setAction(e.target.value)}
+          placeholder="Filter by action…"
+          aria-label="Filter audit entries by action"
+          className="w-full bg-deep-black/60 border border-white/[0.08] rounded-sm pl-9 pr-3 py-2.5 font-body text-sm text-ivory placeholder:text-muted-grey/60 focus:outline-none focus:border-rose-gold/50 transition"
+        />
+      </div>
+
+      {logs.isPending ? (
+        <div className="py-24 flex justify-center">
+          <Loader2 className="w-5 h-5 text-rose-gold animate-spin" strokeWidth={1.4} />
         </div>
-        <p className="mt-5 font-heading text-xl text-ivory">Audit data is not yet connected</p>
-        <p className="mt-2 font-body text-sm text-muted-grey max-w-md leading-relaxed">
-          The audit trail will appear here once the backend audit endpoint is available. No audit
-          events are shown until real data is connected — this view does not display placeholder or
-          sample activity.
-        </p>
-        <div className="mt-6 inline-flex items-center gap-2 text-[0.6rem] tracking-luxe uppercase text-warning border border-warning/30 rounded-full px-3 py-1.5">
-          <PlugZap className="w-3.5 h-3.5" strokeWidth={1.4} /> Awaiting backend integration
-        </div>
-      </Card>
+      ) : logs.isError ? (
+        <Card className="p-6">
+          <p className="font-body text-sm text-muted-grey">{toUserMessage(logs.error)}</p>
+        </Card>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={ScrollText}
+          title={action ? "No matching entries" : "No audit entries yet"}
+          body={
+            action
+              ? "Try a different action name."
+              : "Administrative and moderation actions are recorded here as they happen."
+          }
+        />
+      ) : (
+        <Card className="p-4">
+          <div className="space-y-1">
+            {rows.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-start justify-between gap-4 py-3 border-b border-white/[0.04] last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="font-body text-sm text-ivory">
+                    <span className="text-rose-gold">{entry.action}</span>
+                    <span className="text-muted-grey"> · {entry.entityType}</span>
+                  </p>
+                  <p className="font-body text-[0.7rem] text-soft-ivory/70 mt-0.5 leading-relaxed">
+                    {entry.summary}
+                  </p>
+                  <p className="font-body text-[0.55rem] text-muted-grey/70 mt-1">
+                    {entry.actorDisplay ?? "System"}
+                    {entry.ipAddress ? ` · ${entry.ipAddress}` : ""}
+                  </p>
+                </div>
+                <p className="font-body text-[0.6rem] text-muted-grey shrink-0">
+                  {new Date(entry.createdAtUtc).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

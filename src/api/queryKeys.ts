@@ -165,6 +165,7 @@ export const queryKeys = {
     clients: (filters?: Filters) => ["management", "clients", filters ?? null] as const,
     clientConversations: (clientUserId: string) =>
       ["management", "clients", clientUserId, "conversations"] as const,
+    analytics: (scope: string) => ["management", "analytics", scope] as const,
   },
 
   // --- Analytics ---

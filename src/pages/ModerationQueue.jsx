@@ -23,6 +23,7 @@ import {
  */
 const TABS = [
   { id: "profiles", label: "Profiles", icon: UserCheck },
+  { id: "publishing", label: "Publishing", icon: Globe },
   { id: "media", label: "Media", icon: ImageIcon },
   { id: "reviews", label: "Reviews", icon: Star },
   { id: "vip", label: "VIP", icon: Crown },
@@ -58,6 +59,7 @@ export default function ModerationQueue() {
         </div>
 
         {tab === "profiles" && <ProfileQueue />}
+        {tab === "publishing" && <PublishingQueue />}
         {tab === "media" && <MediaQueue />}
         {tab === "reviews" && <ReviewQueue />}
         {tab === "vip" && <VipQueue />}
@@ -73,7 +75,7 @@ function ProfileQueue() {
   const moderate = useModerateProfile();
   const [reasons, setReasons] = useState({});
 
-  const act = async (profileId, action) => {
+  const act = async (profileId, action, publishImmediately = false) => {
     const reason = (reasons[profileId] ?? "").trim();
     if ((action === "reject" || action === "request-changes") && !reason) {
       toast({
@@ -84,9 +86,20 @@ function ProfileQueue() {
       return;
     }
     try {
-      await moderate.mutateAsync({ profileId, action, reason });
+      await moderate.mutateAsync({ profileId, action, reason, publishImmediately });
       setReasons((r) => ({ ...r, [profileId]: "" }));
-      toast({ title: action === "approve" ? "Profile approved" : "Sent back to the talent" });
+      toast({
+        title:
+          action !== "approve"
+            ? "Sent back to the talent"
+            : publishImmediately
+              ? "Approved and published"
+              : "Approved — not yet published",
+        description:
+          action === "approve" && !publishImmediately
+            ? "Publish from the Published tab when you are ready for them to be visible."
+            : undefined,
+      });
     } catch (err) {
       toast({ title: "Couldn't submit", description: toUserMessage(err), variant: "destructive" });
     }
@@ -132,8 +145,17 @@ function ProfileQueue() {
             />
 
             <div className="flex flex-wrap gap-1.5 mt-3">
+              {/* Approving clears review; it does NOT put the talent on the public site.
+                  Publishing a real person is a separate, deliberate decision. */}
               <Action tone="approve" onClick={() => act(profile.talentProfileId, "approve")} busy={moderate.isPending}>
                 <Check className="w-3 h-3" strokeWidth={1.4} /> Approve
+              </Action>
+              <Action
+                tone="approve"
+                onClick={() => act(profile.talentProfileId, "approve", true)}
+                busy={moderate.isPending}
+              >
+                <Globe className="w-3 h-3" strokeWidth={1.4} /> Approve &amp; publish
               </Action>
               <Action onClick={() => act(profile.talentProfileId, "request-changes")} busy={moderate.isPending}>
                 Request changes
@@ -142,8 +164,115 @@ function ProfileQueue() {
                 <X className="w-3 h-3" strokeWidth={1.4} /> Reject
               </Action>
             </div>
+
+            <p className="mt-2 font-body text-[0.55rem] text-muted-grey leading-relaxed">
+              Approve records that the content passed review. The talent only appears in
+              public discovery once published.
+            </p>
           </Card>
         ))}
+      </div>
+    </QueueShell>
+  );
+}
+
+// ---- publishing ------------------------------------------------------------
+
+/**
+ * Approved talent, and whether each is actually live.
+ *
+ * Approval and publication are separate states, so this is where the second decision is
+ * made. Unpublishing keeps the approval — the talent can be put back without another
+ * review — which is what makes it safe to use for a photography refresh or a pause in
+ * representation.
+ */
+function PublishingQueue() {
+  const { data: profiles, isPending, isError, error } = useProfileReviews("Approved");
+  const moderate = useModerateProfile();
+
+  const act = async (profileId, action) => {
+    try {
+      await moderate.mutateAsync({ profileId, action });
+      toast({
+        title: action === "publish" ? "Published" : "Withdrawn from discovery",
+        description:
+          action === "publish"
+            ? "They now appear in public discovery."
+            : "Still approved — republish any time without another review.",
+      });
+    } catch (err) {
+      toast({ title: "Couldn't submit", description: toUserMessage(err), variant: "destructive" });
+    }
+  };
+
+  const rows = profiles ?? [];
+  const awaiting = rows.filter((p) => !p.isPublic);
+  const live = rows.filter((p) => p.isPublic);
+
+  return (
+    <QueueShell
+      isPending={isPending}
+      isError={isError}
+      error={error}
+      isEmpty={rows.length === 0}
+      emptyIcon={Globe}
+      emptyTitle="No approved talent"
+      emptyBody="Approved profiles appear here to be published when you are ready."
+    >
+      <div className="space-y-6">
+        <section>
+          <p className="text-[0.55rem] tracking-wide-luxe uppercase text-muted-grey mb-2">
+            Approved — not yet public ({awaiting.length})
+          </p>
+          {awaiting.length === 0 ? (
+            <p className="font-body text-xs text-muted-grey">Everything approved is live.</p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {awaiting.map((profile) => (
+                <Card key={profile.talentProfileId} className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-heading text-lg text-ivory truncate">{profile.displayName}</p>
+                    <p className="text-[0.55rem] tracking-wide-luxe uppercase text-muted-grey mt-1">
+                      Approved · not in discovery
+                    </p>
+                  </div>
+                  <Action
+                    tone="approve"
+                    onClick={() => act(profile.talentProfileId, "publish")}
+                    busy={moderate.isPending}
+                  >
+                    <Globe className="w-3 h-3" strokeWidth={1.4} /> Publish
+                  </Action>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <p className="text-[0.55rem] tracking-wide-luxe uppercase text-muted-grey mb-2">
+            Live in discovery ({live.length})
+          </p>
+          {live.length === 0 ? (
+            <p className="font-body text-xs text-muted-grey">Nobody is public yet.</p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {live.map((profile) => (
+                <Card key={profile.talentProfileId} className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-heading text-lg text-ivory truncate">{profile.displayName}</p>
+                    <p className="text-[0.55rem] tracking-wide-luxe uppercase text-success mt-1">
+                      Live
+                    </p>
+                  </div>
+                  <Action onClick={() => act(profile.talentProfileId, "unpublish")} busy={moderate.isPending}>
+                    Unpublish
+                  </Action>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </QueueShell>
   );

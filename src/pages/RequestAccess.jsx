@@ -1,112 +1,82 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { Check } from "lucide-react";
+import { ShieldCheck, MessageCircle, UserPlus } from "lucide-react";
 import LustraButton from "@/components/lustra/Button";
 import PublicMarketingLayout from "@/components/lustra/public/PublicMarketingLayout";
 import { PUBLIC_IMAGES } from "@/components/lustra/public/publicImages";
 
 /**
- * CLIENT Request Access — a private-access request for prospective clients (NOT
- * a talent application; that lives at /for-talent). Reached from the homepage
- * "Request Access" CTA. Concierge follows up manually; no automatic approval.
+ * CLIENT access — how a prospective client actually joins Lustra.
+ *
+ * This page used to present a "request access" form that submitted NOTHING: it waited
+ * 1.1 seconds, showed "Request Received" and invented a reference number. Every enquiry
+ * from the homepage's primary call to action was silently discarded, and the visitor was
+ * handed a reference nobody could look up.
+ *
+ * Creating an account IS the access route — registration is real, and the conversation
+ * with management that follows is the concierge relationship. So the page now explains
+ * that and sends people to the real thing, instead of collecting details into nowhere.
  */
 export default function RequestAccess() {
-  const [form, setForm] = useState({ name: "", email: "", city: "", referral: "", agree: false });
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  const submit = (e) => {
-    e.preventDefault();
-    if (!form.agree || !form.email) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSubmitted(true);
-    }, 1100);
-  };
-
   return (
     <PublicMarketingLayout
       eyebrow="Private Access"
       title="Request Access"
       image={PUBLIC_IMAGES.membership}
       footerNote="Private by Design"
-      bareTop={submitted}
     >
-      {submitted ? (
-        <div className="max-w-md">
-          <div className="w-16 h-16 rounded-full border border-rose-gold/40 flex items-center justify-center">
-            <Check className="w-7 h-7 text-rose-gold" strokeWidth={1.2} />
-          </div>
-          <h1 className="font-heading font-light text-3xl sm:text-4xl text-ivory mt-6">Request Received</h1>
-          <p className="font-body text-sm text-soft-ivory/70 mt-4 leading-relaxed">
-            Thank you, {form.name || "guest"}. Our concierge team reviews each request personally and will be in
-            touch discreetly to complete your access.
-          </p>
-          <div className="mt-6 p-4 bg-card-black/60 border border-rose-gold/20 rounded-md">
-            <p className="text-[0.55rem] tracking-luxe uppercase text-muted-grey">Reference</p>
-            <p className="font-heading text-lg text-light-rose-gold mt-1">
-              LUSTRA-{Math.random().toString(36).slice(2, 8).toUpperCase()}
-            </p>
-          </div>
-          <LustraButton as={Link} to="/" variant="outline" size="md" className="mt-8">
-            Return Home
-          </LustraButton>
-        </div>
-      ) : (
-        <>
-          <p className="font-body text-sm sm:text-base text-soft-ivory/75 leading-relaxed max-w-md">
-            Lustra is a private booking platform. Submit a request and our concierge team will be in touch to
-            complete your access.
-          </p>
+      <p className="font-body text-sm sm:text-base text-soft-ivory/75 leading-relaxed max-w-md">
+        Lustra is a private, concierge-led platform. Create an account to browse our
+        represented talent, then message our management team directly — every engagement is
+        arranged personally, in conversation, never through an automated booking.
+      </p>
 
-          <form onSubmit={submit} className="mt-7 max-w-md space-y-4">
-            <Input label="Full Name" value={form.name} onChange={(v) => set("name", v)} placeholder="Your full name" />
-            <Input label="Email" type="email" value={form.email} onChange={(v) => set("email", v)} placeholder="you@email.com" required />
-            <Input label="City" value={form.city} onChange={(v) => set("city", v)} placeholder="Your city" />
-            <div>
-              <label className="text-[0.55rem] tracking-luxe uppercase text-muted-grey mb-1.5 block">Referral (optional)</label>
-              <textarea
-                value={form.referral}
-                onChange={(e) => set("referral", e.target.value)}
-                rows={2}
-                placeholder="How did you hear about Lustra?"
-                className="w-full bg-card-black border border-white/[0.08] rounded-sm px-3.5 py-3 text-sm text-ivory placeholder:text-muted-grey/50 focus:outline-none focus:border-rose-gold/40 resize-none transition"
-              />
-            </div>
+      <div className="mt-8 max-w-md space-y-5">
+        <Step
+          icon={UserPlus}
+          title="Create your account"
+          body="A few details, verified by email. No payment, no card, nothing shown publicly."
+        />
+        <Step
+          icon={ShieldCheck}
+          title="Browse discreetly"
+          body="Approved talent only. Your activity stays private and is never shown to anyone you have not messaged."
+        />
+        <Step
+          icon={MessageCircle}
+          title="Speak to management"
+          body="Open a private conversation about anyone who interests you. Our team arranges the rest."
+        />
+      </div>
 
-            <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
-              <input type="checkbox" checked={form.agree} onChange={(e) => set("agree", e.target.checked)} className="accent-rose-gold w-4 h-4 mt-0.5 shrink-0" />
-              <span className="text-[0.65rem] text-muted-grey leading-relaxed">
-                I confirm I am over 18 and agree to be contacted by Lustra regarding access. Access is granted at
-                Lustra's discretion.
-              </span>
-            </label>
+      <div className="mt-9 flex flex-col sm:flex-row gap-3 max-w-md">
+        <LustraButton as={Link} to="/register" size="lg" className="w-full sm:w-auto">
+          Create Account
+        </LustraButton>
+        <LustraButton as={Link} to="/login" variant="outline" size="lg" className="w-full sm:w-auto">
+          Sign In
+        </LustraButton>
+      </div>
 
-            <LustraButton type="submit" disabled={!form.agree || loading} size="lg" className="w-full">
-              {loading ? "Submitting…" : "Request Access"}
-            </LustraButton>
-          </form>
-        </>
-      )}
+      <p className="mt-6 font-body text-[0.65rem] text-muted-grey leading-relaxed max-w-md">
+        Access to certain talent and media is granted at Lustra's discretion. You must be
+        over 18 to hold an account.
+      </p>
     </PublicMarketingLayout>
   );
 }
 
-/** @param {{ label?: string; value?: string; onChange?: (v: string) => void; placeholder?: string; type?: string; required?: boolean }} props */
-function Input({ label, value, onChange, placeholder, type = "text", required }) {
+/** @param {{ icon: import("react").ComponentType<any>; title: string; body: string }} props */
+function Step({ icon: Icon, title, body }) {
   return (
-    <div>
-      <label className="text-[0.55rem] tracking-luxe uppercase text-muted-grey mb-1.5 block">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        required={required}
-        className="w-full bg-card-black border border-white/[0.08] rounded-sm px-3.5 py-3 text-sm text-ivory placeholder:text-muted-grey/50 focus:outline-none focus:border-rose-gold/40 transition"
-      />
+    <div className="flex items-start gap-3.5">
+      <span className="shrink-0 w-9 h-9 rounded-full border border-rose-gold/30 flex items-center justify-center">
+        <Icon className="w-4 h-4 text-rose-gold" strokeWidth={1.3} />
+      </span>
+      <div>
+        <p className="font-body text-sm text-ivory">{title}</p>
+        <p className="font-body text-[0.7rem] text-soft-ivory/60 mt-1 leading-relaxed">{body}</p>
+      </div>
     </div>
   );
 }

@@ -43,11 +43,9 @@ const ManagementConversations = React.lazy(() => import("@/pages/ManagementConve
 const CreateAppointment = React.lazy(() => import("@/pages/CreateAppointment"));
 const ClientDirectory = React.lazy(() => import("@/pages/ClientDirectory"));
 const ModerationQueue = React.lazy(() => import("@/pages/ModerationQueue"));
-const TalentMediaLibrary = React.lazy(() => import("@/pages/TalentMediaLibrary"));
 const AgencyAnalytics = React.lazy(() => import("@/pages/AgencyAnalytics"));
 const AgencyCalendar = React.lazy(() => import("@/pages/AgencyCalendar"));
 const AccountSettings = React.lazy(() => import("@/pages/AccountSettings"));
-const TalentOnboarding = React.lazy(() => import("@/pages/TalentOnboarding"));
 const AdminDashboard = React.lazy(() => import("@/pages/AdminDashboard"));
 const AdminUsers = React.lazy(() => import("@/pages/AdminUsers"));
 const AdminPlatform = React.lazy(() => import("@/pages/AdminPlatform"));
@@ -172,7 +170,6 @@ export const ROUTES: RouteDef[] = [
   { path: "/create-appointment", element: <CreateAppointment />, access: "protected", roles: STAFF, permissions: ["Bookings.Create"], shell: "internal" },
   { path: "/management-clients", element: <ClientDirectory />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Clients", icon: "Users", order: 5 } },
   { path: "/moderation", element: <ModerationQueue />, access: "protected", roles: STAFF, permissions: ["Talent.ModerateMedia"], shell: "internal", nav: { group: "management", label: "Moderation", icon: "ShieldCheck", order: 6 } },
-  { path: "/media-library", element: <TalentMediaLibrary />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Media", icon: "Image", order: 7 } },
   { path: "/analytics", element: <AgencyAnalytics />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Analytics", icon: "BarChart3", order: 8 } },
 
   // ---- Admin ----
@@ -183,7 +180,6 @@ export const ROUTES: RouteDef[] = [
 
   // ---- Shared internal (shell selected by principal) ----
   { path: "/agency-calendar", element: <AgencyCalendar />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "management", label: "Calendar", icon: "Calendar", order: 4 } },
-  { path: "/onboarding-form", element: <TalentOnboarding />, access: "protected", roles: STAFF, shell: "internal" },
   { path: "/settings", element: <AccountSettings />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Settings", icon: "Settings", order: 9 } },
 ];
 

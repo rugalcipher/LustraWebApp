@@ -32,7 +32,9 @@ import {
   useConversationAppointment,
   useConversationNotes,
   useAddConversationNote,
+  useAssignConversation,
 } from "@/features/management/hooks";
+import { useManagementStaff } from "@/features/admin/hooks";
 
 /**
  * A conversation as management sees it.
@@ -58,6 +60,8 @@ export default function ManagementConversation() {
   const appointment = useConversationAppointment(id);
   const notes = useConversationNotes(id);
   const addNote = useAddConversationNote(id);
+  const assign = useAssignConversation(id);
+  const staff = useManagementStaff();
 
   const messagesQuery = useQuery({
     queryKey: queryKeys.management.conversationMessages(id ?? "", 1),
@@ -256,6 +260,13 @@ export default function ManagementConversation() {
 
           <TalentContextCard conversation={conversation} />
 
+          <OwnerCard
+            conversation={conversation}
+            staff={staff}
+            assign={assign}
+            currentUserId={principal.userId}
+          />
+
           <AppointmentCard
             query={appointment}
             conversationId={id}
@@ -433,6 +444,74 @@ function TalentContextCard({ conversation }) {
           This conversation is not about a specific talent.
         </p>
       )}
+    </Card>
+  );
+}
+
+/**
+ * Who owns this conversation.
+ *
+ * There is no staff-directory endpoint, so the picker is populated from the admin user
+ * search filtered to active Management — a route Management already holds `Users.View`
+ * for. Better than inventing a parallel endpoint for one dropdown.
+ */
+function OwnerCard({ conversation, staff, assign, currentUserId }) {
+  const assignedTo = conversation.data?.assignedToUserId ?? null;
+  const options = staff.data?.items ?? [];
+
+  const choose = async (userId) => {
+    if (!userId) return;
+    try {
+      await assign.mutateAsync(userId);
+      toast({ title: "Conversation assigned" });
+    } catch (err) {
+      toast({ title: "Couldn't assign", description: toUserMessage(err), variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="p-4">
+      <Eyebrow>Owner</Eyebrow>
+
+      {staff.isError ? (
+        <p className="mt-3 font-body text-xs text-muted-grey">
+          Staff list unavailable. You can still reply; assignment needs the user directory.
+        </p>
+      ) : (
+        <>
+          <select
+            value={assignedTo ?? ""}
+            onChange={(e) => choose(e.target.value)}
+            disabled={assign.isPending || staff.isPending}
+            aria-label="Assign this conversation"
+            className="mt-3 w-full bg-deep-black/60 border border-white/[0.08] rounded-sm px-3 py-2.5 font-body text-sm text-ivory focus:outline-none focus:border-rose-gold/50 transition disabled:opacity-50"
+          >
+            <option value="" className="bg-noir">
+              {staff.isPending ? "Loading…" : "Unassigned"}
+            </option>
+            {options.map((member) => (
+              <option key={member.id} value={member.id} className="bg-noir">
+                {member.displayName}
+                {member.id === currentUserId ? " (you)" : ""}
+              </option>
+            ))}
+          </select>
+
+          {currentUserId && assignedTo !== currentUserId && (
+            <button
+              onClick={() => choose(currentUserId)}
+              disabled={assign.isPending}
+              className="mt-2 w-full px-3 py-2 rounded-sm border border-white/15 text-muted-grey hover:text-ivory hover:border-white/30 text-[0.6rem] tracking-luxe uppercase transition disabled:opacity-40"
+            >
+              Assign to me
+            </button>
+          )}
+        </>
+      )}
+
+      <p className="mt-2.5 font-body text-[0.55rem] text-muted-grey leading-relaxed">
+        Assignment is for triage only. Any staff member can still read and reply.
+      </p>
     </Card>
   );
 }

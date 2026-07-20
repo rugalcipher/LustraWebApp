@@ -1,23 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Crown } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import TalentStorySlide from "./TalentStorySlide";
-import VipLockedSlide from "./VipLockedSlide";
 import { Eyebrow } from "@/components/lustra/Primitives";
-import { useTalentGallery } from "@/features/discover/useTalentGallery";
 
 /**
- * SLIDE 3 — Gallery. Renders ALREADY-AUTHORIZED media resolved by
- * useTalentGallery (the single media-access policy). Visible items show the
- * photograph; VIP-only items locked for the viewer render a premium locked
- * slide instead — this component performs no VIP checks of its own and never
- * receives a protected URL for a locked item.
+ * SLIDE 3 — Gallery.
+ *
+ * Renders the talent's approved media straight from the view model, which is
+ * built from the public profile the API returned. THE API IS THE AUTHORIZATION
+ * BOUNDARY: it server-filters by the caller's entitlement, so whatever arrives
+ * here is already permitted and no VIP check happens in the browser.
+ *
+ * It previously went through a separate media service that existed only for
+ * mock data and threw outright in API mode — so this slide was permanently
+ * broken in any deployed build.
  *
  * @param {{ talent: any; reduced?: boolean }} props
  */
 export default function TalentGallerySlide({ talent, reduced }) {
-  const { media } = useTalentGallery(talent);
+  const media = talent?.galleryImages ?? [];
   const [imgIdx, setImgIdx] = useState(0);
   const total = media.length;
 
@@ -48,26 +51,15 @@ export default function TalentGallerySlide({ talent, reduced }) {
     setImgIdx((i) => (i - 1 + total) % total);
   };
 
-  const visibleCount = media.filter((m) => m.state === "visible").length;
-
   return (
-    <TalentStorySlide image={current.state === "visible" ? current.url : undefined} gradient={false}>
-      {current.state === "locked" ? (
-        <VipLockedSlide />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-b from-noir/50 via-transparent to-noir/60 pointer-events-none" />
-      )}
+    <TalentStorySlide image={current.url} gradient={false}>
+      <div className="absolute inset-0 bg-gradient-to-b from-noir/50 via-transparent to-noir/60 pointer-events-none" />
 
       {/* Label */}
       <div className="absolute top-0 left-0 right-0 z-10 px-5 pt-12">
         <Eyebrow>Gallery</Eyebrow>
         <p className="font-body text-[0.6rem] text-soft-ivory/50 mt-0.5">
-          {visibleCount} approved {visibleCount === 1 ? "photograph" : "photographs"}
-          {current.isProtected && current.state === "visible" && (
-            <span className="ml-2 inline-flex items-center gap-1 text-rose-gold/80">
-              <Crown className="w-3 h-3" strokeWidth={1.4} /> VIP
-            </span>
-          )}
+          {total} approved {total === 1 ? "photograph" : "photographs"}
         </p>
       </div>
 

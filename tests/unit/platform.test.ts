@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { ROUTES, allowedRolesFor, requiredPermissionsFor } from "@/app/routeRegistry";
 import { queryKeys } from "@/api/queryKeys";
 
@@ -167,5 +169,56 @@ describe("management conversation cache keys", () => {
   it("nests message pages under the management namespace so they clear on sign-out", () => {
     // These carry client conversation bodies; they must not survive an account switch.
     expect(queryKeys.management.conversationMessages("c1", 1)[0]).toBe("management");
+  });
+});
+
+/**
+ * Launch-readiness guards.
+ *
+ * These scan the real source tree rather than asserting against a fixture, so a mock
+ * reintroduced anywhere fails the build instead of reaching a deployed environment.
+ */
+describe("no mock data reaches a production build", () => {
+  const SRC = path.resolve(__dirname, "../../src");
+
+  function sourceFiles(dir: string): string[] {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return sourceFiles(full);
+      return /\.(ts|tsx|js|jsx)$/.test(entry.name) ? [full] : [];
+    });
+  }
+
+  it("has no module importing @/mocks", () => {
+    // Every page that did was either wired to its real endpoint or deleted. A new import
+    // here means a screen is showing invented data to a real user.
+    const offenders = sourceFiles(SRC).filter((file) =>
+      /from\s+["']@\/mocks/.test(fs.readFileSync(file, "utf8"))
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("ships no src/mocks directory at all", () => {
+    expect(fs.existsSync(path.join(SRC, "mocks"))).toBe(false);
+  });
+
+  it("has no service that throws NotImplementedInApiMode", () => {
+    // This pattern meant a screen was permanently broken in any deployed build while
+    // looking fine in local mock mode — the discover gallery was doing exactly that.
+    const offenders = sourceFiles(SRC).filter((file) =>
+      /NotImplementedInApiModeError/.test(fs.readFileSync(file, "utf8"))
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("has no page faking a submission with a timer", () => {
+    // Two public funnels used to setTimeout, show "Received" and invent a reference
+    // number while storing nothing. Any setTimeout that resolves into a "submitted"
+    // state is that bug returning.
+    const offenders = sourceFiles(path.join(SRC, "pages")).filter((file) => {
+      const body = fs.readFileSync(file, "utf8");
+      return /setTimeout\(/.test(body) && /setSubmitted\(true\)|setSent\(true\)/.test(body);
+    });
+    expect(offenders).toEqual([]);
   });
 });
