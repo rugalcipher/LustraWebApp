@@ -57,6 +57,12 @@ const AdminPlatform = React.lazy(() => import("@/pages/AdminPlatform"));
 const AdminAudit = React.lazy(() => import("@/pages/AdminAudit"));
 const ManagementAppointments = React.lazy(() => import("@/pages/ManagementAppointments"));
 const ManagementAppointmentDetail = React.lazy(() => import("@/pages/ManagementAppointmentDetail"));
+const TalentRoster = React.lazy(() => import("@/pages/TalentRoster"));
+const TalentCreate = React.lazy(() => import("@/pages/TalentCreate"));
+const TalentRecord = React.lazy(() => import("@/pages/TalentRecord"));
+const AdminUserDetail = React.lazy(() => import("@/pages/AdminUserDetail"));
+const AdminRoles = React.lazy(() => import("@/pages/AdminRoles"));
+const AdminStaffProvision = React.lazy(() => import("@/pages/AdminStaffProvision"));
 const TalentApplicationsQueue = React.lazy(() => import("@/pages/TalentApplicationsQueue"));
 const TalentApplicationReview = React.lazy(() => import("@/pages/TalentApplicationReview"));
 
@@ -192,19 +198,31 @@ export const ROUTES: RouteDef[] = [
   { path: "/management-dashboard", element: <ManagementDashboard />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },
   { path: "/inquiry-pipeline", element: <InquiryPipeline />, access: "protected", roles: STAFF, permissions: ["Inquiries.View"], shell: "internal", nav: { group: "management", label: "Inquiries", icon: "Inbox", order: 2 } },
   { path: "/inquiry-pipeline/:id", element: <ManagementInquiryDetail />, access: "protected", roles: STAFF, permissions: ["Inquiries.View"], shell: "internal" },
-  { path: "/management-conversations", element: <ManagementConversations />, access: "protected", roles: STAFF, permissions: ["Conversations.View"], shell: "internal", nav: { group: "management", label: "Conversations", icon: "MessagesSquare", order: 3 } },
+  { path: "/management-conversations", element: <ManagementConversations />, access: "protected", roles: STAFF, permissions: ["Conversations.View"], shell: "internal", nav: [
+    { group: "management", label: "Conversations", icon: "MessagesSquare", order: 3 },
+    { group: "admin", label: "Conversations", icon: "MessagesSquare", order: 4, section: "Operations" },
+  ] },
   { path: "/management-conversations/:id", element: <ManagementConversation />, access: "protected", roles: STAFF, permissions: ["Conversations.View"], shell: "internal" },
   // Creating an appointment is a Bookings.Create action reached from a conversation.
   { path: "/create-appointment", element: <CreateAppointment />, access: "protected", roles: STAFF, permissions: ["Bookings.Create"], shell: "internal" },
-  { path: "/management-clients", element: <ClientDirectory />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Clients", icon: "Users", order: 4 } },
-  { path: "/moderation", element: <ModerationQueue />, access: "protected", roles: STAFF, permissions: ["Talent.ModerateMedia"], shell: "internal", nav: { group: "management", label: "Moderation", icon: "ShieldCheck", order: 5 } },
-  { path: "/analytics", element: <AgencyAnalytics />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Analytics", icon: "BarChart3", order: 6 } },
+  { path: "/management-clients", element: <ClientDirectory />, access: "protected", roles: STAFF, shell: "internal", nav: [
+    { group: "management", label: "Clients", icon: "Users", order: 11, section: "People" },
+    { group: "admin", label: "Clients", icon: "Users", order: 11, section: "People" },
+  ] },
+  { path: "/moderation", element: <ModerationQueue />, access: "protected", roles: STAFF, permissions: ["Talent.ModerateMedia"], shell: "internal", nav: [
+    { group: "management", label: "Moderation", icon: "ShieldCheck", order: 12, section: "Moderation" },
+    { group: "admin", label: "Moderation", icon: "ShieldCheck", order: 12, section: "Moderation" },
+  ] },
+  { path: "/analytics", element: <AgencyAnalytics />, access: "protected", roles: STAFF, shell: "internal", nav: [
+    { group: "management", label: "Analytics", icon: "BarChart3", order: 20, section: "Platform" },
+    { group: "admin", label: "Analytics", icon: "BarChart3", order: 19, section: "Platform" },
+  ] },
 
   // ---- Admin ----
   { path: "/admin", element: <AdminDashboard />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Overview", icon: "LayoutDashboard", order: 1 } },
-  { path: "/admin/users", element: <AdminUsers />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Users", icon: "Users", order: 2 } },
-  { path: "/admin/platform", element: <AdminPlatform />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Platform", icon: "Database", order: 3 } },
-  { path: "/admin/audit", element: <AdminAudit />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Audit Log", icon: "ScrollText", order: 4 } },
+  { path: "/admin/users", element: <AdminUsers />, access: "protected", roles: ADMINS, permissions: ["Users.View"], shell: "internal", nav: { group: "admin", label: "All Users", icon: "Users", order: 9, section: "People" } },
+  { path: "/admin/platform", element: <AdminPlatform />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Platform", icon: "Database", order: 20, section: "Platform" } },
+  { path: "/admin/audit", element: <AdminAudit />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Audit Log", icon: "ScrollText", order: 30, section: "Security" } },
 
   // ---- Talent applications (Phase 1) ----
   //
@@ -215,6 +233,22 @@ export const ROUTES: RouteDef[] = [
     { group: "management", label: "Talent Applications", icon: "UserPlus", order: 9, section: "People" },
     { group: "admin", label: "Talent Applications", icon: "UserPlus", order: 7, section: "People" },
   ] },
+
+  // ---- Talent administration (Phase 4) ----
+  //
+  // "/admin/talent/new" MUST precede "/admin/talent/:id": otherwise React Router
+  // matches "new" as a profile id and the create page renders a failed lookup.
+  { path: "/admin/talent", element: <TalentRoster />, access: "protected", roles: STAFF, permissions: ["Talent.View"], shell: "internal", nav: [
+    { group: "management", label: "Talent", icon: "UserCheck", order: 10, section: "People" },
+    { group: "admin", label: "Talent", icon: "UserCheck", order: 8, section: "People" },
+  ] },
+  { path: "/admin/talent/new", element: <TalentCreate />, access: "protected", roles: STAFF, permissions: ["Talent.Create"], shell: "internal" },
+  { path: "/admin/talent/:id", element: <TalentRecord />, access: "protected", roles: STAFF, permissions: ["Talent.View"], shell: "internal" },
+
+  // ---- Account administration (Phase 4) ----
+  { path: "/admin/users/new", element: <AdminStaffProvision />, access: "protected", roles: ADMINS, permissions: ["Users.Manage"], shell: "internal" },
+  { path: "/admin/users/:id", element: <AdminUserDetail />, access: "protected", roles: ADMINS, permissions: ["Users.View"], shell: "internal" },
+  { path: "/admin/roles", element: <AdminRoles />, access: "protected", roles: ADMINS, permissions: ["Roles.Manage"], shell: "internal", nav: { group: "admin", label: "Roles & Permissions", icon: "ShieldCheck", order: 10, section: "People" } },
   { path: "/admin/talent-applications/:id", element: <TalentApplicationReview />, access: "protected", roles: STAFF, permissions: ["TalentApplications.View"], shell: "internal" },
 
   // ---- Operations (Phase 2) ----

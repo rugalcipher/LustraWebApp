@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
   Users, ShieldCheck, Image, BarChart3, Database, Activity, Circle,
-  Menu, X, Search, LogOut, ScrollText, MessagesSquare, UserPlus,
+  Menu, X, Search, LogOut, ScrollText, MessagesSquare, UserPlus, UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
@@ -13,7 +13,7 @@ import RouteFallback from "@/components/RouteFallback";
 const ICONS = {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
   Users, ShieldCheck, Image, BarChart3, Database, Activity, Circle, ScrollText,
-  MessagesSquare, UserPlus,
+  MessagesSquare, UserPlus, UserCheck,
 };
 
 /**

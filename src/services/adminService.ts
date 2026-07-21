@@ -322,3 +322,226 @@ export function getAdminDashboardActivity(
 export function getSystemStatus(signal?: AbortSignal): Promise<SystemStatusDto> {
   return api.get<SystemStatusDto>("/admin/dashboard/system-status", { signal });
 }
+
+// ---- account security ------------------------------------------------------
+
+/**
+ * Privileged account operations: lock, unlock, verification, password resets,
+ * session revocation and role assignment.
+ *
+ * **Nothing here reads, returns or logs a password, a hash, a security stamp or
+ * a token.** Staff can replace a password, require it to be changed, or invite
+ * someone to set their own — never read one. A temporary password is returned
+ * exactly once, in the response that created it.
+ *
+ * Every operation that could remove the platform's last route back in is
+ * refused server-side with `admin.last_superadmin`. That is a Conflict, not a
+ * validation failure: the request is well-formed and the actor is authorised —
+ * it is the resulting state that is refused.
+ */
+
+/** Mirrors `AccountSecurityStateDto`. Carries no token, hash or stamp. */
+export interface AccountSecurityStateDto {
+  userId: string;
+  accountStatus: string;
+  emailConfirmed: boolean;
+  /** Whether a password is SET. Never the password itself. */
+  hasPassword: boolean;
+  mustChangePassword: boolean;
+  mustChangePasswordSetAtUtc: string | null;
+  isLockedOut: boolean;
+  lockoutEndUtc: string | null;
+  accessFailedCount: number;
+  activeSessionCount: number;
+  lastLoginAtUtc: string | null;
+  talentProfileId: string | null;
+}
+
+/** Mirrors `RolePermissionSourceDto` — which role granted which permissions. */
+export interface RolePermissionSourceDto {
+  role: string;
+  permissions: string[];
+}
+
+/**
+ * Mirrors `EffectivePermissionsDto`.
+ *
+ * Rendered as returned. The UI must not assume any role — including SuperAdmin —
+ * grants anything: the grant lives in the database and the server is the
+ * authority, so a hardcoded assumption here would eventually be a lie.
+ */
+export interface EffectivePermissionsDto {
+  userId: string;
+  roles: string[];
+  permissions: string[];
+  sources: RolePermissionSourceDto[];
+}
+
+/** Mirrors `TemporaryPasswordDto`. The value is returned once only. */
+export interface TemporaryPasswordDto {
+  userId: string;
+  temporaryPassword: string;
+  sessionsRevoked: boolean;
+}
+
+/** How a provisioned staff account gets (or does not get) a way to sign in. */
+export const STAFF_LOGIN_MODES = {
+  /** Emails a set-your-password link. */
+  passwordReset: "PasswordReset",
+  /** A temporary password, returned once. */
+  temporaryPassword: "TemporaryPassword",
+  /** No way in yet. */
+  none: "None",
+} as const;
+
+export type StaffLoginMode = (typeof STAFF_LOGIN_MODES)[keyof typeof STAFF_LOGIN_MODES];
+
+/** Mirrors `CreateStaffAccountRequest`. */
+export interface CreateStaffAccountRequest {
+  email: string;
+  displayName: string;
+  phoneNumber?: string | null;
+  roles: string[];
+  loginMode: StaffLoginMode;
+}
+
+/** Mirrors `CreatedStaffDto`. `temporaryPassword` appears once, here, or never. */
+export interface CreatedStaffDto {
+  userId: string;
+  email: string;
+  accountStatus: string;
+  roles: string[];
+  loginMode: string;
+  temporaryPassword: string | null;
+}
+
+export function getUserSecurity(
+  userId: string,
+  signal?: AbortSignal
+): Promise<AccountSecurityStateDto> {
+  return api.get<AccountSecurityStateDto>(`/admin/users/${userId}/security`, { signal });
+}
+
+export function getEffectivePermissions(
+  userId: string,
+  signal?: AbortSignal
+): Promise<EffectivePermissionsDto> {
+  return api.get<EffectivePermissionsDto>(`/admin/users/${userId}/effective-permissions`, { signal });
+}
+
+/** Locks a user out, revoking their sessions. Omit the end for an indefinite lock. */
+export function lockUser(
+  userId: string,
+  reason: string,
+  lockoutEndUtc?: string | null
+): Promise<void> {
+  return api.post<void>(`/admin/users/${userId}/lock`, {
+    reason,
+    lockoutEndUtc: lockoutEndUtc || null,
+  });
+}
+
+export function unlockUser(userId: string): Promise<void> {
+  return api.post<void>(`/admin/users/${userId}/unlock`, {});
+}
+
+/** Marks an email address as confirmed on the authority of staff. */
+export function confirmUserEmail(userId: string): Promise<void> {
+  return api.post<void>(`/admin/users/${userId}/confirm-email`, {});
+}
+
+export function resendUserVerification(userId: string): Promise<void> {
+  return api.post<void>(`/admin/users/${userId}/resend-verification`, {});
+}
+
+/**
+ * Requires the user to choose a new password: revokes every session and emails a
+ * reset link. Their current password is never read and never revealed.
+ */
+export function forcePasswordReset(userId: string): Promise<void> {
+  return api.post<void>(`/admin/users/${userId}/force-password-reset`, {});
+}
+
+/**
+ * Sets a temporary password and revokes every session.
+ *
+ * The value comes back once. The caller must show it to the operator at that
+ * moment and must not persist it — there is no route that will produce it again.
+ */
+export function setUserTemporaryPassword(userId: string): Promise<TemporaryPasswordDto> {
+  return api.post<TemporaryPasswordDto>(`/admin/users/${userId}/temporary-password`, {});
+}
+
+export function revokeUserSessions(userId: string): Promise<void> {
+  return api.post<void>(`/admin/users/${userId}/revoke-sessions`, {});
+}
+
+/** Replaces a user's roles. Refused if it would remove the last usable SuperAdmin. */
+export function setUserRoles(userId: string, roles: string[]): Promise<void> {
+  return api.put<void>(`/admin/users/${userId}/roles`, { roles });
+}
+
+/** Creates a staff account without the caller choosing a password. */
+export function provisionStaff(request: CreateStaffAccountRequest): Promise<CreatedStaffDto> {
+  return api.post<CreatedStaffDto>("/admin/users/staff/provision", request);
+}
+
+// ---- roles and the permission catalogue ------------------------------------
+
+/** Mirrors `AdminRoleDto`. */
+export interface AdminRoleDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystemRole: boolean;
+  permissionCount: number;
+}
+
+/** Mirrors `AdminRoleDetailDto`. */
+export interface AdminRoleDetailDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystemRole: boolean;
+  permissions: string[];
+}
+
+/** Mirrors `PermissionCatalogItemDto`. */
+export interface PermissionCatalogItemDto {
+  name: string;
+  category: string;
+}
+
+/** Mirrors `PermissionCatalogGroupDto`. */
+export interface PermissionCatalogGroupDto {
+  category: string;
+  permissions: PermissionCatalogItemDto[];
+}
+
+export function listRoles(signal?: AbortSignal): Promise<AdminRoleDto[]> {
+  return api.get<AdminRoleDto[]>("/admin/roles", { signal });
+}
+
+export function getRole(roleName: string, signal?: AbortSignal): Promise<AdminRoleDetailDto> {
+  return api.get<AdminRoleDetailDto>(`/admin/roles/${encodeURIComponent(roleName)}`, { signal });
+}
+
+export function setRolePermissions(roleName: string, permissions: string[]): Promise<void> {
+  return api.put<void>(`/admin/roles/${encodeURIComponent(roleName)}/permissions`, { permissions });
+}
+
+export function listPermissionCatalogue(
+  signal?: AbortSignal
+): Promise<PermissionCatalogGroupDto[]> {
+  return api.get<PermissionCatalogGroupDto[]>("/admin/permissions", { signal });
+}
+
+/** Refusal codes the account-administration UI branches on. */
+export const ACCOUNT_ADMIN_ERROR_CODES = {
+  /** Would leave the platform with no usable SuperAdmin. A Conflict, not a validation error. */
+  lastSuperAdmin: "admin.last_superadmin",
+  invalidLoginMode: "admin.invalid_login_mode",
+  noEmail: "admin.no_email",
+  emailAlreadyConfirmed: "admin.email_already_confirmed",
+  identityFailure: "admin.identity_failure",
+} as const;

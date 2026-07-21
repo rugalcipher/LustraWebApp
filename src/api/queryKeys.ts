@@ -201,6 +201,19 @@ export const queryKeys = {
     dataset: (name: string) => ["analytics", name] as const,
   },
 
+  /**
+   * Direct talent administration (management). A separate namespace from public
+   * `talent` and from `talent-portal`: this is the staff view of the roster,
+   * including unpublished profiles, account state and unapproved media.
+   */
+  talentAdmin: {
+    all: () => ["talent-admin"] as const,
+    roster: (filters?: Filters) => ["talent-admin", "roster", filters ?? null] as const,
+    record: (profileId: string) => ["talent-admin", "record", profileId] as const,
+    media: (profileId: string) => ["talent-admin", "record", profileId, "media"] as const,
+    mediaHistory: (mediaId: string) => ["talent-admin", "media", mediaId, "history"] as const,
+  },
+
   // --- Admin ---
   admin: {
     /**
@@ -212,6 +225,10 @@ export const queryKeys = {
     systemStatus: () => ["admin", "dashboard", "system-status"] as const,
     users: (filters?: Filters) => ["admin", "users", filters ?? null] as const,
     user: (id: string) => ["admin", "users", "detail", id] as const,
+    userSecurity: (id: string) => ["admin", "users", "detail", id, "security"] as const,
+    userPermissions: (id: string) =>
+      ["admin", "users", "detail", id, "effective-permissions"] as const,
+    permissionCatalogue: () => ["admin", "permissions", "catalogue"] as const,
     roles: () => ["admin", "roles"] as const,
     role: (roleName: string) => ["admin", "roles", roleName] as const,
     permissions: () => ["admin", "permissions"] as const,
@@ -250,6 +267,7 @@ export const USER_SCOPED_NAMESPACES: readonly string[] = [
   "notifications",
   "reports",
   "management",
+  "talent-admin",
   "analytics",
   "admin",
 ];

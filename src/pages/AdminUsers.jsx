@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Search, ShieldCheck, UserCheck, UserX, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Search, ShieldCheck, UserCheck, UserX, UserPlus, Loader2 } from "lucide-react";
 import { Card, Eyebrow, EmptyState } from "@/components/lustra/Primitives";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -91,6 +92,12 @@ export default function AdminUsers() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        <Link
+          to="/admin/users/new"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-rose-gold/50 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/10"
+        >
+          <UserPlus className="w-3.5 h-3.5" aria-hidden="true" /> Add staff
+        </Link>
         <div className="relative w-full sm:w-80">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-grey"
@@ -151,7 +158,12 @@ export default function AdminUsers() {
               {rows.map((user) => (
                 <TableRow key={user.id} className="border-white/[0.04]">
                   <TableCell>
-                    <p className="font-body text-sm text-ivory">{user.displayName}</p>
+                    <Link
+                      to={`/admin/users/${user.id}`}
+                      className="font-body text-sm text-rose-gold hover:underline"
+                    >
+                      {user.displayName}
+                    </Link>
                     <p className="font-body text-[0.6rem] text-muted-grey">{user.email}</p>
                   </TableCell>
                   <TableCell>

@@ -227,3 +227,161 @@ export function useSystemStatus() {
     staleTime: 15_000,
   });
 }
+
+// ---- account security -------------------------------------------------------
+
+/**
+ * Privileged account operations.
+ *
+ * Nothing in this section ever reads a password, a hash, a security stamp or a
+ * token. A temporary password appears once, in the mutation result, and the
+ * caller is responsible for showing it and then forgetting it — it is
+ * deliberately never written into the query cache.
+ */
+
+export function useUserSecurity(userId: string | undefined) {
+  const enabled = usePermission("Users.View") && Boolean(userId);
+  return useQuery({
+    queryKey: queryKeys.admin.userSecurity(userId ?? ""),
+    queryFn: ({ signal }) => adminService.getUserSecurity(userId!, signal),
+    enabled,
+    staleTime: 15_000,
+  });
+}
+
+export function useEffectivePermissions(userId: string | undefined) {
+  const enabled = usePermission("Users.View") && Boolean(userId);
+  return useQuery({
+    queryKey: queryKeys.admin.userPermissions(userId ?? ""),
+    queryFn: ({ signal }) => adminService.getEffectivePermissions(userId!, signal),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Any security action invalidates the user's security state, their row in the
+ * list and their effective permissions. Locking, revoking and role changes all
+ * alter what the next screen should show about them.
+ */
+function useSecurityInvalidation(userId: string | undefined) {
+  const queryClient = useQueryClient();
+  return () => {
+    if (userId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.userSecurity(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.userPermissions(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.user(userId) });
+    }
+    queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+  };
+}
+
+export type UserSecurityAction =
+  | { kind: "lock"; reason: string; lockoutEndUtc?: string | null }
+  | { kind: "unlock" }
+  | { kind: "confirm-email" }
+  | { kind: "resend-verification" }
+  | { kind: "force-password-reset" }
+  | { kind: "revoke-sessions" };
+
+export function useUserSecurityAction(userId: string | undefined) {
+  const invalidate = useSecurityInvalidation(userId);
+  return useMutation({
+    mutationFn: (action: UserSecurityAction) => {
+      switch (action.kind) {
+        case "lock":
+          return adminService.lockUser(userId!, action.reason, action.lockoutEndUtc);
+        case "unlock":
+          return adminService.unlockUser(userId!);
+        case "confirm-email":
+          return adminService.confirmUserEmail(userId!);
+        case "resend-verification":
+          return adminService.resendUserVerification(userId!);
+        case "force-password-reset":
+          return adminService.forcePasswordReset(userId!);
+        case "revoke-sessions":
+          return adminService.revokeUserSessions(userId!);
+      }
+    },
+    retry: false,
+    onSuccess: invalidate,
+  });
+}
+
+/** The result holds the only copy of the value. It is never cached. */
+export function useSetUserTemporaryPassword(userId: string | undefined) {
+  const invalidate = useSecurityInvalidation(userId);
+  return useMutation({
+    mutationFn: () => adminService.setUserTemporaryPassword(userId!),
+    retry: false,
+    onSuccess: invalidate,
+  });
+}
+
+/** Replaces a user's roles. Refused with `admin.last_superadmin` where it would lock everyone out. */
+export function useSetUserRoles(userId: string | undefined) {
+  const invalidate = useSecurityInvalidation(userId);
+  return useMutation({
+    mutationFn: (roles: string[]) => adminService.setUserRoles(userId!, roles),
+    retry: false,
+    onSuccess: invalidate,
+  });
+}
+
+export function useProvisionStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: adminService.CreateStaffAccountRequest) =>
+      adminService.provisionStaff(request),
+    retry: false,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
+// ---- roles and permissions ---------------------------------------------------
+
+export function useRoles() {
+  const enabled = usePermission("Roles.Manage");
+  return useQuery({
+    queryKey: queryKeys.admin.roles(),
+    queryFn: ({ signal }) => adminService.listRoles(signal),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useRole(roleName: string | undefined) {
+  const enabled = usePermission("Roles.Manage") && Boolean(roleName);
+  return useQuery({
+    queryKey: queryKeys.admin.role(roleName ?? ""),
+    queryFn: ({ signal }) => adminService.getRole(roleName!, signal),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function usePermissionCatalogue() {
+  const enabled = usePermission("Roles.Manage");
+  return useQuery({
+    queryKey: queryKeys.admin.permissionCatalogue(),
+    queryFn: ({ signal }) => adminService.listPermissionCatalogue(signal),
+    enabled,
+    // The catalogue is compiled into the backend and changes only on deploy.
+    staleTime: Infinity,
+  });
+}
+
+export function useSetRolePermissions(roleName: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (permissions: string[]) =>
+      adminService.setRolePermissions(roleName!, permissions),
+    retry: false,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.role(roleName ?? "") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.roles() });
+      // A role's grants changed, so every user's effective permissions may have.
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+  });
+}

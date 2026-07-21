@@ -93,14 +93,26 @@ describe("RoleRoute", () => {
     expect(screen.queryByText("SIGN IN")).not.toBeInTheDocument();
   });
 
-  it("allows a principal holding the required role", () => {
-    principalState.value = authenticated({ roles: ["admin"] });
+  it("allows a principal holding the required role AND permission", () => {
+    // /admin/users carries Users.View, mirroring AdminUsersController's own
+    // policy. A role alone is not enough — the permission is the real gate.
+    principalState.value = authenticated({ roles: ["admin"], permissions: ["Users.View"] });
     renderAt("/admin/users");
     expect(screen.getByText("ADMIN USERS")).toBeInTheDocument();
   });
 
+  it("refuses an admin who does not hold Users.View", () => {
+    principalState.value = authenticated({ roles: ["admin"], permissions: [] });
+    renderAt("/admin/users");
+    expect(screen.getByText("UNAUTHORIZED")).toBeInTheDocument();
+  });
+
   it("denies a suspended account even when the role matches", () => {
-    principalState.value = authenticated({ roles: ["admin"], accountStatus: "Suspended" });
+    principalState.value = authenticated({
+      roles: ["admin"],
+      permissions: ["Users.View"],
+      accountStatus: "Suspended",
+    });
     renderAt("/admin/users");
     expect(screen.getByText("UNAUTHORIZED")).toBeInTheDocument();
   });

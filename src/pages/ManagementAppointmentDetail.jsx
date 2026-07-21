@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { toUserMessage } from "@/api/problemDetails";
 import ConfirmAction from "@/features/talentApplication/ConfirmAction";
 import VisibilityHistory from "@/features/appointments/VisibilityHistory";
+import TalentPicker from "@/features/talentAdmin/TalentPicker";
 import {
   useAppointment, useAppointmentTransition, useCancelAppointment, useRescheduleAppointment,
   useSetAppointmentClientVisibility, useReassignAppointmentTalent, useAddAppointmentNote,
@@ -64,7 +65,7 @@ export default function ManagementAppointmentDetail() {
   const [dialog, setDialog] = useState(null);
   const [actionError, setActionError] = useState("");
   const [note, setNote] = useState("");
-  const [reassignTo, setReassignTo] = useState("");
+  const [reassignTo, setReassignTo] = useState(null);
   const [schedule, setSchedule] = useState({ confirmedDate: "", startTime: "", endTime: "" });
 
   const transition = useAppointmentTransition();
@@ -93,8 +94,8 @@ export default function ManagementAppointmentDetail() {
       else if (dialog === "complete") await transition.mutateAsync({ bookingId: id, action: "complete" });
       else if (dialog === "no-show") await transition.mutateAsync({ bookingId: id, action: "no-show" });
       else if (dialog === "reassign") {
-        await reassign.mutateAsync({ talentProfileId: reassignTo.trim(), reason });
-        setReassignTo("");
+        await reassign.mutateAsync({ talentProfileId: reassignTo, reason });
+        setReassignTo(null);
       } else if (dialog === "reschedule") {
         await reschedule.mutateAsync({
           bookingId: id,
@@ -462,23 +463,18 @@ export default function ManagementAppointmentDetail() {
         reasonLabel="Reason"
         onConfirm={confirm}
         onCancel={close}
-        busy={busy || !reassignTo.trim()}
+        busy={busy || !reassignTo}
         error={actionError}
       >
-        <div className="space-y-1.5">
-          <label
-            htmlFor="reassign-talent"
-            className="block font-body text-meta tracking-wide-luxe uppercase text-muted-grey"
-          >
-            New talent profile id <span className="text-rose-gold">*</span>
-          </label>
-          <input
-            id="reassign-talent"
-            value={reassignTo}
-            onChange={(e) => setReassignTo(e.target.value)}
-            className={inputCls}
-          />
-        </div>
+        {/* Searched, not typed. A pasted GUID cannot be checked by eye, and one
+            wrong digit reassigns the appointment to a different person. */}
+        <TalentPicker
+          label="New talent"
+          value={reassignTo}
+          onChange={setReassignTo}
+          excludeProfileId={appointment.talentProfileId}
+          required
+        />
       </ConfirmAction>
 
       <ConfirmAction
