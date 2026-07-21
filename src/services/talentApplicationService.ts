@@ -1,4 +1,5 @@
 import { api } from "@/api/client";
+import { putToStorage } from "@/services/directUpload";
 import type { PagedResult } from "@/services/discoveryService";
 
 /**
@@ -93,7 +94,13 @@ export interface UploadTicketDto {
   uploadUrl: string;
   httpMethod: string;
   storageKey: string;
+  /** The exact content type the URL was signed with. Send this, never `file.type`. */
   contentType: string;
+  /**
+   * Every header the PUT must carry — and, by omission, every header it must
+   * not. Supplied by the server so the contract lives in one place.
+   */
+  requiredHeaders?: Record<string, string> | null;
   expiresAtUtc: string;
 }
 
@@ -216,34 +223,17 @@ export function requestUpload(
 /**
  * Uploads the bytes straight to the presigned R2 URL.
  *
- * Deliberately NOT routed through `api`: this request must carry no Lustra
- * headers at all. An `Authorization` or `X-Application-Token` header on a
- * presigned PUT breaks the signature, and the object store has no business
- * seeing either credential.
+ * Delegates to the shared direct-upload helper. This surface is anonymous and
+ * carries `X-Application-Token` on its API calls, which makes it the one most
+ * likely to leak a credential onto the object store by accident — so it goes
+ * through the same single path as every other upload rather than its own.
  */
-export async function uploadToStorage(
+export function uploadToStorage(
   ticket: UploadTicketDto,
   file: File,
   onProgress?: (fraction: number) => void
 ): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open(ticket.httpMethod || "PUT", ticket.uploadUrl, true);
-    xhr.setRequestHeader("Content-Type", ticket.contentType);
-
-    if (onProgress && xhr.upload) {
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) onProgress(event.loaded / event.total);
-      };
-    }
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(`Upload failed (${xhr.status})`));
-    xhr.onerror = () => reject(new Error("Upload failed"));
-    xhr.onabort = () => reject(new Error("Upload cancelled"));
-    xhr.send(file);
-  });
+  return putToStorage(ticket, file, onProgress);
 }
 
 /** Confirms the object landed. Until this succeeds the photograph does not exist. */
