@@ -212,6 +212,8 @@ export const queryKeys = {
     record: (profileId: string) => ["talent-admin", "record", profileId] as const,
     media: (profileId: string) => ["talent-admin", "record", profileId, "media"] as const,
     mediaHistory: (mediaId: string) => ["talent-admin", "media", mediaId, "history"] as const,
+    archiveImpact: (profileId: string) =>
+      ["talent-admin", "record", profileId, "archive-impact"] as const,
   },
 
   // --- Admin ---

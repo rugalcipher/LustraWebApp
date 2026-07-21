@@ -11,7 +11,7 @@ import ConfirmAction from "@/features/talentApplication/ConfirmAction";
 import MediaManager from "@/features/talentAdmin/MediaManager";
 import {
   useTalentRecord, useTalentAdminPermissions, useArchiveTalent, useRestoreTalent,
-  useIssueTalentInvitation, useSetTalentTemporaryPassword,
+  useIssueTalentInvitation, useSetTalentTemporaryPassword, useTalentArchiveImpact,
 } from "@/features/talentAdmin/hooks";
 
 /**
@@ -105,7 +105,10 @@ export default function TalentRecord() {
   const [dialog, setDialog] = useState(null);
   const [actionError, setActionError] = useState("");
   const [secret, setSecret] = useState(null);
+  const [outstanding, setOutstanding] = useState(null);
 
+  // Only fetched once the dialog is open: it is a preflight, not page furniture.
+  const impact = useTalentArchiveImpact(id, dialog === "archive");
   const archive = useArchiveTalent(id);
   const restore = useRestoreTalent(id);
   const invite = useIssueTalentInvitation(id);
@@ -122,7 +125,15 @@ export default function TalentRecord() {
   async function confirm(reason) {
     setActionError("");
     try {
-      if (dialog === "archive") await archive.mutateAsync(reason);
+      if (dialog === "archive") {
+        const result = await archive.mutateAsync(reason);
+        // The server reports the same shape back. Future appointments are NOT
+        // cancelled — that is work now waiting for somebody, so it is said out
+        // loud rather than discovered later.
+        if (result?.futureAppointmentCount > 0) {
+          setOutstanding(result);
+        }
+      }
       else if (dialog === "restore") await restore.mutateAsync();
       else if (dialog === "invite") await invite.mutateAsync();
       else if (dialog === "temporary-password") {
@@ -220,6 +231,41 @@ export default function TalentRecord() {
       </div>
 
       {secret && <OneTimeSecret value={secret} onDismiss={() => setSecret(null)} />}
+
+      {/* Archiving withdrew the talent but cancelled nothing. Name the work left. */}
+      {outstanding && (
+        <div className="rounded-sm border border-warning/40 bg-warning/[0.07] p-4 space-y-2" role="status">
+          <p className="flex items-center gap-2 font-body text-meta tracking-luxe uppercase text-warning">
+            <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" /> Appointments still stand
+          </p>
+          <p className="font-body text-body text-soft-ivory/85">
+            {outstanding.displayName} is archived and withdrawn from discovery, but{" "}
+            <strong>
+              {outstanding.futureAppointmentCount} future{" "}
+              {outstanding.futureAppointmentCount === 1 ? "appointment" : "appointments"}
+            </strong>{" "}
+            {outstanding.futureAppointmentCount === 1 ? "was" : "were"} NOT cancelled
+            {outstanding.nextAppointmentDate
+              ? `, the next on ${new Date(outstanding.nextAppointmentDate).toLocaleDateString()}`
+              : ""}
+            . Cancelling or reassigning them is a decision with a client on the other end, so
+            it is left to you.
+          </p>
+          <Link
+            to="/admin/appointments"
+            className="inline-flex items-center gap-1.5 font-body text-meta tracking-luxe uppercase text-rose-gold hover:underline"
+          >
+            Open appointments
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOutstanding(null)}
+            className="block font-body text-meta tracking-luxe uppercase text-muted-grey hover:text-rose-gold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06]" role="tablist">
         {TABS.map((name) => (
@@ -484,7 +530,7 @@ export default function TalentRecord() {
       <ConfirmAction
         open={dialog === "archive"}
         title="Archive talent"
-        description="The profile is withdrawn from discovery and can no longer be booked. It is not deleted and can be restored."
+        description="The profile is withdrawn from discovery, unpublished, unfeatured and can no longer take new appointments. It is not deleted and can be restored."
         confirmLabel="Archive"
         tone="destructive"
         reason
@@ -493,7 +539,39 @@ export default function TalentRecord() {
         onCancel={close}
         busy={busy}
         error={actionError}
-      />
+      >
+        {/* What archiving actually touches, read before deciding. */}
+        {impact.isPending && (
+          <p className="font-body text-meta text-muted-grey">Checking what this affects…</p>
+        )}
+        {impact.isSuccess && (
+          <div className="rounded-sm border border-white/10 p-3 space-y-1.5">
+            <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+              What this affects
+            </p>
+            <ul className="font-body text-helper text-soft-ivory/85 space-y-1 list-disc pl-5">
+              <li>
+                {impact.data.wasPublished ? "Will be unpublished" : "Already unpublished"}
+                {impact.data.wasFeatured ? " and unfeatured" : ""}.
+              </li>
+              <li>
+                {impact.data.mediaCount} photograph(s) and {impact.data.conversationCount}{" "}
+                conversation(s) are kept, not deleted.
+              </li>
+              <li
+                className={impact.data.futureAppointmentCount > 0 ? "text-warning" : undefined}
+              >
+                {impact.data.futureAppointmentCount === 0
+                  ? "No future appointments."
+                  : `${impact.data.futureAppointmentCount} future appointment(s) will NOT be cancelled` +
+                    (impact.data.nextAppointmentDate
+                      ? ` — the next is ${new Date(impact.data.nextAppointmentDate).toLocaleDateString()}.`
+                      : ".")}
+              </li>
+            </ul>
+          </div>
+        )}
+      </ConfirmAction>
 
       <ConfirmAction
         open={dialog === "restore"}

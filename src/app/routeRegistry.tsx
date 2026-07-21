@@ -17,6 +17,7 @@ import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import VerifyEmail from "@/pages/VerifyEmail";
+import ChangePasswordRequired from "@/pages/ChangePasswordRequired";
 import TalentActivate from "@/pages/TalentActivate";
 import Discover from "@/pages/Discover";
 import Saved from "@/pages/Saved";
@@ -154,6 +155,12 @@ export const ROUTES: RouteDef[] = [
   { path: "/reset-password", element: <ResetPassword />, access: "public", shell: "public" },
   // Target of the backend's AppUrls:EmailVerificationPath link.
   { path: "/verify-email", element: <VerifyEmail />, access: "public", shell: "public" },
+  // Where a restricted session is held. Registered as "public" because the guard
+  // above the router must be able to route here BEFORE the role guards run — a
+  // restricted user who also lacks a role would otherwise be bounced to
+  // /unauthorized, which cannot help them. The page itself reads the principal
+  // and the API refuses everything but the change until it succeeds.
+  { path: "/change-password", element: <ChangePasswordRequired />, access: "public", shell: "public" },
   { path: "/dev/roles", element: <DevRoles />, access: "public", shell: "public", devOnly: true },
 
   // ---- Client app (mobile-first immersive) ----

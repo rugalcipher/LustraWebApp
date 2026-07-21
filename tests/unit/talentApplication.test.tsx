@@ -419,22 +419,42 @@ describe("continuation page behaviour", () => {
   beforeEach(() => window.sessionStorage.clear());
   afterEach(() => vi.restoreAllMocks());
 
+  /**
+   * The applicant-safe DETAILS projection. Everything they typed comes back, so
+   * the form is repopulated rather than demanding a retype — and it still
+   * carries no internal note, reviewer identity or review timestamp.
+   */
   const status = {
     applicationId: "app-1",
     reference: "LA-2026-0001",
     status: "ChangesRequested",
-    requestedDisplayName: "Ada",
-    createdAtUtc: "2026-01-01T00:00:00Z",
-    submittedAtUtc: "2026-01-02T00:00:00Z",
-    decisionReason: "Please add two brighter photographs.",
     isEditable: true,
+    legalFirstName: "Ada",
+    legalMiddleNames: null,
+    legalSurname: "Lovelace",
+    requestedDisplayName: "Ada",
+    email: "ada@example.com",
+    cellphoneNumber: "+27820000000",
+    whatsAppNumber: null,
+    instagramUrl: null,
+    additionalSocialUrl: null,
+    cityId: null,
+    cityFreeText: "Cape Town",
+    dateOfBirth: "1996-12-10",
+    shortBiography: "A".repeat(60),
+    requestedHourlyRate: 1500,
+    currencyCode: "ZAR",
+    publishOnApproval: true,
+    decisionReason: "Please add two brighter photographs.",
     minimumPhotographs: 3,
     maximumPhotographs: 8,
     media: [],
+    createdAtUtc: "2026-01-01T00:00:00Z",
+    submittedAtUtc: "2026-01-02T00:00:00Z",
   };
 
   function renderContinue(url: string, impl: () => Promise<unknown>) {
-    const spy = vi.spyOn(service, "getApplicationStatus").mockImplementation(impl as never);
+    const spy = vi.spyOn(service, "getApplicationDetails").mockImplementation(impl as never);
     window.history.replaceState({}, "", url);
     render(
       <MemoryRouter initialEntries={[url]}>

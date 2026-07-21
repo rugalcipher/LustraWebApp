@@ -232,3 +232,64 @@ export function useReorderTalentMedia(profileId: string | undefined) {
     onSuccess: () => invalidate(),
   });
 }
+
+// ---- staff upload -------------------------------------------------------------
+
+/**
+ * Uploads a photograph on a talent's behalf.
+ *
+ * Three steps, and the order matters: ask for a slot, PUT the bytes straight to
+ * storage, then tell the API the object landed. A photograph exists only once
+ * finalize succeeds — showing it as uploaded before that would claim something
+ * the server has not confirmed.
+ *
+ * It lands `PendingReview` and private. Staff uploading a photograph is not
+ * staff moderating it, and the manager reflects that rather than auto-approving.
+ */
+export function useUploadTalentMedia(profileId: string | undefined) {
+  const invalidate = useMediaInvalidation(profileId);
+  return useMutation({
+    mutationFn: async ({
+      file,
+      idempotencyKey,
+      onProgress,
+    }: {
+      file: File;
+      idempotencyKey: string;
+      onProgress?: (fraction: number) => void;
+    }) => {
+      const ticket = await talentAdmin.requestTalentMediaUpload(
+        profileId!,
+        {
+          contentType: file.type,
+          expectedSizeBytes: file.size,
+          fileName: file.name,
+        },
+        idempotencyKey
+      );
+      try {
+        await talentAdmin.uploadTalentMediaToStorage(ticket, file, onProgress);
+      } catch (error) {
+        // Release the slot rather than leaving an orphan row waiting for bytes
+        // that are never coming. Best-effort: the original failure is what the
+        // operator needs to see.
+        await talentAdmin.cancelTalentMediaUpload(profileId!, ticket.mediaId).catch(() => {});
+        throw error;
+      }
+      return talentAdmin.finalizeTalentMediaUpload(profileId!, ticket.mediaId);
+    },
+    retry: false,
+    onSuccess: () => invalidate(),
+  });
+}
+
+/** What archiving would affect. Read before archiving, never as a side effect. */
+export function useTalentArchiveImpact(profileId: string | undefined, enabled = false) {
+  const { canManage } = useTalentAdminPermissions();
+  return useQuery({
+    queryKey: queryKeys.talentAdmin.archiveImpact(profileId ?? ""),
+    queryFn: ({ signal }) => talentAdmin.getTalentArchiveImpact(profileId!, signal),
+    enabled: canManage && enabled && Boolean(profileId),
+    staleTime: 10_000,
+  });
+}

@@ -253,8 +253,12 @@ export function updateTalent(profileId: string, fields: TalentProfileFields): Pr
   return api.put<void>(`${BASE}/${profileId}`, fields);
 }
 
-export function archiveTalent(profileId: string, reason: string): Promise<void> {
-  return api.post<void>(`${BASE}/${profileId}/archive`, { reason });
+/** Archives, returning the same impact shape so the consequences are stated. */
+export function archiveTalent(
+  profileId: string,
+  reason: string
+): Promise<TalentArchiveImpactDto> {
+  return api.post<TalentArchiveImpactDto>(`${BASE}/${profileId}/archive`, { reason });
 }
 
 export function restoreTalent(profileId: string): Promise<void> {
@@ -314,6 +318,135 @@ export function reorderTalentMedia(
   items: { mediaId: string; sortOrder: number }[]
 ): Promise<void> {
   return api.post<void>(`${BASE}/${profileId}/media/reorder`, { items });
+}
+
+// ---- staff media upload -----------------------------------------------------
+
+/**
+ * Mirrors the shared `UploadTicketDto`.
+ *
+ * Same presigned architecture as the talent's own upload: **no bytes pass
+ * through the API** and no storage credential leaves the server. The storage
+ * key is generated server-side inside the talent's namespace, so the request
+ * carries no key at all and there is nothing to aim at another talent's folder.
+ */
+export interface UploadTicketDto {
+  mediaId: string;
+  uploadUrl: string;
+  httpMethod: string;
+  storageKey: string;
+  contentType: string;
+  expiresAtUtc: string;
+}
+
+/** Mirrors `ManagementUploadRequest`. */
+export interface ManagementUploadRequest {
+  contentType: string;
+  expectedSizeBytes: number;
+  fileName: string;
+  caption?: string | null;
+  sortOrder?: number | null;
+}
+
+/**
+ * Asks for an upload slot.
+ *
+ * The idempotency key must be minted once per file and reused on retry, so a
+ * resubmitted request replays rather than creating a second row. The declared
+ * size is a claim — the server reads the true size and dimensions from the
+ * stored object at finalize.
+ */
+export function requestTalentMediaUpload(
+  profileId: string,
+  request: ManagementUploadRequest,
+  idempotencyKey: string
+): Promise<UploadTicketDto> {
+  return api.post<UploadTicketDto>(`${BASE}/${profileId}/media/request-upload`, request, {
+    idempotencyKey,
+  });
+}
+
+/**
+ * Uploads the bytes straight to the presigned URL.
+ *
+ * Deliberately NOT routed through `api`: this request must carry no Lustra
+ * header at all. An `Authorization` header on a presigned PUT breaks the
+ * signature, and the object store has no business seeing a Lustra credential.
+ */
+export async function uploadTalentMediaToStorage(
+  ticket: UploadTicketDto,
+  file: File,
+  onProgress?: (fraction: number) => void
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(ticket.httpMethod || "PUT", ticket.uploadUrl, true);
+    xhr.setRequestHeader("Content-Type", ticket.contentType);
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(event.loaded / event.total);
+      };
+    }
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Upload failed (${xhr.status})`));
+    xhr.onerror = () => reject(new Error("Upload failed"));
+    xhr.onabort = () => reject(new Error("Upload cancelled"));
+    xhr.send(file);
+  });
+}
+
+/**
+ * Confirms the object landed.
+ *
+ * The item becomes `PendingReview` and stays PRIVATE: staff uploading a
+ * photograph is not staff moderating it, and the two are separate acts on
+ * purpose. Naturally idempotent — a second call returns the same item.
+ */
+export function finalizeTalentMediaUpload(
+  profileId: string,
+  mediaId: string
+): Promise<TalentMediaDto> {
+  return api.post<TalentMediaDto>(`${BASE}/${profileId}/media/${mediaId}/finalize`, {});
+}
+
+/** Abandons an upload slot that was never completed. */
+export function cancelTalentMediaUpload(profileId: string, mediaId: string): Promise<void> {
+  return api.delete<void>(`${BASE}/${profileId}/media/${mediaId}/upload`);
+}
+
+// ---- archive impact ----------------------------------------------------------
+
+/**
+ * Mirrors `TalentArchiveImpactDto`.
+ *
+ * Archiving is **withdrawal, not deletion**: it unpublishes, clears featured,
+ * removes from discovery and stops new appointments — and cancels nothing,
+ * reassigns nobody, deletes no media or conversation and closes no account.
+ *
+ * `futureAppointmentCount` is therefore the number that matters. Those
+ * appointments stand, and dealing with them is work somebody now has to do by
+ * hand. It is reported rather than silently handled.
+ */
+export interface TalentArchiveImpactDto {
+  talentProfileId: string;
+  displayName: string;
+  wasPublished: boolean;
+  wasFeatured: boolean;
+  futureAppointmentCount: number;
+  nextAppointmentDate: string | null;
+  totalAppointmentCount: number;
+  conversationCount: number;
+  mediaCount: number;
+}
+
+/** Reports what archiving would affect, without changing anything. */
+export function getTalentArchiveImpact(
+  profileId: string,
+  signal?: AbortSignal
+): Promise<TalentArchiveImpactDto> {
+  return api.get<TalentArchiveImpactDto>(`${BASE}/${profileId}/archive-impact`, { signal });
 }
 
 /** Refusal codes the UI branches on. The API sends these as `errorCode`. */

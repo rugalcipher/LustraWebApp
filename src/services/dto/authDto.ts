@@ -32,6 +32,15 @@ export interface AuthUserDto {
   accountStatus: string;
   roles: string[];
   permissions: string[];
+  /**
+   * True while the account must choose a new password before it can be used.
+   *
+   * Set when an administrator issues a temporary password or forces a reset.
+   * The session is genuinely RESTRICTED, not merely advised: the API refuses
+   * every authenticated route except password recovery with
+   * `auth.password_change_required` until the change succeeds.
+   */
+  mustChangePassword?: boolean;
   /** Not yet in the backend contract — reserved for the membership stage. */
   membership?: MembershipDto | null;
 }
@@ -70,6 +79,9 @@ export function mapAuthUserToPrincipal(dto: AuthUserDto): Principal {
     roles,
     permissions: dto.permissions ?? [],
     membership: normalizeMembership(dto.membership),
+    // Defaults to false: an older API that omits the field must not accidentally
+    // lock everyone out. The server enforces the restriction regardless.
+    mustChangePassword: dto.mustChangePassword === true,
     isAuthenticated: true,
     isLoading: false,
     source: "real",

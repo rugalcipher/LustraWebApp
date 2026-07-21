@@ -146,6 +146,62 @@ export function getApplicationStatus(
   });
 }
 
+/**
+ * Mirrors `TalentApplicationDetailsDto` — everything the applicant typed.
+ *
+ * Hand-built server-side rather than projected from the entity, so adding a
+ * management field cannot silently start disclosing it. Carries no internal
+ * note, no reviewer identity, no review timestamp and no audit field; the only
+ * management text is `decisionReason`, written knowing they would read it.
+ */
+export interface TalentApplicationDetailsDto {
+  applicationId: string;
+  reference: string;
+  status: string;
+  isEditable: boolean;
+  legalFirstName: string;
+  legalMiddleNames: string | null;
+  legalSurname: string;
+  requestedDisplayName: string;
+  email: string;
+  cellphoneNumber: string;
+  whatsAppNumber: string | null;
+  instagramUrl: string | null;
+  additionalSocialUrl: string | null;
+  cityId: string | null;
+  cityFreeText: string | null;
+  dateOfBirth: string;
+  shortBiography: string;
+  requestedHourlyRate: number | null;
+  currencyCode: string | null;
+  publishOnApproval: boolean;
+  decisionReason: string | null;
+  minimumPhotographs: number;
+  maximumPhotographs: number;
+  media: TalentApplicationMediaDto[];
+  createdAtUtc: string;
+  submittedAtUtc: string | null;
+}
+
+/**
+ * The applicant's own details, for resuming after changes were requested.
+ *
+ * Read-only, so any token scope is accepted. This is what removes the
+ * "retype your legal name and date of birth to fix one photograph" problem —
+ * the form is repopulated from what they already sent.
+ */
+export function getApplicationDetails(
+  id: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<TalentApplicationDetailsDto> {
+  return api.get<TalentApplicationDetailsDto>(`${PUBLIC}/${id}/details`, {
+    anonymous: true,
+    headers: tokenHeader(token),
+    signal,
+  });
+}
+
 export function requestUpload(
   id: string,
   token: string,

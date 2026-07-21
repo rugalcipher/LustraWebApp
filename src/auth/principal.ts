@@ -24,6 +24,14 @@ export interface Principal {
   roles: Role[];
   permissions: string[];
   membership: Membership;
+  /**
+   * The session is restricted until a new password is chosen.
+   *
+   * Mirrors the `mcp` claim the API mints at sign-in and preserves across
+   * refresh. The client cannot clear it — clearing it here would only hide the
+   * screen, not lift the restriction, and every request would still be refused.
+   */
+  mustChangePassword: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
   source: PrincipalSource;
@@ -38,6 +46,7 @@ export const GUEST_PRINCIPAL: Principal = Object.freeze({
   roles: [],
   permissions: [],
   membership: STANDARD_MEMBERSHIP,
+  mustChangePassword: false,
   isAuthenticated: false,
   isLoading: false,
   source: "guest",
@@ -68,6 +77,7 @@ export function principalFromAuthUser(authUser: unknown): Principal {
     roles,
     permissions: Array.isArray(u.permissions) ? (u.permissions as string[]) : [],
     membership: normalizeMembership(u.membership),
+    mustChangePassword: u.mustChangePassword === true,
     isAuthenticated: true,
     isLoading: false,
     source: "real",
@@ -87,6 +97,9 @@ export interface DevPreviewInput {
  */
 export function principalFromDevPreview(preview: DevPreviewInput): Principal {
   return {
+    // The dev preview never simulates a restricted session: it exists to look at
+    // role-specific UI, and a lockout screen would just hide all of it.
+    mustChangePassword: false,
     userId: `dev:${preview.role}`,
     email: preview.email ?? null,
     displayName: preview.displayName ?? null,

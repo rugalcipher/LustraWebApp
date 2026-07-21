@@ -1,13 +1,15 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Loader2, AlertTriangle, ImageOff, Star, Trash2, RotateCcw, History, Eye, EyeOff,
-  Crown, Lock, Check, X, MessageSquareWarning,
+  Crown, Lock, Check, X, MessageSquareWarning, Upload,
 } from "lucide-react";
 import { Card } from "@/components/lustra/Primitives";
 import { cn } from "@/lib/utils";
 import { isApiError, toUserMessage } from "@/api/problemDetails";
 import ConfirmAction from "@/features/talentApplication/ConfirmAction";
-import { useTalentMedia, useMediaAction, useReorderTalentMedia, useMediaHistory } from "@/features/talentAdmin/hooks";
+import {
+  useTalentMedia, useMediaAction, useReorderTalentMedia, useMediaHistory, useUploadTalentMedia,
+} from "@/features/talentAdmin/hooks";
 import {
   MEDIA_VISIBILITY, MEDIA_MODERATION_STATUS, MEDIA_ADMIN_ERROR_CODES, canBeCover,
 } from "@/services/mediaAdminService";
@@ -32,7 +34,16 @@ import {
  *
  * Images are rendered from the `readUrl` the API mints per request. Nothing here
  * constructs a URL from an id, and no URL is logged or persisted.
+ *
+ * Staff can also ADD a photograph without signing in as the talent: request a
+ * slot, PUT the bytes straight to storage, finalize. The bytes never pass
+ * through the API. What lands is `PendingReview` and private — uploading is not
+ * moderating, and the item still has to be approved and made public here before
+ * anyone outside Lustra can see it.
  */
+
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_BYTES = 12 * 1024 * 1024;
 
 const VISIBILITY_META = {
   [MEDIA_VISIBILITY.public]: {
@@ -129,9 +140,46 @@ export default function MediaManager({ profileId }) {
   const action = useMediaAction(profileId);
   const reorder = useReorderTalentMedia(profileId);
 
+  const upload = useUploadTalentMedia(profileId);
+
   const [dialog, setDialog] = useState(null); // { kind, mediaId, title, ... }
   const [actionError, setActionError] = useState("");
   const [openHistory, setOpenHistory] = useState(null);
+  const [uploads, setUploads] = useState({});
+  const fileInput = useRef(null);
+
+  async function uploadFiles(fileList) {
+    const files = Array.from(fileList ?? []);
+    for (const file of files) {
+      const clientId = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
+      if (!IMAGE_TYPES.includes(file.type)) {
+        setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: "JPG, PNG or WebP only" } }));
+        continue;
+      }
+      if (file.size > MAX_BYTES) {
+        setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: "Each image must be 12MB or smaller" } }));
+        continue;
+      }
+      setUploads((u) => ({ ...u, [clientId]: { name: file.name, progress: 0 } }));
+      try {
+        await upload.mutateAsync({
+          file,
+          // Minted once per file and reused on retry, so a resubmission replays
+          // rather than creating a second row.
+          idempotencyKey: clientId,
+          onProgress: (fraction) =>
+            setUploads((u) => ({ ...u, [clientId]: { ...u[clientId], progress: fraction } })),
+        });
+        setUploads((u) => {
+          const rest = { ...u };
+          delete rest[clientId];
+          return rest;
+        });
+      } catch (error) {
+        setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: toUserMessage(error) } }));
+      }
+    }
+  }
 
   const items = media.data ?? [];
   const cover = items.find((m) => m.isCover) ?? null;
@@ -194,6 +242,58 @@ export default function MediaManager({ profileId }) {
           </p>
         )}
       </div>
+
+      <div
+        onClick={() => fileInput.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          uploadFiles(e.dataTransfer.files);
+        }}
+        className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-white/15 px-4 py-8 cursor-pointer hover:border-rose-gold/40 transition"
+      >
+        <Upload className="w-5 h-5 text-rose-gold/80" strokeWidth={1.3} aria-hidden="true" />
+        <p className="font-body text-body text-soft-ivory/80">Add photographs — drag &amp; drop, or browse</p>
+        <p className="font-body text-meta text-muted-grey">
+          Uploaded photographs arrive pending review and private. Approve and make one public
+          before it can be a cover or before the profile can be published.
+        </p>
+        <input
+          ref={fileInput}
+          type="file"
+          accept={IMAGE_TYPES.join(",")}
+          multiple
+          className="hidden"
+          aria-label="Add photographs"
+          onChange={(e) => {
+            uploadFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      {Object.entries(uploads).map(([id, u]) => (
+        <div key={id} className="rounded-sm border border-white/10 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-body text-body text-soft-ivory/80 truncate">{u.name}</span>
+            {u.error ? (
+              <span className="font-body text-meta text-error">{u.error}</span>
+            ) : (
+              <span className="font-body text-meta text-muted-grey tabular-nums">
+                {Math.round((u.progress ?? 0) * 100)}%
+              </span>
+            )}
+          </div>
+          {!u.error && (
+            <div className="mt-2 h-0.5 bg-ivory/10">
+              <div
+                className="h-full bg-rose-gold origin-left"
+                style={{ transform: `scaleX(${u.progress ?? 0})` }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
 
       {items.length === 0 && (
         <Card className="p-6">

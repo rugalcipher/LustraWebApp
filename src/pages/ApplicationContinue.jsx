@@ -29,10 +29,13 @@ import { toUserMessage, isApiError } from "@/api/problemDetails";
  * From that point the token exists only in sessionStorage and only ever travels
  * in the `X-Application-Token` header. It is never rendered, logged or copied.
  *
- * The page reads the applicant-safe status projection, which carries the
- * decision reason Management wrote *for the applicant*. Internal notes are on a
- * different endpoint behind a permission the applicant does not hold, and are
- * never fetched here.
+ * The page reads the applicant-safe DETAILS projection, which carries the
+ * decision reason Management wrote *for the applicant* and everything they
+ * originally typed — so a changes-requested application is resumed by editing,
+ * not by retyping a legal name and date of birth to correct one photograph.
+ *
+ * Internal notes live on a different endpoint behind a permission the applicant
+ * does not hold, and are never fetched here.
  */
 
 const inputCls =
@@ -80,7 +83,6 @@ export default function ApplicationContinue() {
   const [phase, setPhase] = useState("loading"); // loading | ready | invalid | resubmitted
   const [failure, setFailure] = useState("");
   const [form, setForm] = useState(EMPTY_DETAILS);
-  const [editingDetails, setEditingDetails] = useState(false);
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState("");
   const [busy, setBusy] = useState(false);
@@ -122,16 +124,39 @@ export default function ApplicationContinue() {
     let cancelled = false;
 
     applications
-      .getApplicationStatus(session.applicationId, session.token)
+      .getApplicationDetails(session.applicationId, session.token)
       .then((result) => {
         if (cancelled) return;
         setStatus(result);
         setSession((prev) => (prev ? { ...prev, reference: result.reference } : prev));
         saveSession({ ...session, reference: result.reference });
-        // Only the requested display name comes back in the applicant-safe
-        // projection; the rest of the record is not disclosed by any public
-        // route, so the form can pre-fill nothing else. See `saveDetails`.
-        setForm((prev) => ({ ...prev, requestedDisplayName: result.requestedDisplayName ?? "" }));
+        // Repopulated from what the applicant already sent. Optional fields come
+        // back as null and the form works in empty strings, so they are mapped
+        // rather than spread — a null in a controlled input is a React warning
+        // and an uncontrolled field.
+        setForm({
+          ...EMPTY_DETAILS,
+          legalFirstName: result.legalFirstName ?? "",
+          legalMiddleNames: result.legalMiddleNames ?? "",
+          legalSurname: result.legalSurname ?? "",
+          requestedDisplayName: result.requestedDisplayName ?? "",
+          email: result.email ?? "",
+          cellphoneNumber: result.cellphoneNumber ?? "",
+          whatsAppNumber: result.whatsAppNumber ?? "",
+          instagram: result.instagramUrl ?? "",
+          additionalSocialUrl: result.additionalSocialUrl ?? "",
+          cityFreeText: result.cityFreeText ?? "",
+          dateOfBirth: result.dateOfBirth ?? "",
+          shortBiography: result.shortBiography ?? "",
+          requestedHourlyRate:
+            result.requestedHourlyRate != null ? String(result.requestedHourlyRate) : "",
+          currencyCode: result.currencyCode ?? "ZAR",
+          publishOnApproval: result.publishOnApproval ?? true,
+          // Both were given when the application was first submitted. The server
+          // still revalidates them on the update.
+          isAdultDeclared: true,
+          consentToContact: true,
+        });
         setPhase("ready");
       })
       .catch((error) => {
@@ -180,15 +205,14 @@ export default function ApplicationContinue() {
     setStatus((prev) => (prev ? { ...prev, media: typeof next === "function" ? next(prev.media) : next } : prev));
 
   /**
-   * Sends the detail record, if the applicant chose to amend it.
+   * Sends the detail record.
    *
-   * The API replaces the whole record on PUT, and no public route discloses the
-   * details back, so an amendment necessarily means re-entering the full set.
-   * Skipping this entirely — the common case, where only photographs were the
-   * problem — leaves the stored details untouched.
+   * The API replaces the whole record on PUT, which is safe now that the form is
+   * populated from what the applicant actually sent: an untouched field is
+   * written back with its own value rather than blanked.
    */
   async function saveDetails() {
-    if (!session || !editingDetails) return true;
+    if (!session) return true;
     const next = { ...validateAbout(form), ...validateProfile(form) };
     setErrors(next);
     if (Object.keys(next).length) {
@@ -323,27 +347,12 @@ export default function ApplicationContinue() {
           </p>
         ) : (
           <>
-            <div className="rounded-sm border border-white/10 p-4 space-y-3">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 w-4 h-4 accent-rose-gold"
-                  checked={editingDetails}
-                  onChange={(e) => setEditingDetails(e.target.checked)}
-                />
-                <span className="font-body text-body text-soft-ivory/85">
-                  I also need to change my written details
-                </span>
-              </label>
-              <p className="font-body text-meta text-muted-grey">
-                Your details are kept private and are not shown back to you here, so amending
-                them means completing the whole form again. Leave this unticked if only your
-                photographs need changing — everything you already sent stays as it is.
-              </p>
-            </div>
+            <p className="font-body text-body text-soft-ivory/75">
+              Your application is below exactly as you sent it. Change whatever needs changing
+              — anything you leave alone stays as it is.
+            </p>
 
-            {editingDetails && (
-              <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Legal first name" required error={errors.legalFirstName} htmlFor="legalFirstName">
                     <input id="legalFirstName" className={inputCls} value={form.legalFirstName} onChange={set("legalFirstName")} />
@@ -429,8 +438,7 @@ export default function ApplicationContinue() {
                     Lustra Management decides whether and when a profile is published.
                   </span>
                 </label>
-              </div>
-            )}
+            </div>
 
             <PhotographManager
               session={session}

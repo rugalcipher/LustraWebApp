@@ -14,6 +14,7 @@ import AppShell from "@/layouts/AppShell";
 import InternalShell from "@/layouts/InternalShell";
 import { env } from "@/config/env";
 import { publicRoutes, clientRoutes, internalRoutes } from "@/app/routeRegistry";
+import RestrictedSessionGate from "@/auth/RestrictedSessionGate";
 
 /**
  * All routing is generated from the typed route registry (src/app/routeRegistry)
@@ -91,7 +92,12 @@ export default function App() {
             <DevPreviewProvider>
               <PrincipalProvider>
                 <ScrollToTop />
-                <AppRoutes />
+                {/* Above the route guards on purpose, mirroring the API's
+                    middleware order: "change your password" must win over a role
+                    denial, which would send the user somewhere that cannot help. */}
+                <RestrictedSessionGate>
+                  <AppRoutes />
+                </RestrictedSessionGate>
                 <RoleSwitcher />
                 <Toaster />
               </PrincipalProvider>
