@@ -23,7 +23,7 @@ interface DevPreviewState {
 
 interface DevPreviewContextValue extends DevPreviewState {
   enabled: boolean;
-  isHydrated: boolean;
+  isHydrated: boolean; 
   isActive: boolean;
   setRole: (role: Role | null) => void;
   setMembershipTier: (tier: MembershipTier) => void;
