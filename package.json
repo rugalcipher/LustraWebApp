@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:production": "vite build --mode production",
+    "build:uat": "vite build --mode uat",
     "dev": "vite",
+    "dev:uat": "vite --mode uat",
     "images": "python scripts/gen-marketing-images.py",
     "images:check": "node scripts/check-marketing-images.mjs",
     "images:force": "python scripts/gen-marketing-images.py --force",

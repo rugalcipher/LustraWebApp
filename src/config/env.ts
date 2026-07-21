@@ -80,7 +80,7 @@ function buildEnv(): AppEnv {
   // In API mode an explicit base URL is required (no silent default).
   if (apiMode === "api" && !e.VITE_API_BASE_URL) {
     throw new EnvironmentConfigError(
-      "API mode requires VITE_API_BASE_URL to be set to the .NET API base URL (e.g. https://api.lustra.vip/api/v1)."
+      "API mode requires VITE_API_BASE_URL to be set to the .NET API base URL (e.g. https://<api-host>/api/v1)."
     );
   }
   const apiBaseUrl = (e.VITE_API_BASE_URL || "/api/v1").replace(/\/+$/, "");
@@ -92,7 +92,7 @@ function buildEnv(): AppEnv {
     if (problems.length > 0) {
       throw new EnvironmentConfigError(
         `VITE_API_BASE_URL is not valid for a deployed build: ${problems.join(" ")} ` +
-          `Got "${apiBaseUrl}". Expected something like https://uatapi.lustra.vip/api/v1 ` +
+          `Got "${apiBaseUrl}". Expected the form https://<api-host>/api/v1 ` +
           `(https, no trailing slash, including the /api/v1 prefix).`
       );
     }

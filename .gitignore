@@ -1,10 +1,25 @@
 #env
+# Ignore every env file by default, so a developer's local secrets and any
+# ad-hoc .env.<something> can never be committed by accident.
 .env
 .env.*
-# ...but the template must be committed: it documents every variable the app
-# reads and carries no values. Without it a new developer cannot configure a
-# local build, and the deployment contract in ENVIRONMENT.md has no counterpart.
+
+# ...but three files ARE committed, and must be.
+#
+# .env.example      documents every variable the app reads, with no values.
+# .env.uat          the UAT fallback, loaded by `vite build --mode uat`.
+# .env.production   the LIVE fallback, loaded by a default `vite build`.
+#
+# Committing the last two is safe BECAUSE every VITE_* value is compiled into
+# the public browser bundle: they are already readable by any visitor, so they
+# are configuration rather than secrets. Never put a key, token or connection
+# string in them — authorization is the API's job, never the bundle's.
 !.env.example
+!.env.uat
+!.env.production
+
+# .env.local stays ignored deliberately. It is a developer's personal override
+# and is the one file likely to hold a real credential or a tunnel URL.
 
 # Logs
 /logs

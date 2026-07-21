@@ -15,6 +15,9 @@ import { deployedApiBaseUrlProblems } from "@/config/env";
 const ROOT = path.resolve(__dirname, "../..");
 const SRC = path.join(ROOT, "src");
 
+/** Line feed. Named so the split below survives editors that rewrite line endings. */
+const NEWLINE = "\n";
+
 function sourceFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
@@ -80,11 +83,12 @@ describe("API base URL", () => {
     // inlined by Vite at build time. A literal host in a component or service would
     // silently win over the environment variable in one environment and not another.
     //
-    // src/config/env.ts is exempt — it names hosts only inside the error message that
-    // tells an operator what a valid value looks like.
-    const offenders = [...sourceFiles(SRC), path.join(ROOT, "index.html")]
-      .filter((file) => !file.endsWith(path.join("config", "env.ts")))
-      .filter((file) => /https:\/\/[a-z0-9.-]*lustra\.vip/i.test(fs.readFileSync(file, "utf8")));
+    // No exemptions. env.ts describes the required SHAPE (https://<api-host>/api/v1)
+    // rather than naming a host, so a live bundle never carries a UAT hostname and vice
+    // versa — which it briefly did, inside a configuration error message.
+    const offenders = [...sourceFiles(SRC), path.join(ROOT, "index.html")].filter((file) =>
+      /https:\/\/[a-z0-9.-]*lustra\.vip/i.test(fs.readFileSync(file, "utf8"))
+    );
 
     expect(offenders).toEqual([]);
   });
@@ -186,5 +190,104 @@ describe("deployment templates", () => {
         expect(value, `${name} must not end with a slash`).not.toMatch(/\/$/);
       }
     }
+  });
+});
+
+describe("environment files", () => {
+  const read = (name: string) => fs.readFileSync(path.join(ROOT, name), "utf8");
+
+  /** The uncommented NAME=value pairs in an env file. */
+  function assignments(body: string): Map<string, string> {
+    return new Map(
+      body
+        .split(NEWLINE)
+        .map((line) => line.trim())
+        .filter((line) => /^VITE_[A-Z_]+=/.test(line))
+        .map((line) => {
+          const at = line.indexOf("=");
+          return [line.slice(0, at), line.slice(at + 1)] as const;
+        })
+    );
+  }
+
+  it("ships .env.uat pointing at the UAT API", () => {
+    const uat = assignments(read(".env.uat"));
+
+    expect(uat.get("VITE_DATA_MODE")).toBe("api");
+    expect(uat.get("VITE_API_BASE_URL")).toBe("https://uatapi.lustra.vip/api/v1");
+    expect(uat.get("VITE_SIGNALR_BASE_URL")).toBe("https://uatapi.lustra.vip");
+    expect(uat.get("VITE_APP_ENV")).toBe("uat");
+    expect(uat.get("VITE_ENABLE_DEV_ROLE_SWITCHER")).toBe("false");
+  });
+
+  it("ships .env.production pointing at the LIVE API", () => {
+    const live = assignments(read(".env.production"));
+
+    expect(live.get("VITE_DATA_MODE")).toBe("api");
+    expect(live.get("VITE_API_BASE_URL")).toBe("https://api.lustra.vip/api/v1");
+    expect(live.get("VITE_SIGNALR_BASE_URL")).toBe("https://api.lustra.vip");
+    expect(live.get("VITE_APP_ENV")).toBe("production");
+    expect(live.get("VITE_ENABLE_DEV_ROLE_SWITCHER")).toBe("false");
+  });
+
+  it("never lets the live file reference UAT, or the UAT file reference live", () => {
+    // The consequence of a mix-up is not a broken page: UAT testers would be messaging
+    // real clients through the live API, or the live site would be reading UAT data.
+    expect(read(".env.production")).not.toMatch(/uatapi\.lustra\.vip/i);
+
+    const uatHosts = [...assignments(read(".env.uat")).values()].filter((v) => v.startsWith("https://"));
+    for (const host of uatHosts) {
+      expect(host).toMatch(/uatapi\.lustra\.vip/i);
+    }
+  });
+
+  it("keeps the dev role switcher off in both deployed environments", () => {
+    // Belt and braces: env.ts also force-disables it in any production build.
+    for (const file of [".env.uat", ".env.production"]) {
+      expect(assignments(read(file)).get("VITE_ENABLE_DEV_ROLE_SWITCHER")).toBe("false");
+    }
+  });
+
+  it("puts no secret-looking key in a committed env file", () => {
+    // Every VITE_* value is compiled into the public bundle. A committed secret here is
+    // a published secret.
+    for (const file of [".env.uat", ".env.production", ".env.example"]) {
+      for (const [name] of assignments(read(file))) {
+        expect(name, `${file}:${name} looks like a secret`).not.toMatch(
+          /SECRET|PASSWORD|TOKEN|PRIVATE|CREDENTIAL|SIGNING/i
+        );
+      }
+    }
+  });
+
+  it("commits exactly the three intended env files and ignores the rest", () => {
+    const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" })
+      .trim()
+      .split(/\s+/)
+      .filter((f) => /^\.env/.test(f));
+
+    expect(tracked.sort()).toEqual([".env.example", ".env.production", ".env.uat"]);
+  });
+
+  it("gitignores .env.local, which is where a real credential would land", () => {
+    const check = (file: string) => {
+      try {
+        execFileSync("git", ["check-ignore", "-q", file], { cwd: ROOT });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    expect(check(".env.local")).toBe(true);
+    expect(check(".env")).toBe(true);
+  });
+
+  it("exposes a build script per deployed mode", () => {
+    const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+
+    expect(pkg.scripts["dev:uat"]).toBe("vite --mode uat");
+    expect(pkg.scripts["build:uat"]).toBe("vite build --mode uat");
+    expect(pkg.scripts["build:production"]).toBe("vite build --mode production");
   });
 });
