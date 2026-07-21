@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { UserPlus, Mail, Lock, User, Loader2, CheckCircle2 } from "lucide-react";
+import { UserPlus, Mail, User, Loader2, CheckCircle2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import PasswordField from "@/components/auth/PasswordField";
 import { toast } from "@/components/ui/use-toast";
 import { registerSchema } from "@/features/auth/schemas";
 import {
@@ -180,53 +181,23 @@ export default function Register() {
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Lock
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              className="pl-10 h-12"
-              aria-invalid={Boolean(errors.password)}
-              {...register("password")}
-            />
-          </div>
-          {errors.password ? (
-            <p className="text-xs text-destructive">{errors.password.message}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              At least 8 characters, with upper and lower case, a number and a symbol.
-            </p>
-          )}
-        </div>
+        <PasswordField
+          label="Password"
+          autoComplete="new-password"
+          showRequirements
+          value={watch("password") ?? ""}
+          error={errors.password?.message}
+          {...register("password")}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm password</Label>
-          <div className="relative">
-            <Lock
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              className="pl-10 h-12"
-              aria-invalid={Boolean(errors.confirmPassword)}
-              {...register("confirmPassword")}
-            />
-          </div>
-          {errors.confirmPassword && (
-            <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-          )}
-        </div>
+        <PasswordField
+          label="Confirm password"
+          autoComplete="new-password"
+          value={watch("confirmPassword") ?? ""}
+          matchValue={watch("password") ?? ""}
+          error={errors.confirmPassword?.message}
+          {...register("confirmPassword")}
+        />
 
         <div className="space-y-3 pt-2">
           <ConsentCheckbox

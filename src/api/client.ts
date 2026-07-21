@@ -113,7 +113,6 @@ function withTimeout(signal: AbortSignal | undefined, timeoutMs: number) {
 function devLog(method: string, url: string, status: number | string, correlationId: string): void {
   if (!env.isDev) return;
   // Never logs bodies or tokens — method, URL, status and correlation only.
-  // eslint-disable-next-line no-console
   console.debug(`[api] ${method} ${url} → ${status} (cid ${correlationId})`);
 }
 

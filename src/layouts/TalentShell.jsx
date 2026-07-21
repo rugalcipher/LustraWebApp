@@ -51,7 +51,7 @@ export default function TalentShell() {
                 )}
               >
                 <Icon className="w-4 h-4 shrink-0" strokeWidth={1.2} />
-                <span className="tracking-wide-luxe text-[0.65rem] uppercase">{label}</span>
+                <span className="tracking-wide-luxe text-nav uppercase">{label}</span>
               </Link>
             );
           })}
@@ -59,7 +59,7 @@ export default function TalentShell() {
         <div className="px-4 py-3 border-t border-white/[0.06]">
           <Link
             to="/"
-            className="text-[0.6rem] tracking-luxe uppercase text-muted-grey hover:text-rose-gold transition font-body"
+            className="text-nav tracking-luxe uppercase text-muted-grey hover:text-rose-gold transition font-body"
           >
             ← Exit to site
           </Link>

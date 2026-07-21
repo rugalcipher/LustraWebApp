@@ -53,7 +53,7 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
           {workspaceLabel}
         </p>
         <p className="font-body text-sm text-ivory mt-1 truncate">{user.name}</p>
-        <p className="font-body text-[0.6rem] text-muted-grey mt-0.5 truncate">{user.membership}</p>
+        <p className="font-body text-meta text-muted-grey mt-0.5 truncate">{user.membership}</p>
       </div>
       <nav className="flex-1 overflow-y-auto lustra-scroll-hide px-3 py-4 space-y-0.5">
         {nav.map(({ to, label, icon }) => {
@@ -71,7 +71,7 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
               )}
             >
               <Icon className="w-4 h-4 shrink-0" strokeWidth={1.2} />
-              <span className="tracking-wide-luxe text-[0.65rem] uppercase">{label}</span>
+              <span className="tracking-wide-luxe text-nav uppercase">{label}</span>
             </Link>
           );
         })}
@@ -79,7 +79,7 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
       <div className="px-4 py-3 border-t border-white/[0.06]">
         <button
           onClick={() => navigate("/")}
-          className="w-full flex items-center gap-2 text-left text-[0.6rem] tracking-luxe uppercase text-muted-grey hover:text-rose-gold transition font-body"
+          className="w-full flex items-center gap-2 text-left text-nav tracking-luxe uppercase text-muted-grey hover:text-rose-gold transition font-body"
         >
           <LogOut className="w-3.5 h-3.5" strokeWidth={1.3} /> Exit to site
         </button>

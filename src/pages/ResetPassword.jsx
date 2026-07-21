@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Lock, Mail, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import PasswordField from "@/components/auth/PasswordField";
 import { resetPasswordSchema } from "@/features/auth/schemas";
 import { useResetPassword, applyServerErrors } from "@/features/auth/hooks";
 
@@ -30,6 +31,7 @@ export default function ResetPassword() {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(resetPasswordSchema),
@@ -120,54 +122,23 @@ export default function ResetPassword() {
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="newPassword">New password</Label>
-          <div className="relative">
-            <Lock
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="newPassword"
-              type="password"
-              autoComplete="new-password"
-              autoFocus
-              placeholder="••••••••"
-              className="pl-10 h-12"
-              aria-invalid={Boolean(errors.newPassword)}
-              {...register("newPassword")}
-            />
-          </div>
-          {errors.newPassword ? (
-            <p className="text-xs text-destructive">{errors.newPassword.message}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              At least 8 characters, with upper and lower case, a number and a symbol.
-            </p>
-          )}
-        </div>
+        <PasswordField
+          label="New password"
+          autoComplete="new-password"
+          showRequirements
+          value={watch("newPassword") ?? ""}
+          error={errors.newPassword?.message}
+          {...register("newPassword")}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm new password</Label>
-          <div className="relative">
-            <Lock
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              className="pl-10 h-12"
-              aria-invalid={Boolean(errors.confirmPassword)}
-              {...register("confirmPassword")}
-            />
-          </div>
-          {errors.confirmPassword && (
-            <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-          )}
-        </div>
+        <PasswordField
+          label="Confirm new password"
+          autoComplete="new-password"
+          value={watch("confirmPassword") ?? ""}
+          matchValue={watch("newPassword") ?? ""}
+          error={errors.confirmPassword?.message}
+          {...register("confirmPassword")}
+        />
 
         <Button type="submit" className="w-full h-12 font-medium" disabled={busy}>
           {busy ? (

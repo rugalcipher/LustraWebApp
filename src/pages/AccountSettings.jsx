@@ -7,6 +7,7 @@ import InternalHeader from "@/components/lustra/InternalHeader";
 import { Card, Eyebrow } from "@/components/lustra/Primitives";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import PasswordField from "@/components/auth/PasswordField";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { usePrincipal } from "@/auth/PrincipalContext";
@@ -99,6 +100,7 @@ function ChangePasswordForm({ onDone }) {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(changePasswordSchema),
@@ -128,19 +130,29 @@ function ChangePasswordForm({ onDone }) {
           {errors.root.message}
         </p>
       )}
-      {[
-        { name: "currentPassword", label: "Current password", autoComplete: "current-password" },
-        { name: "newPassword", label: "New password", autoComplete: "new-password" },
-        { name: "confirmPassword", label: "Confirm new password", autoComplete: "new-password" },
-      ].map((f) => (
-        <div key={f.name} className="space-y-1.5">
-          <Label className="text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">{f.label}</Label>
-          <Input type="password" autoComplete={f.autoComplete} className={inputCls} {...register(f.name)} />
-          {errors[f.name] && (
-            <p className="font-body text-[0.65rem] text-destructive">{errors[f.name].message}</p>
-          )}
-        </div>
-      ))}
+      <PasswordField
+        label="Current password"
+        autoComplete="current-password"
+        value={watch("currentPassword") ?? ""}
+        error={errors.currentPassword?.message}
+        {...register("currentPassword")}
+      />
+      <PasswordField
+        label="New password"
+        autoComplete="new-password"
+        showRequirements
+        value={watch("newPassword") ?? ""}
+        error={errors.newPassword?.message}
+        {...register("newPassword")}
+      />
+      <PasswordField
+        label="Confirm new password"
+        autoComplete="new-password"
+        value={watch("confirmPassword") ?? ""}
+        matchValue={watch("newPassword") ?? ""}
+        error={errors.confirmPassword?.message}
+        {...register("confirmPassword")}
+      />
       <div className="flex gap-2 pt-1">
         <button
           type="submit"

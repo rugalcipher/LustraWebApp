@@ -15,6 +15,8 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
+import VerifyEmail from "@/pages/VerifyEmail";
+import TalentActivate from "@/pages/TalentActivate";
 import Discover from "@/pages/Discover";
 import Saved from "@/pages/Saved";
 import CollectionDetail from "@/pages/CollectionDetail";
@@ -108,6 +110,9 @@ export const ROUTES: RouteDef[] = [
   // ---- Public ----
   { path: "/", element: <Landing />, access: "public", shell: "public" },
   { path: "/talent", element: <BrowseTalent />, access: "public", shell: "public" },
+  // MUST precede "/talent/:id": otherwise React Router matches "activate" as a
+  // talent id and every invitation link renders a broken profile page.
+  { path: "/talent/activate", element: <TalentActivate />, access: "public", shell: "public" },
   { path: "/talent/:id", element: <TalentProfile />, access: "public", shell: "public" },
   { path: "/request-access", element: <RequestAccess />, access: "public", shell: "public" },
   { path: "/for-talent", element: <TalentApplication />, access: "public", shell: "public" },
@@ -124,6 +129,8 @@ export const ROUTES: RouteDef[] = [
   { path: "/register", element: <Register />, access: "public", shell: "public" },
   { path: "/forgot-password", element: <ForgotPassword />, access: "public", shell: "public" },
   { path: "/reset-password", element: <ResetPassword />, access: "public", shell: "public" },
+  // Target of the backend's AppUrls:EmailVerificationPath link.
+  { path: "/verify-email", element: <VerifyEmail />, access: "public", shell: "public" },
   { path: "/dev/roles", element: <DevRoles />, access: "public", shell: "public", devOnly: true },
 
   // ---- Client app (mobile-first immersive) ----

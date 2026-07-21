@@ -4,6 +4,27 @@ module.exports = {
     content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
     theme: {
         extend: {
+            /**
+             * Responsive typography tokens.
+             *
+             * Internal desktop pages were built at mobile sizes (0.6–0.75rem),
+             * which reads as cramped on a 1440px console. These tokens grow with
+             * the viewport via clamp() instead of each page hardcoding a size, so
+             * mobile keeps the sizes that already work and desktop becomes
+             * legible. Use `text-body` for copy, `text-helper` for hints,
+             * `text-nav` for navigation labels and `text-meta` for timestamps and
+             * secondary metadata.
+             */
+            fontSize: {
+                // 13px mobile -> 16px at 1440px
+                body: ['clamp(0.8125rem, 0.72rem + 0.30vw, 1rem)', { lineHeight: '1.6' }],
+                // 12px -> 14px
+                helper: ['clamp(0.75rem, 0.70rem + 0.16vw, 0.875rem)', { lineHeight: '1.55' }],
+                // 12px -> 13.5px, wide tracking is applied separately
+                nav: ['clamp(0.75rem, 0.71rem + 0.13vw, 0.8438rem)', { lineHeight: '1.4' }],
+                // 11px -> 12.5px — the floor for anything a person must read
+                meta: ['clamp(0.6875rem, 0.65rem + 0.12vw, 0.7813rem)', { lineHeight: '1.45' }],
+            },
             borderRadius: {
                 lg: 'var(--radius)',
                 md: 'calc(var(--radius) - 2px)',
