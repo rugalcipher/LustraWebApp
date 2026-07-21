@@ -1,7 +1,9 @@
 import React, { useRef, useState } from "react";
-import { Upload, Star, Trash2 } from "lucide-react";
+import { Upload, Star, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import * as applications from "@/services/talentApplicationService";
-import { toUserMessage } from "@/api/problemDetails";
+import {
+  uploadFailureMessage, removalFailureMessage, correlationIdOf,
+} from "@/features/talentApplication/uploadErrors";
 
 /**
  * The applicant's photograph panel, shared by the first application and by the
@@ -21,11 +23,38 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 /**
- * Photographs the server has confirmed. A pending row exists in the database but
- * has no verified object behind it, so it must not count towards the minimum.
+ * Photographs the server has confirmed.
+ *
+ * `isUploaded` is the server's own answer: true only when it verified an object in
+ * the bucket. Everything else — a reservation still uploading, one whose PUT
+ * failed, one whose signed window closed — is a row with nothing behind it and
+ * must not count towards the minimum, the maximum, or cover selection.
+ *
+ * This used to compare `uploadStatus` against `"pending"`, but the server sends
+ * `Uploading` and `PendingReview`. Neither ever matched, so nothing was ever
+ * filtered and a failed upload was displayed and counted as a photograph the
+ * applicant had. That is the "5/8 uploaded" beside a visibly failed row.
+ *
+ * The status fallback is for a server that predates `isUploaded`; it checks the
+ * real enum names rather than an invented one.
  */
 export function finalizedPhotos(media) {
-  return (media ?? []).filter((m) => (m.uploadStatus ?? "").toLowerCase() !== "pending");
+  return (media ?? []).filter((m) =>
+    typeof m.isUploaded === "boolean"
+      ? m.isUploaded
+      : (m.uploadStatus ?? "").toLowerCase() === "pendingreview"
+  );
+}
+
+/**
+ * Rows the applicant can see but cannot use: an upload that failed, or a
+ * reservation whose signed window closed. Shown so they can be cleared, never
+ * counted.
+ */
+export function unusablePhotos(media) {
+  return (media ?? []).filter((m) =>
+    typeof m.isUploaded === "boolean" ? !m.isUploaded : false
+  );
 }
 
 /**
@@ -47,9 +76,14 @@ export default function PhotographManager({
   disabled = false,
 }) {
   const [uploads, setUploads] = useState({});
+  // Media ids with a DELETE in flight. Guards the button AND the handler: a
+  // disabled button can still be activated programmatically, and three
+  // simultaneous DELETEs for one id is what the UAT logs showed.
+  const [removing, setRemoving] = useState(() => new Set());
   const fileInput = useRef(null);
   const finalized = finalizedPhotos(media);
-  const report = (error) => onError?.(toUserMessage(error));
+  const unusable = unusablePhotos(media);
+  const report = (error) => onError?.(removalFailureMessage(error));
 
   async function uploadFiles(fileList) {
     const files = Array.from(fileList ?? []);
@@ -76,10 +110,24 @@ export default function PhotographManager({
           expectedSizeBytes: file.size,
           fileName: file.name,
         });
-        await applications.uploadToStorage(ticket, file, (fraction) =>
-          setUploads((u) => ({ ...u, [clientId]: { ...u[clientId], progress: fraction } }))
-        );
+        try {
+          await applications.uploadToStorage(ticket, file, (fraction) =>
+            setUploads((u) => ({ ...u, [clientId]: { ...u[clientId], progress: fraction } }))
+          );
+        } catch (uploadError) {
+          // The bytes never landed, so the reservation is worthless. Release it
+          // ONCE — leaving it behind is what made a failed upload reappear after
+          // a refresh and consume one of the applicant's slots. Best effort: the
+          // upload failure is what they need to read, not a cleanup failure.
+          await applications
+            .deleteMedia(session.applicationId, session.token, ticket.mediaId)
+            .catch(() => {});
+          throw uploadError;
+        }
+
         // A photograph exists only once the server confirms the object landed.
+        // Unreachable unless the PUT resolved, so a failed upload can never
+        // finalize a row that points at nothing.
         const confirmed = await applications.finalizeUpload(
           session.applicationId,
           session.token,
@@ -92,18 +140,36 @@ export default function PhotographManager({
           return rest;
         });
       } catch (error) {
-        setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: toUserMessage(error) } }));
+        setUploads((u) => ({
+          ...u,
+          [clientId]: { name: file.name, error: uploadFailureMessage(error), retryable: true },
+        }));
       }
     }
   }
 
   async function removePhoto(mediaId) {
-    if (!session || disabled) return;
+    // The handler refuses too, not just the button. Repeated clicks on a slow
+    // delete produced three concurrent DELETEs for one id.
+    if (!session || disabled || removing.has(mediaId)) return;
+
+    setRemoving((current) => new Set(current).add(mediaId));
     try {
       await applications.deleteMedia(session.applicationId, session.token, mediaId);
       onMediaChange((media ?? []).filter((m) => m.id !== mediaId));
     } catch (error) {
-      report(error);
+      const correlationId = correlationIdOf(error);
+      onError?.(
+        correlationId
+          ? `${removalFailureMessage(error)} (reference ${correlationId})`
+          : removalFailureMessage(error)
+      );
+    } finally {
+      setRemoving((current) => {
+        const next = new Set(current);
+        next.delete(mediaId);
+        return next;
+      });
     }
   }
 
@@ -229,10 +295,51 @@ export default function PhotographManager({
               <button
                 type="button"
                 onClick={() => removePhoto(m.id)}
+                disabled={removing.has(m.id) || disabled}
                 aria-label={`Remove ${m.originalFileName}`}
-                className="text-muted-grey hover:text-error"
+                className="text-muted-grey hover:text-error disabled:opacity-40 disabled:pointer-events-none"
               >
-                <Trash2 className="w-4 h-4" strokeWidth={1.4} />
+                {removing.has(m.id) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.4} aria-hidden="true" />
+                ) : (
+                  <Trash2 className="w-4 h-4" strokeWidth={1.4} aria-hidden="true" />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Rows with nothing behind them: an upload that failed, or a reservation
+          whose signed window closed. Shown so they can be cleared, and pointedly
+          NOT counted — displaying them as photographs is what made "5/8 uploaded"
+          appear beside a visibly failed row. */}
+      {unusable.length > 0 && (
+        <ul className="space-y-2" aria-label="Photographs that did not upload">
+          {unusable.map((m) => (
+            <li
+              key={m.id}
+              className="flex items-center gap-3 rounded-sm border border-warning/40 bg-warning/[0.06] p-2.5"
+            >
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0" strokeWidth={1.4} aria-hidden="true" />
+              <span className="flex-1 min-w-0 font-body text-body text-soft-ivory/85 truncate">
+                {m.originalFileName}
+              </span>
+              <span className="font-body text-meta text-warning whitespace-nowrap">
+                {m.isExpired ? "Upload expired" : "Did not finish"}
+              </span>
+              <button
+                type="button"
+                onClick={() => removePhoto(m.id)}
+                disabled={removing.has(m.id) || disabled}
+                aria-label={`Remove ${m.originalFileName}`}
+                className="text-muted-grey hover:text-error disabled:opacity-40 disabled:pointer-events-none"
+              >
+                {removing.has(m.id) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.4} aria-hidden="true" />
+                ) : (
+                  <Trash2 className="w-4 h-4" strokeWidth={1.4} aria-hidden="true" />
+                )}
               </button>
             </li>
           ))}

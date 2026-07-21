@@ -312,10 +312,19 @@ describe("photograph constraints", () => {
     createdAtUtc: "2026-01-01T00:00:00Z",
   });
 
-  it("does not count a pending upload as a photograph", () => {
-    // A pending row has no verified object behind it. Counting it would let an
+  it("does not count an unfinished upload as a photograph", () => {
+    // A reservation has no verified object behind it. Counting it would let an
     // applicant submit with fewer real photographs than the minimum.
-    const media = [photo("a", "Ready"), photo("b", "Pending"), photo("c", "Ready")];
+    //
+    // This previously used "Ready" and "Pending", which the server has never
+    // sent — so it passed while proving nothing, and a failed upload really was
+    // counted in UAT. The statuses below are the actual enum names, and
+    // `isUploaded` is the server's own verdict.
+    const media = [
+      { ...photo("a", "PendingReview"), isUploaded: true },
+      { ...photo("b", "Uploading"), isUploaded: false },
+      { ...photo("c", "PendingReview"), isUploaded: true },
+    ];
     expect(finalizedPhotos(media).map((m: { id: string }) => m.id)).toEqual(["a", "c"]);
   });
 
