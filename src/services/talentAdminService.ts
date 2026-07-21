@@ -111,8 +111,54 @@ export interface TalentAdminSearch {
   hasActiveLogin?: boolean | null;
   hasPendingInvitation?: boolean | null;
   pendingProfileReview?: boolean | null;
+  /**
+   * Profiles that are public or featured while failing the current publication
+   * rules. Evaluated server-side before paging, so it audits the whole roster
+   * rather than the page in hand.
+   */
+  hasPublicationIssue?: boolean | null;
   page?: number;
   pageSize?: number;
+}
+
+/**
+ * The machine-readable reasons the backend gives for a profile not being
+ * publishable, and the human sentences we show for them.
+ *
+ * This is the complete catalogue as of the backend's publication-integrity work.
+ * A code that arrives without an entry here is rendered verbatim rather than
+ * swallowed — a blocker nobody can read is still better than one nobody sees.
+ */
+export const PUBLICATION_BLOCKERS: Record<string, string> = {
+  "publication.profile_not_approved": "The profile has not been approved.",
+  "publication.talent_archived": "The talent is archived.",
+  "publication.talent_suspended": "The talent is suspended.",
+  "publication.talent_paused": "The talent is paused.",
+  "publication.account_suspended": "The talent's account is suspended.",
+  "publication.no_public_photograph": "There is no approved, public photograph.",
+  "publication.cover_not_public": "The cover is not an approved, public photograph.",
+  "publication.display_name_missing": "The profile has no display name.",
+  "publication.not_adult": "The recorded date of birth is under 18.",
+};
+
+/** The sentence for a blocker code, falling back to the code itself. */
+export function describePublicationBlocker(code: string): string {
+  return PUBLICATION_BLOCKERS[code] ?? code;
+}
+
+/**
+ * The publication-health fields the server computes.
+ *
+ * <b>Never re-derive these locally.</b> The frontend sees a partial media list at
+ * best, and a locally-guessed verdict would disagree with the API that actually
+ * refuses the action — which is how an operator ends up staring at a green badge
+ * and a 422.
+ */
+export interface PublicationHealth {
+  isPublicationEligible: boolean;
+  publicationEligibilityBlockers: string[];
+  hasValidPublicCover: boolean;
+  hasPublicationIssue: boolean;
 }
 
 /** Mirrors `TalentAdminListItemDto`. */
@@ -137,6 +183,10 @@ export interface TalentAdminListItemDto {
   approvedPublicMediaCount: number;
   createdAtUtc: string;
   publishedAtUtc: string | null;
+  isPublicationEligible: boolean;
+  publicationEligibilityBlockers: string[];
+  hasValidPublicCover: boolean;
+  hasPublicationIssue: boolean;
 }
 
 /** Mirrors `TalentInvitationStateDto`. Never carries the token. */
@@ -204,6 +254,13 @@ export interface TalentAdminDetailDto {
   upcomingAppointmentCount: number;
   conversationCount: number;
   createdAtUtc: string;
+  isPublicationEligible: boolean;
+  publicationEligibilityBlockers: string[];
+  approvedPublicMediaCount: number;
+  hasValidPublicCover: boolean;
+  /** The photograph the server would fall back to as cover, in gallery order. */
+  suggestedFallbackCoverMediaId: string | null;
+  hasPublicationIssue: boolean;
 }
 
 // ---- roster ----------------------------------------------------------------
@@ -224,6 +281,7 @@ export function searchTalent(
       hasActiveLogin: filters.hasActiveLogin ?? undefined,
       hasPendingInvitation: filters.hasPendingInvitation ?? undefined,
       pendingProfileReview: filters.pendingProfileReview ?? undefined,
+      hasPublicationIssue: filters.hasPublicationIssue ?? undefined,
       page: filters.page ?? 1,
       pageSize: filters.pageSize ?? 25,
     },

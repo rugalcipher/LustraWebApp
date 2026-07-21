@@ -69,7 +69,13 @@ const record = (over = {}) => ({
   accountStatus: "PendingActivation", emailConfirmed: false, hasPassword: false,
   hasActiveLogin: false, lastLoginAtUtc: null, activeSessionCount: 0, invitation: null,
   categoryIds: [], rates: [], upcomingAppointmentCount: 0, conversationCount: 0,
-  createdAtUtc: "2026-01-01T00:00:00Z", ...over,
+  createdAtUtc: "2026-01-01T00:00:00Z",
+  // Server-computed publication health. A fixture without these would leave the
+  // Publish and Feature buttons disabled and quietly stop testing anything.
+  isPublicationEligible: true, publicationEligibilityBlockers: [],
+  approvedPublicMediaCount: 2, hasValidPublicCover: true,
+  suggestedFallbackCoverMediaId: null, hasPublicationIssue: false,
+  ...over,
 });
 
 const option = (over = {}) => ({
@@ -249,13 +255,17 @@ describe("booking picker selection rules", () => {
 // ---- publication and featured ----------------------------------------------------
 
 describe("publication error codes", () => {
-  it("uses only codes that exist in the backend catalogue at cc6c34c", () => {
+  it("uses only codes that exist in the backend catalogue", () => {
     // The earlier brief speculated about .archived, .suspended,
     // .public_details_incomplete and .invalid_cover. None were implemented, and a
     // branch that can never fire is worse than none — it looks handled.
+    //
+    // .cover_not_public IS real: it was added with publication-integrity work and
+    // is returned when the chosen cover is not an approved, public photograph.
     expect(Object.values(PUBLICATION_ERROR_CODES)).toEqual([
       "talent_profile.not_publishable",
       "talent_profile.no_public_photograph",
+      "talent_profile.cover_not_public",
       "talent_profile.not_found",
       "talent_lifecycle.cannot_feature",
       "talent_lifecycle.not_found",
@@ -353,7 +363,11 @@ describe("publication and featured controls", () => {
         .getByRole("button", { name: /^Publish$/i })
     );
     expect(await screen.findByText("No approved public photograph")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Open Media/i })).toBeInTheDocument();
+    // Scoped to the refusal banner. The publication-health panel offers its own
+    // "Open media" shortcut, so an unscoped query now matches two real buttons —
+    // what this test is about is that the REFUSAL carries a way to fix itself.
+    const refusal = screen.getByRole("alert");
+    expect(within(refusal).getByRole("button", { name: /Open Media/i })).toBeInTheDocument();
   });
 
   it("does not treat PendingActivation as a publication blocker", async () => {
@@ -430,18 +444,28 @@ describe("publication and featured controls", () => {
 // ---- cover consequence -------------------------------------------------------------
 
 describe("cover consequence copy matches the backend", () => {
-  it("says the cover is CLEARED, with no replacement chosen", () => {
-    // ClearCoverIfNeededAsync nulls CoverMediaId and does nothing else: no
-    // fallback, no unpublish, no unfeature, no refusal.
-    const source = read("src/features/talentAdmin/MediaManager.jsx");
-    expect(source).toContain("CLEARS the cover");
-    expect(source).toContain("does not pick a replacement");
+  it("says another photograph becomes the cover, because that is what happens now", () => {
+    // The backend reconciles in the same transaction as the media change: it
+    // selects the first eligible approved public photograph in gallery order.
+    // The previous behaviour — null the pointer and stop, leaving a live profile
+    // with no picture — is the defect this replaced.
+    const source = read("src/features/talentAdmin/publicationHealth.js");
+    expect(source).toContain("becomes the cover automatically");
+    expect(source).toContain("stays published");
   });
 
-  it("does not claim archiving the cover unpublishes or unfeatures", () => {
+  it("no longer describes the behaviour that was replaced", () => {
     const source = read("src/features/talentAdmin/MediaManager.jsx");
-    expect(source).toContain("stays published and featured");
-    expect(source).not.toMatch(/archiv\w+ .{0,40}will unpublish/i);
+    expect(source).not.toContain("does not pick a replacement");
+    expect(source).not.toContain("with no cover image until you set another");
+  });
+
+  it("DOES warn about the automatic unpublish when it is the last public photograph", () => {
+    const source = read("src/features/talentAdmin/publicationHealth.js");
+    expect(source).toMatch(/automatically\s*" \+\s*"unpublish|automatically unpublish/i);
+    expect(source).toContain("remove it from featured placement");
+    // Withdrawal, not deletion. The wording must not imply anything was destroyed.
+    expect(source).toContain("nothing is deleted or cancelled");
   });
 
   it("manufactures no client-side publication transition", () => {

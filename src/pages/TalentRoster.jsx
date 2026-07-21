@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Search, Loader2, AlertTriangle, RotateCw, UserPlus, Users, Star, Eye, EyeOff, MailWarning,
+  ShieldAlert,
 } from "lucide-react";
 import { Card, EmptyState } from "@/components/lustra/Primitives";
 import {
@@ -22,6 +23,12 @@ import { useTalentRoster, useTalentAdminPermissions } from "@/features/talentAdm
  * `approvedPublicMediaCount` is shown because it is the gate on publication: a
  * profile with none cannot be published, and the server refuses rather than
  * silently downgrading the request.
+ *
+ * Publication health is **computed by the server** and shown, never inferred
+ * here. `hasPublicationIssue` means the profile is public or featured while
+ * failing the current rules — the state legacy data and hand-corrected records
+ * are already in — and the filter for it exists so a SuperAdmin can audit the
+ * roster without database access.
  */
 
 const PAGE_SIZE = 25;
@@ -65,6 +72,7 @@ export default function TalentRoster() {
   const [hasActiveLogin, setHasActiveLogin] = useState("");
   const [hasPendingInvitation, setHasPendingInvitation] = useState("");
   const [pendingProfileReview, setPendingProfileReview] = useState("");
+  const [hasPublicationIssue, setHasPublicationIssue] = useState("");
   const [page, setPage] = useState(1);
 
   const filters = {
@@ -76,6 +84,7 @@ export default function TalentRoster() {
     hasActiveLogin: tri(hasActiveLogin),
     hasPendingInvitation: tri(hasPendingInvitation),
     pendingProfileReview: tri(pendingProfileReview),
+    hasPublicationIssue: tri(hasPublicationIssue),
     page,
     pageSize: PAGE_SIZE,
   };
@@ -177,6 +186,12 @@ export default function TalentRoster() {
           onChange={change(setPendingProfileReview)}
           options={TRISTATE}
         />
+        <Select
+          label="Publication issue"
+          value={hasPublicationIssue}
+          onChange={change(setHasPublicationIssue)}
+          options={TRISTATE}
+        />
       </div>
 
       {roster.isPending && (
@@ -265,6 +280,13 @@ export default function TalentRoster() {
                       {talent.isFeatured && (
                         <Pill tone="border-rose-gold/40 text-rose-gold bg-rose-gold/10">
                           <Star className="w-3 h-3" fill="currentColor" aria-hidden="true" /> Featured
+                        </Pill>
+                      )}
+                      {/* Public or featured while failing the rules. Discovery already
+                          refuses to serve it, but the record needs correcting. */}
+                      {talent.hasPublicationIssue && (
+                        <Pill tone="border-destructive/50 text-destructive bg-destructive/10">
+                          <ShieldAlert className="w-3 h-3" aria-hidden="true" /> Issue
                         </Pill>
                       )}
                     </div>

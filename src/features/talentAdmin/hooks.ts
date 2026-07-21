@@ -170,6 +170,12 @@ export function useMediaHistory(mediaId: string | undefined) {
  * and the public caches together — one item changing visibility changes
  * discovery, the client's appointment imagery and the talent's own profile at
  * the same moment.
+ *
+ * The roster and the dashboard are invalidated too, because a media change is no
+ * longer only a media change: the backend reconciles publication in the same
+ * transaction, so hiding a photograph can unpublish and unfeature the talent.
+ * Leaving those caches alone would show a stale "Published" badge next to a
+ * profile the server has already withdrawn.
  */
 function useMediaInvalidation(profileId: string | undefined) {
   const queryClient = useQueryClient();
@@ -182,6 +188,8 @@ function useMediaInvalidation(profileId: string | undefined) {
     queryClient.invalidateQueries({ queryKey: ["discovery"] });
     queryClient.invalidateQueries({ queryKey: ["talent"] });
     queryClient.invalidateQueries({ queryKey: queryKeys.talentAdmin.record(profileId ?? "") });
+    queryClient.invalidateQueries({ queryKey: queryKeys.talentAdmin.all() });
+    queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
   };
 }
 

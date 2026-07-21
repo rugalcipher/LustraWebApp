@@ -13,6 +13,9 @@ import {
 import {
   MEDIA_VISIBILITY, MEDIA_MODERATION_STATUS, MEDIA_ADMIN_ERROR_CODES, canBeCover,
 } from "@/services/mediaAdminService";
+import {
+  withdrawalConsequence, countsAsPublicPhotograph, NO_AUTOMATIC_REPUBLISH_NOTE,
+} from "@/features/talentAdmin/publicationHealth";
 
 /**
  * Staff control of one talent's photographs.
@@ -27,10 +30,14 @@ import {
  *  - **Only an approved AND public item can be the cover.** The server refuses
  *    otherwise with `media.cover_not_public`; the button is disabled for the
  *    same reason so the refusal is not a surprise.
- *  - **Hiding the current cover may leave the profile with no cover**, which is
- *    stated before the action rather than discovered after it.
+ *  - **Taking a photograph out of the public set has a consequence for the
+ *    PROFILE**, and it is stated before the action rather than discovered after
+ *    it. The backend reconciles in the same transaction: another approved public
+ *    photograph becomes the cover, or — if this was the last one — the talent is
+ *    automatically unpublished and unfeatured.
  *  - **Restoring an archived item returns it to pending review**, never straight
- *    back to public — the reason it was withdrawn has not been re-examined.
+ *    back to public — the reason it was withdrawn has not been re-examined — and
+ *    it never republishes a withdrawn profile.
  *
  * Images are rendered from the `readUrl` the API mints per request. Nothing here
  * constructs a URL from an id, and no URL is logged or persisted.
@@ -135,7 +142,13 @@ function HistoryPanel({ mediaId }) {
   );
 }
 
-export default function MediaManager({ profileId }) {
+/**
+ * @param {{ profileId: string, isPublic?: boolean, isFeatured?: boolean }} props
+ *   `isPublic` and `isFeatured` are the talent's CURRENT publication state, used
+ *   only to word the consequence of a change accurately. The consequence itself
+ *   is computed and enforced by the server.
+ */
+export default function MediaManager({ profileId, isPublic = false, isFeatured = false }) {
   const media = useTalentMedia(profileId);
   const action = useMediaAction(profileId);
   const reorder = useReorderTalentMedia(profileId);
@@ -199,6 +212,42 @@ export default function MediaManager({ profileId }) {
       }
       setActionError(toUserMessage(error));
     }
+  };
+
+  /** A dialog description with the publication consequence appended, when there is one. */
+  const withConsequence = (item, description) => {
+    const consequence = withdrawalConsequence({ items, item, isPublic, isFeatured });
+    return consequence ? `${description} ${consequence}` : description;
+  };
+
+  /**
+   * A visibility change that removes the LAST approved public photograph takes
+   * the whole profile down with it. That is too big to happen from a dropdown
+   * without a word, so it is confirmed; every lesser change runs straight
+   * through, because a dialog for a routine act is just noise that gets clicked.
+   */
+  const changeVisibility = (item, visibility) => {
+    const leavingPublicSet =
+      countsAsPublicPhotograph(item) && visibility !== MEDIA_VISIBILITY.public;
+    const wouldWithdraw =
+      leavingPublicSet &&
+      (isPublic || isFeatured) &&
+      items.filter((m) => m.id !== item.id && countsAsPublicPhotograph(m)).length === 0;
+
+    if (!wouldWithdraw) {
+      run({ kind: "visibility", mediaId: item.id, visibility });
+      return;
+    }
+
+    setDialog({
+      kind: "visibility",
+      mediaId: item.id,
+      visibility,
+      title: "This will unpublish the talent",
+      description: withdrawalConsequence({ items, item, isPublic, isFeatured }),
+      confirmLabel: "Change visibility",
+      tone: "destructive",
+    });
   };
 
   const move = (index, delta) => {
@@ -374,8 +423,11 @@ export default function MediaManager({ profileId }) {
                           kind: "reject",
                           mediaId: item.id,
                           title: "Reject photograph",
-                          description:
-                            "The photograph is refused and withdrawn from public view. The reason is recorded.",
+                          description: withConsequence(
+                            item,
+                            "The photograph is refused and withdrawn from public view. The reason " +
+                              "is recorded."
+                          ),
                           confirmLabel: "Reject",
                           tone: "destructive",
                           reasonLabel: "Reason",
@@ -393,7 +445,10 @@ export default function MediaManager({ profileId }) {
                           kind: "request-changes",
                           mediaId: item.id,
                           title: "Request a different photograph",
-                          description: "The talent is asked for a replacement and will read your reason.",
+                          description: withConsequence(
+                            item,
+                            "The talent is asked for a replacement and will read your reason."
+                          ),
                           confirmLabel: "Send request",
                           reasonLabel: "Message to the talent",
                         })
@@ -406,14 +461,15 @@ export default function MediaManager({ profileId }) {
                 </div>
 
                 {/* Visibility — only meaningful once approved.
-                    Moving the CURRENT COVER off Public clears the cover: the
-                    backend nulls it and does not choose a replacement. It does
-                    not unpublish or unfeature the profile, so a live profile can
-                    end up with no cover image until someone sets one. */}
-                {approved && item.isCover && item.visibility === MEDIA_VISIBILITY.public && (
-                  <p className="font-body text-meta text-warning">
-                    This is the cover. Moving it off Public clears the cover — the profile
-                    stays published, with no cover image until you set another.
+                    Taking a photograph out of the public set is reconciled by the
+                    backend in the same transaction: a replacement cover is chosen,
+                    or the profile is withdrawn when this was the last one. */}
+                {approved && countsAsPublicPhotograph(item) && (
+                  <p
+                    className="font-body text-meta text-warning"
+                    data-testid={`consequence-${item.id}`}
+                  >
+                    {withdrawalConsequence({ items, item, isPublic, isFeatured })}
                   </p>
                 )}
                 {approved && (
@@ -422,9 +478,7 @@ export default function MediaManager({ profileId }) {
                     <select
                       aria-label={`Visibility for ${item.originalFileName}`}
                       value={item.visibility}
-                      onChange={(e) =>
-                        run({ kind: "visibility", mediaId: item.id, visibility: e.target.value })
-                      }
+                      onChange={(e) => changeVisibility(item, e.target.value)}
                       className="w-full bg-deep-black/60 border border-white/10 rounded-sm px-2 py-1.5 font-body text-meta text-ivory focus:outline-none focus:border-rose-gold/50"
                     >
                       {Object.entries(VISIBILITY_META).map(([value, meta]) => (
@@ -466,7 +520,7 @@ export default function MediaManager({ profileId }) {
                   {archived ? (
                     <button
                       onClick={() => run({ kind: "restore", mediaId: item.id })}
-                      title="Returns the photograph to pending review — not straight back to public"
+                      title={"Returns the photograph to pending review — not straight back to public. " + NO_AUTOMATIC_REPUBLISH_NOTE}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-sm border border-white/12 font-body text-meta uppercase text-soft-ivory/85 hover:border-rose-gold/40"
                     >
                       <RotateCcw className="w-3 h-3" aria-hidden="true" /> Restore
@@ -478,10 +532,11 @@ export default function MediaManager({ profileId }) {
                           kind: "soft-delete",
                           mediaId: item.id,
                           title: "Archive photograph",
-                          description:
-                            item.isCover
-                              ? "This is the current cover. Archiving it withdraws it from public view and CLEARS the cover — the backend does not pick a replacement, so the profile is left with no cover image until you set one. It stays published and featured. The photograph itself is kept, not deleted."
-                              : "The photograph is withdrawn from public view and archived. It is kept, not deleted, and can be restored to pending review later.",
+                          description: withConsequence(
+                            item,
+                            "The photograph is withdrawn from public view and archived. It is " +
+                              "kept, not deleted, and can be restored to pending review later."
+                          ),
                           confirmLabel: "Archive",
                           tone: "destructive",
                           noteLabel: "Internal note",
@@ -522,9 +577,12 @@ export default function MediaManager({ profileId }) {
         reasonLabel={dialog?.reasonLabel}
         onConfirm={(text) =>
           run(
-            dialog?.reasonLabel
-              ? { kind: dialog.kind, mediaId: dialog.mediaId, reason: text }
-              : { kind: dialog.kind, mediaId: dialog.mediaId, note: text || null }
+            dialog?.kind === "visibility"
+              ? // A visibility change carries the target, not a reason or a note.
+                { kind: "visibility", mediaId: dialog.mediaId, visibility: dialog.visibility }
+              : dialog?.reasonLabel
+                ? { kind: dialog.kind, mediaId: dialog.mediaId, reason: text }
+                : { kind: dialog.kind, mediaId: dialog.mediaId, note: text || null }
           )
         }
         onCancel={() => {

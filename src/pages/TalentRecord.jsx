@@ -16,6 +16,7 @@ import {
   useCanApproveProfiles,
 } from "@/features/talentAdmin/hooks";
 import { publicationGuidance } from "@/features/talentAdmin/publicationErrors";
+import PublicationHealthPanel from "@/features/talentAdmin/PublicationHealthPanel";
 import { isApiError } from "@/api/problemDetails";
 
 /**
@@ -380,6 +381,16 @@ export default function TalentRecord() {
                 ? "This profile is live in public discovery."
                 : "This profile is not visible to the public."}
             </p>
+
+            {/* Server-computed. The frontend never works eligibility out itself:
+                it sees a partial media list at best, and a guessed verdict would
+                disagree with the API that actually refuses the action. */}
+            <PublicationHealthPanel
+              talent={talent}
+              onOpenMedia={() => setTab("Media")}
+              canUnpublish={canApprove}
+              onUnpublish={() => setDialog("unpublish")}
+            />
             {canApprove ? (
               talent.isPublic ? (
                 <button
@@ -392,7 +403,12 @@ export default function TalentRecord() {
               ) : (
                 <button
                   onClick={() => setDialog("publish")}
-                  disabled={busy || archived}
+                  disabled={busy || archived || !talent.isPublicationEligible}
+                  title={
+                    talent.isPublicationEligible
+                      ? "Publish this profile to public discovery"
+                      : "The server would refuse: see the requirements above"
+                  }
                   className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-success/40 font-body text-meta tracking-luxe uppercase text-success hover:bg-success/10 disabled:opacity-40"
                 >
                   <Eye className="w-3.5 h-3.5" aria-hidden="true" /> Publish
@@ -426,11 +442,13 @@ export default function TalentRecord() {
                 ) : (
                   <button
                     onClick={() => setDialog("feature")}
-                    disabled={busy || !talent.isPublic || archived}
+                    disabled={busy || !talent.isPublic || !talent.isPublicationEligible || archived}
                     title={
-                      talent.isPublic
-                        ? "Promote this profile in discovery"
-                        : "Only a published profile can be featured"
+                      !talent.isPublic
+                        ? "Only a published profile can be featured"
+                        : talent.isPublicationEligible
+                          ? "Promote this profile in discovery"
+                          : "This profile no longer meets the publication requirements"
                     }
                     className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-rose-gold/50 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/10 disabled:opacity-40"
                   >
@@ -521,7 +539,18 @@ export default function TalentRecord() {
 
       {tab === "Media" &&
         (canModerateMedia ? (
-          <MediaManager profileId={id} />
+          <div className="space-y-4">
+            {/* The media tab is where publication is usually broken and usually
+                fixed, so the verdict belongs here too rather than one tab away. */}
+            <Card className="p-5">
+              <PublicationHealthPanel talent={talent} />
+            </Card>
+            <MediaManager
+              profileId={id}
+              isPublic={talent.isPublic}
+              isFeatured={talent.isFeatured}
+            />
+          </div>
         ) : (
           <Card className="p-6">
             <p className="font-body text-body text-soft-ivory/75">

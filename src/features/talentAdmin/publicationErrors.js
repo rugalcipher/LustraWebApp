@@ -10,11 +10,15 @@
  *
  * The real catalogue is deliberately small:
  *
- *  - `talent_profile.not_publishable` — the profile is not `Approved`.
+ *  - `talent_profile.not_publishable` — the profile fails a lifecycle, account
+ *    or profile-data rule.
  *  - `talent_profile.no_public_photograph` — no approved, public photograph.
- *  - `talent_lifecycle.cannot_feature` — featuring something not approved AND
- *    public. Featuring never publishes implicitly, so this is a refusal rather
- *    than an upgrade.
+ *  - `talent_profile.cover_not_public` — the chosen cover is not an approved,
+ *    public photograph. Added with the publication-integrity work; publishing
+ *    would otherwise point the public site at a hidden or rejected image.
+ *  - `talent_lifecycle.cannot_feature` — featuring something not published, or
+ *    published but failing the current rules. Featuring never publishes
+ *    implicitly, so this is a refusal rather than an upgrade.
  *
  * Each entry names the tab that can actually fix the problem, because "no
  * approved public photograph" is only useful next to a way to go and approve
@@ -27,6 +31,8 @@ export const PUBLICATION_ERROR_CODES = {
   notPublishable: "talent_profile.not_publishable",
   /** Approved, but with no approved public photograph to show. */
   noPublicPhotograph: "talent_profile.no_public_photograph",
+  /** The cover names an image that is not approved and public. */
+  coverNotPublic: "talent_profile.cover_not_public",
   /** The profile could not be found. */
   profileNotFound: "talent_profile.not_found",
   /** Featuring was refused: the profile is not approved AND public. */
@@ -65,11 +71,20 @@ export const PUBLICATION_ERROR_GUIDANCE = {
       "before it can go live. Approve a photograph and set its visibility to Public.",
     action: RESOLUTION_TAB.media,
   },
+  [PUBLICATION_ERROR_CODES.coverNotPublic]: {
+    title: "The cover is not an approved public photograph",
+    body:
+      "The chosen cover has been hidden, rejected or withdrawn, so publishing would point " +
+      "the public site at an image nobody approved. Choose a different cover, or clear it " +
+      "and let the first gallery photograph be used.",
+    action: RESOLUTION_TAB.media,
+  },
   [PUBLICATION_ERROR_CODES.cannotFeature]: {
-    title: "Only a published profile can be featured",
+    title: "Only a published profile that meets the requirements can be featured",
     body:
       "Featuring promotes a profile that is already public — it never publishes one. " +
-      "Publish this profile first, then feature it.",
+      "Publish this profile first, and make sure it still meets the publication " +
+      "requirements, then feature it.",
     action: RESOLUTION_TAB.overview,
   },
   [PUBLICATION_ERROR_CODES.profileNotFound]: {

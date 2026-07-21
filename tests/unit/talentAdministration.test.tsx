@@ -640,8 +640,10 @@ describe("talent media administration", () => {
     const user = await openMedia();
     await user.click(await screen.findByRole("button", { name: /Archive/i }));
     const dialog = await screen.findByRole("dialog", { name: "Archive photograph" });
-    // The backend CLEARS the cover and picks no replacement; the copy says so.
-    expect(within(dialog).getByText(/CLEARS the cover/)).toBeInTheDocument();
+    // The backend now reconciles: a replacement cover is chosen, or — when this
+    // was the last approved public photograph — the talent is withdrawn. Either
+    // way the photograph itself is kept.
+    expect(within(dialog).getByText(/last approved, public photograph/i)).toBeInTheDocument();
     expect(within(dialog).getByText(/kept, not deleted/i)).toBeInTheDocument();
   });
 
