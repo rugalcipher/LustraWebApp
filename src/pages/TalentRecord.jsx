@@ -12,7 +12,11 @@ import MediaManager from "@/features/talentAdmin/MediaManager";
 import {
   useTalentRecord, useTalentAdminPermissions, useArchiveTalent, useRestoreTalent,
   useIssueTalentInvitation, useSetTalentTemporaryPassword, useTalentArchiveImpact,
+  usePublishTalent, useUnpublishTalent, useFeatureTalent, useUnfeatureTalent,
+  useCanApproveProfiles,
 } from "@/features/talentAdmin/hooks";
+import { publicationGuidance } from "@/features/talentAdmin/publicationErrors";
+import { isApiError } from "@/api/problemDetails";
 
 /**
  * One talent's complete record.
@@ -106,6 +110,9 @@ export default function TalentRecord() {
   const [actionError, setActionError] = useState("");
   const [secret, setSecret] = useState(null);
   const [outstanding, setOutstanding] = useState(null);
+  // A refusal the server explained. Held separately from actionError so it can
+  // carry a link to the tab that actually fixes it.
+  const [refusal, setRefusal] = useState(null);
 
   // Only fetched once the dialog is open: it is a preflight, not page furniture.
   const impact = useTalentArchiveImpact(id, dialog === "archive");
@@ -113,9 +120,15 @@ export default function TalentRecord() {
   const restore = useRestoreTalent(id);
   const invite = useIssueTalentInvitation(id);
   const temporary = useSetTalentTemporaryPassword(id);
+  const publish = usePublishTalent(id);
+  const unpublish = useUnpublishTalent(id);
+  const feature = useFeatureTalent(id);
+  const unfeature = useUnfeatureTalent(id);
+  const canApprove = useCanApproveProfiles();
 
   const busy =
-    archive.isPending || restore.isPending || invite.isPending || temporary.isPending;
+    archive.isPending || restore.isPending || invite.isPending || temporary.isPending ||
+    publish.isPending || unpublish.isPending || feature.isPending || unfeature.isPending;
 
   const close = () => {
     setDialog(null);
@@ -136,6 +149,10 @@ export default function TalentRecord() {
       }
       else if (dialog === "restore") await restore.mutateAsync();
       else if (dialog === "invite") await invite.mutateAsync();
+      else if (dialog === "publish") await publish.mutateAsync();
+      else if (dialog === "unpublish") await unpublish.mutateAsync(reason || null);
+      else if (dialog === "feature") await feature.mutateAsync();
+      else if (dialog === "unfeature") await unfeature.mutateAsync();
       else if (dialog === "temporary-password") {
         const result = await temporary.mutateAsync();
         // The ONLY copy of this value. Held in component state, never cached.
@@ -143,6 +160,13 @@ export default function TalentRecord() {
       }
       close();
     } catch (error) {
+      // Branch on the machine-readable code, never on the message text.
+      const guidance = isApiError(error) ? publicationGuidance(error.code) : null;
+      if (guidance) {
+        setRefusal(guidance);
+        setDialog(null);
+        return;
+      }
       setActionError(toUserMessage(error));
     }
   }
@@ -232,6 +256,37 @@ export default function TalentRecord() {
 
       {secret && <OneTimeSecret value={secret} onDismiss={() => setSecret(null)} />}
 
+      {/* The server refused and told us why. Send the operator where it is fixable. */}
+      {refusal && (
+        <div className="rounded-sm border border-warning/40 bg-warning/[0.07] p-4 space-y-2" role="alert">
+          <p className="flex items-center gap-2 font-body text-meta tracking-luxe uppercase text-warning">
+            <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" /> {refusal.title}
+          </p>
+          <p className="font-body text-body text-soft-ivory/85">{refusal.body}</p>
+          <div className="flex gap-3">
+            {refusal.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTab(refusal.action);
+                  setRefusal(null);
+                }}
+                className="font-body text-meta tracking-luxe uppercase text-rose-gold hover:underline"
+              >
+                Open {refusal.action}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setRefusal(null)}
+              className="font-body text-meta tracking-luxe uppercase text-muted-grey hover:text-rose-gold"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Archiving withdrew the talent but cancelled nothing. Name the work left. */}
       {outstanding && (
         <div className="rounded-sm border border-warning/40 bg-warning/[0.07] p-4 space-y-2" role="status">
@@ -316,6 +371,73 @@ export default function TalentRecord() {
             {talent.suspensionReason && (
               <p className="font-body text-meta text-warning">{talent.suspensionReason}</p>
             )}
+          </Card>
+
+          <Card className="p-5 space-y-2">
+            <h2 className="font-heading text-lg text-ivory">Publication</h2>
+            <p className="font-body text-meta text-muted-grey">
+              {talent.isPublic
+                ? "This profile is live in public discovery."
+                : "This profile is not visible to the public."}
+            </p>
+            {canApprove ? (
+              talent.isPublic ? (
+                <button
+                  onClick={() => setDialog("unpublish")}
+                  disabled={busy}
+                  className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-warning/40 font-body text-meta tracking-luxe uppercase text-warning hover:bg-warning/10 disabled:opacity-40"
+                >
+                  <EyeOff className="w-3.5 h-3.5" aria-hidden="true" /> Unpublish
+                </button>
+              ) : (
+                <button
+                  onClick={() => setDialog("publish")}
+                  disabled={busy || archived}
+                  className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-success/40 font-body text-meta tracking-luxe uppercase text-success hover:bg-success/10 disabled:opacity-40"
+                >
+                  <Eye className="w-3.5 h-3.5" aria-hidden="true" /> Publish
+                </button>
+              )
+            ) : (
+              <p className="font-body text-meta text-muted-grey">
+                Changing publication needs the profile-approval permission.
+              </p>
+            )}
+
+            {/* A SEPARATE state with a separate permission. Never one toggle: a
+                combined control would make "feature" imply publishing, which the
+                backend refuses anyway. */}
+            <div className="pt-3 border-t border-white/[0.06] space-y-2">
+              <h3 className="font-heading text-base text-ivory">Featured placement</h3>
+              <p className="font-body text-meta text-muted-grey">
+                {talent.isFeatured
+                  ? "Promoted in discovery."
+                  : "Not promoted. Featuring never publishes a profile — it only promotes one that is already public."}
+              </p>
+              {canManage &&
+                (talent.isFeatured ? (
+                  <button
+                    onClick={() => setDialog("unfeature")}
+                    disabled={busy}
+                    className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-white/12 font-body text-meta tracking-luxe uppercase text-soft-ivory/85 hover:border-rose-gold/40 disabled:opacity-40"
+                  >
+                    <Star className="w-3.5 h-3.5" aria-hidden="true" /> Remove from featured
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setDialog("feature")}
+                    disabled={busy || !talent.isPublic || archived}
+                    title={
+                      talent.isPublic
+                        ? "Promote this profile in discovery"
+                        : "Only a published profile can be featured"
+                    }
+                    className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-rose-gold/50 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/10 disabled:opacity-40"
+                  >
+                    <Star className="w-3.5 h-3.5" aria-hidden="true" /> Feature
+                  </button>
+                ))}
+            </div>
           </Card>
 
           <Card className="p-5 space-y-2">
@@ -526,6 +648,54 @@ export default function TalentRecord() {
           </Card>
         </div>
       )}
+
+      <ConfirmAction
+        open={dialog === "publish"}
+        title="Publish profile"
+        description="The profile becomes visible in public discovery immediately. It needs an approved public photograph — the server refuses otherwise and will say so."
+        confirmLabel="Publish"
+        onConfirm={confirm}
+        onCancel={close}
+        busy={busy}
+        error={actionError}
+      />
+
+      <ConfirmAction
+        open={dialog === "unpublish"}
+        title="Unpublish profile"
+        description="The profile leaves public discovery immediately and its featured placement is cleared. The approval is kept, so it can be republished without a second review."
+        confirmLabel="Unpublish"
+        tone="destructive"
+        reason
+        reasonLabel="Internal reason"
+        reasonHint="Recorded for staff. It is not shown to the talent."
+        onConfirm={confirm}
+        onCancel={close}
+        busy={busy}
+        error={actionError}
+      />
+
+      <ConfirmAction
+        open={dialog === "feature"}
+        title="Feature profile"
+        description="The profile is promoted in discovery. This does NOT change whether it is published — it is already public, and featuring never publishes."
+        confirmLabel="Feature"
+        onConfirm={confirm}
+        onCancel={close}
+        busy={busy}
+        error={actionError}
+      />
+
+      <ConfirmAction
+        open={dialog === "unfeature"}
+        title="Remove featured placement"
+        description="The profile stops being promoted. It stays published and publicly visible."
+        confirmLabel="Remove from featured"
+        onConfirm={confirm}
+        onCancel={close}
+        busy={busy}
+        error={actionError}
+      />
 
       <ConfirmAction
         open={dialog === "archive"}

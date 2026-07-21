@@ -262,9 +262,9 @@ describe("appointment register", () => {
 
 describe("appointment detail", () => {
   beforeEach(() => {
-    // Talent.View too: reassigning means SEARCHING the roster, and the server
-    // enforces that permission on GET /management/talents.
-    permissions = ["Bookings.View", "Bookings.Manage", "Bookings.Cancel", "Users.View", "Talent.View"];
+    // Talent.View is deliberately ABSENT: the booking-scoped picker must work
+    // without it, which is the whole point of the endpoint.
+    permissions = ["Bookings.View", "Bookings.Manage", "Bookings.Cancel", "Users.View"];
     vi.spyOn(service, "getAppointmentVisibilityHistory").mockResolvedValue([] as never);
     vi.spyOn(adminService, "listUsers").mockResolvedValue({
       items: [], totalCount: 0, page: 1, pageSize: 100,
@@ -336,25 +336,22 @@ describe("appointment detail", () => {
   it("reassigns talent chosen from the picker, never a typed id", async () => {
     show();
     const spy = vi.spyOn(service, "reassignAppointmentTalent").mockResolvedValue(undefined as never);
-    vi.spyOn(talentAdminService, "searchTalent").mockResolvedValue({
+    // The picker reads the booking-scoped endpoint, which needs only
+    // Bookings.Manage — not the talent administration roster.
+    vi.spyOn(service, "searchBookingTalentOptions").mockResolvedValue({
       items: [
         {
           talentProfileId: "tp-2",
-          userId: "u-2",
           displayName: "Celeste",
-          slug: "celeste",
-          email: "celeste@example.com",
+          coverImage: null,
+          cityName: "Johannesburg",
           profileStatus: "Approved",
           accountStatus: "Active",
-          isPublic: true,
-          isFeatured: false,
-          isVerified: true,
-          cityName: "Johannesburg",
-          hasActiveLogin: true,
-          hasPendingInvitation: false,
-          approvedPublicMediaCount: 4,
-          createdAtUtc: "2026-01-01T00:00:00Z",
-          publishedAtUtc: "2026-01-02T00:00:00Z",
+          isArchived: false,
+          isSuspended: false,
+          isPublished: true,
+          canReceiveNewBooking: true,
+          unavailableReason: null,
         },
       ],
       totalCount: 1,

@@ -293,3 +293,53 @@ export function useTalentArchiveImpact(profileId: string | undefined, enabled = 
     staleTime: 10_000,
   });
 }
+
+/**
+ * Publication and promotion.
+ *
+ * Four separate mutations on purpose. Publication and featuring are distinct states with
+ * distinct permissions — `Talent.ApproveProfiles` decides what the public can see,
+ * `Talent.Manage` decides what gets promoted — and collapsing them into one toggle would
+ * make "feature" silently publish, which the backend refuses anyway.
+ */
+export function usePublishTalent(profileId: string | undefined) {
+  const invalidate = useTalentInvalidation();
+  return useMutation({
+    mutationFn: () => talentAdmin.publishTalent(profileId!),
+    retry: false,
+    onSuccess: () => invalidate(profileId),
+  });
+}
+
+export function useUnpublishTalent(profileId: string | undefined) {
+  const invalidate = useTalentInvalidation();
+  return useMutation({
+    mutationFn: (reason?: string | null) => talentAdmin.unpublishTalent(profileId!, reason),
+    retry: false,
+    onSuccess: () => invalidate(profileId),
+  });
+}
+
+export function useFeatureTalent(profileId: string | undefined) {
+  const invalidate = useTalentInvalidation();
+  return useMutation({
+    mutationFn: () => talentAdmin.featureTalent(profileId!),
+    retry: false,
+    onSuccess: () => invalidate(profileId),
+  });
+}
+
+export function useUnfeatureTalent(profileId: string | undefined) {
+  const invalidate = useTalentInvalidation();
+  return useMutation({
+    mutationFn: () => talentAdmin.unfeatureTalent(profileId!),
+    retry: false,
+    onSuccess: () => invalidate(profileId),
+  });
+}
+
+/** Whether the caller may change publication. Distinct from `Talent.Manage`. */
+export function useCanApproveProfiles() {
+  const { principal } = usePrincipal();
+  return principal.isAuthenticated && principal.permissions.includes("Talent.ApproveProfiles");
+}

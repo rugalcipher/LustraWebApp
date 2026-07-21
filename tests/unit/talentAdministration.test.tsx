@@ -640,7 +640,8 @@ describe("talent media administration", () => {
     const user = await openMedia();
     await user.click(await screen.findByRole("button", { name: /Archive/i }));
     const dialog = await screen.findByRole("dialog", { name: "Archive photograph" });
-    expect(within(dialog).getByText(/NO cover/)).toBeInTheDocument();
+    // The backend CLEARS the cover and picks no replacement; the copy says so.
+    expect(within(dialog).getByText(/CLEARS the cover/)).toBeInTheDocument();
     expect(within(dialog).getByText(/kept, not deleted/i)).toBeInTheDocument();
   });
 
@@ -1030,15 +1031,19 @@ describe("talent picker", () => {
     expect(offenders.map((f) => relative(ROOT, f))).toEqual([]);
   });
 
-  it("searches the real roster endpoint", () => {
+  it("searches the BOOKING-SCOPED endpoint, not the administration roster", () => {
+    // Moved off /management/talents once the backend exposed a booking-scoped
+    // lookup: choosing who to schedule must not require read access to legal
+    // names, contact details and account security.
     const source = read("src/features/talentAdmin/TalentPicker.jsx");
-    expect(source).toContain("useTalentRoster");
-    expect(read("src/services/talentAdminService.ts")).toContain('const BASE = "/management/talents"');
+    expect(source).toContain("useBookingTalentOptions");
+    expect(source).not.toContain("useTalentRoster");
   });
 
-  it("says so when the operator lacks permission to search", () => {
+  it("no longer needs a Talent.View fallback message", () => {
+    // The permission coupling is gone, so the warning that explained it would
+    // now be a lie about a restriction that no longer exists.
     const source = read("src/features/talentAdmin/TalentPicker.jsx");
-    expect(source).toContain("canView");
-    expect(source).toContain("permission to view talent");
+    expect(source).not.toContain("permission to view talent");
   });
 });

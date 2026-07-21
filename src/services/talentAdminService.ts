@@ -261,6 +261,45 @@ export function archiveTalent(
   return api.post<TalentArchiveImpactDto>(`${BASE}/${profileId}/archive`, { reason });
 }
 
+/**
+ * Publishes an approved profile into public discovery.
+ *
+ * Needs `Talent.ApproveProfiles`. The older `/management/profile-reviews/{id}/publish`
+ * route remains valid and is what the review queue uses; the talent roster and record use
+ * this one so they do not have to reach into a surface shaped around review.
+ *
+ * Refused unless the profile is Approved AND has at least one approved public photograph.
+ * Map the failure through `PUBLICATION_ERROR_GUIDANCE` — never by reading `detail`.
+ */
+export function publishTalent(profileId: string): Promise<void> {
+  return api.post<void>(`${BASE}/${profileId}/publish`, undefined);
+}
+
+/**
+ * Withdraws a profile from discovery immediately, keeping the approval so it can be
+ * republished without a second review. Also clears featured.
+ *
+ * The reason is INTERNAL and staff-facing; it is not shown to the talent.
+ */
+export function unpublishTalent(profileId: string, reason?: string | null): Promise<void> {
+  return api.post<void>(`${BASE}/${profileId}/unpublish`, { reason: reason ?? null });
+}
+
+/**
+ * Promotes a published profile in discovery. Needs `Talent.Manage`.
+ *
+ * **Never publishes implicitly** — the backend refuses to feature a profile that is not
+ * already approved and public, and the UI must not offer it as a shortcut either.
+ */
+export function featureTalent(profileId: string): Promise<void> {
+  return api.post<void>(`${BASE}/${profileId}/feature`, undefined);
+}
+
+/** Removes a featured placement. Does NOT unpublish. */
+export function unfeatureTalent(profileId: string): Promise<void> {
+  return api.post<void>(`${BASE}/${profileId}/unfeature`, undefined);
+}
+
 export function restoreTalent(profileId: string): Promise<void> {
   return api.post<void>(`${BASE}/${profileId}/restore`, {});
 }

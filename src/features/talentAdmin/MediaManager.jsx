@@ -405,7 +405,17 @@ export default function MediaManager({ profileId }) {
                   )}
                 </div>
 
-                {/* Visibility — only meaningful once approved */}
+                {/* Visibility — only meaningful once approved.
+                    Moving the CURRENT COVER off Public clears the cover: the
+                    backend nulls it and does not choose a replacement. It does
+                    not unpublish or unfeature the profile, so a live profile can
+                    end up with no cover image until someone sets one. */}
+                {approved && item.isCover && item.visibility === MEDIA_VISIBILITY.public && (
+                  <p className="font-body text-meta text-warning">
+                    This is the cover. Moving it off Public clears the cover — the profile
+                    stays published, with no cover image until you set another.
+                  </p>
+                )}
                 {approved && (
                   <label className="block">
                     <span className="sr-only">Visibility for {item.originalFileName}</span>
@@ -470,7 +480,7 @@ export default function MediaManager({ profileId }) {
                           title: "Archive photograph",
                           description:
                             item.isCover
-                              ? "This is the current cover. Archiving it withdraws it from public view and leaves the profile with NO cover until another approved, public photograph is chosen. The photograph itself is kept, not deleted."
+                              ? "This is the current cover. Archiving it withdraws it from public view and CLEARS the cover — the backend does not pick a replacement, so the profile is left with no cover image until you set one. It stays published and featured. The photograph itself is kept, not deleted."
                               : "The photograph is withdrawn from public view and archived. It is kept, not deleted, and can be restored to pending review later.",
                           confirmLabel: "Archive",
                           tone: "destructive",
