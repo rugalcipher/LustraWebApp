@@ -36,6 +36,8 @@ export interface ProblemDetails {
   status?: number;
   detail?: string;
   instance?: string;
+  /** Machine-readable refusal code. The API sends `errorCode`; `code` is legacy. */
+  errorCode?: string;
   code?: string;
   traceId?: string;
   correlationId?: string;
@@ -130,7 +132,11 @@ export class ApiError extends Error {
       kind,
       title: problem?.title,
       detail: problem?.detail,
-      code: problem?.code,
+      // The API emits the machine-readable code as `errorCode` (see the backend's
+      // GlobalExceptionHandler). Reading only `code` silently dropped every one of
+      // them, so `ApiError.code` was always undefined and no caller could branch on
+      // a refusal reason. `code` stays as a fallback for any older payload.
+      code: problem?.errorCode ?? problem?.code,
       fieldErrors,
       correlationId: problem?.correlationId ?? problem?.traceId ?? correlationId,
       raw: problem,
