@@ -85,6 +85,19 @@ function buildEnv(): AppEnv {
   }
   const apiBaseUrl = (e.VITE_API_BASE_URL || "/api/v1").replace(/\/+$/, "");
 
+  // A deployed build must point at a real, reachable API. Each of these produced a
+  // confusing symptom rather than an obvious one, which is why they are checked here.
+  if (isProd && apiMode === "api") {
+    const problems = deployedApiBaseUrlProblems(apiBaseUrl);
+    if (problems.length > 0) {
+      throw new EnvironmentConfigError(
+        `VITE_API_BASE_URL is not valid for a deployed build: ${problems.join(" ")} ` +
+          `Got "${apiBaseUrl}". Expected something like https://uat-api.lustra.vip/api/v1 ` +
+          `(https, no trailing slash, including the /api/v1 prefix).`
+      );
+    }
+  }
+
   // Dev role preview: enabled by flag/dev, but NEVER in a production build.
   const flag = e.VITE_ENABLE_DEV_ROLE_SWITCHER;
   const devRolePreviewEnabled = isProd ? false : flag === undefined ? isDev : flag === "true";
@@ -101,6 +114,48 @@ function buildEnv(): AppEnv {
     isProd,
     isDev,
   };
+}
+
+/**
+ * Why a deployed API base URL can be wrong, and what each mistake looks like in a
+ * browser rather than in a log:
+ *
+ * - `http://` — the page is https, so the browser blocks the call as mixed content and
+ *   reports a network error, not a configuration error.
+ * - `localhost` — resolves to the VISITOR's machine, so it fails for everyone but the
+ *   developer who set it.
+ * - missing `/api/v1` — every backend route is `api/v1/...`, so requests land on a path
+ *   the API does not serve. The host redirects, the browser refuses to follow a redirect
+ *   during a CORS preflight, and the console blames CORS. That is exactly the failure
+ *   this guard exists to prevent: the message named CORS while the cause was a missing
+ *   URL suffix.
+ *
+ * Exported for tests; `buildEnv` applies it only to production builds, so development
+ * and the test suite are unaffected.
+ */
+export function deployedApiBaseUrlProblems(apiBaseUrl: string): string[] {
+  const problems: string[] = [];
+
+  if (/^http:\/\//i.test(apiBaseUrl)) {
+    problems.push("It must use https — a https page cannot call http (mixed content).");
+  }
+
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(apiBaseUrl)) {
+    problems.push("It points at localhost, which resolves to the visitor's own machine.");
+  }
+
+  if (!/^https?:\/\//i.test(apiBaseUrl)) {
+    problems.push("It must be an absolute URL including the scheme and host.");
+  }
+
+  if (!/\/api\/v\d+$/.test(apiBaseUrl)) {
+    problems.push(
+      "It must end with the API version prefix (/api/v1); without it every request " +
+        "hits a path the API does not serve and the browser reports a CORS failure."
+    );
+  }
+
+  return problems;
 }
 
 export const env: AppEnv = buildEnv();

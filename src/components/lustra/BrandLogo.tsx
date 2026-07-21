@@ -70,13 +70,17 @@ export function LustraVerticalLogo(props: BrandLogoProps) {
 }
 
 /** Horizontal lockup — monogram on the left, then wordmark. For sidebars, headers, nav.
- *  Uses the canonical `/logo_x.png` public asset (root-relative, lowercase → safe
- *  on case-sensitive Linux hosting). */
+ *
+ *  The asset is `public/Logo_x.png` — CAPITAL L, which is how it is recorded in git and
+ *  therefore how it is checked out on Vercel. This previously read `/logo_x.png` and
+ *  404'd in every deployed environment while working perfectly on Windows, whose
+ *  filesystem is case-insensitive (`core.ignorecase=true`), so `ls` shows a lowercase
+ *  name that does not exist on Linux. Match git's casing exactly; do not "tidy" it. */
 export function LustraHorizontalLogo(props: BrandLogoProps) {
   return (
     <BrandImg
       {...props}
-      src="/logo_x.png"
+      src="/Logo_x.png"
       intrinsic={INTRINSIC.horizontal}
       alt={props.alt ?? "Lustra"}
     />
