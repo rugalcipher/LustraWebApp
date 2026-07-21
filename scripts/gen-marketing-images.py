@@ -2,7 +2,7 @@
 
 Masters (source of truth, never shipped to the browser):
     assets/other/{about,how-it-works,safety,talent}[-mobile].webp  -> src/assets/marketing/
-    assets/home/home_{1..5}_{mobile,wide}.png                      -> public/home/
+    assets/home/home_{1..5}_{mobile,wide}.{webp,png}               -> src/assets/home/
 
 The marketing set lives under `src/assets/` so Vite content-hashes it: replacing
 a master changes the emitted filename, which defeats browser/CDN caching of the
@@ -53,7 +53,12 @@ SETS = (
 )
 
 HERO_SRC = os.path.join(ROOT, "assets", "home")
-HERO_OUT = os.path.join(ROOT, "public", "home")
+# Hero derivatives live under src/ so Vite content-hashes them: replacing a
+# slide's art changes the emitted filename, which no browser or CDN can serve
+# from cache. (They used to sit in public/ under stable names.)
+HERO_OUT = os.path.join(ROOT, "src", "assets", "home")
+# The manifest lives with the MASTERS (not in public/) so it is never shipped.
+HERO_MANIFEST_DIR = HERO_SRC
 HERO_WIDTHS = {"wide": (1080, 1440, 1672), "mobile": (640, 900)}
 
 
@@ -161,28 +166,80 @@ def build_marketing(force=False):
         build_set(label, src_dir, out_dir, names, widths, mobile_widths, force=force)
 
 
-def build_hero():
+def build_hero(force=False):
+    """Hero slides: `assets/home/<name>_{wide,mobile}.png` -> `public/home/<name>-...`.
+
+    Masters are DISCOVERED, not hard-coded, so re-shooting one slide is just a
+    new pair of files plus a one-word change in experienceSlides.ts. Change
+    detection is by content hash, exactly like the marketing/auth sets.
+    """
     os.makedirs(HERO_OUT, exist_ok=True)
-    for n in range(1, 6):
+    manifest = _load_manifest(HERO_MANIFEST_DIR)
+    changed = 0
+
+    # A master may be .webp or .png; when both exist the .webp wins (it is the
+    # newer delivery format we now receive artwork in).
+    stems = {}
+    for f in os.listdir(HERO_SRC):
+        for ext in (".webp", ".png"):
+            if f.endswith(f"_wide{ext}"):
+                stem = f[: -len(f"_wide{ext}")]
+                stems.setdefault(stem, ext if stem not in stems else stems[stem])
+                if ext == ".webp":
+                    stems[stem] = ext
+    for stem in sorted(stems):
+        ext = stems[stem]
+        wide_file = f"{stem}_wide{ext}"
+        out_base = stem.replace("_", "-")              # e.g. home-4  /  home-4b
+        mobile_file = f"{stem}_mobile{ext}"
+        mobile_path = os.path.join(HERO_SRC, mobile_file)
+        if not os.path.exists(mobile_path):
+            print(f"{stem}: missing {mobile_file} - skipping (a slide needs both compositions)")
+            continue
+
+        digest = sha256(os.path.join(HERO_SRC, wide_file)) + sha256(mobile_path)
+        entry = manifest.get(stem)
+        outputs_present = entry and all(
+            os.path.exists(os.path.join(HERO_OUT, o)) for o in entry.get("outputs", [])
+        )
+        if not force and entry and entry.get("sha256") == digest and outputs_present:
+            print(f"{stem}: unchanged")
+            continue
+
+        if entry:
+            _drop_stale(HERO_OUT, entry.get("outputs", []))
+
+        print(f"{stem}: rebuilding -> {out_base}-*")
+        outputs = []
         for kind, widths in HERO_WIDTHS.items():
-            im = Image.open(os.path.join(HERO_SRC, f"home_{n}_{kind}.png")).convert("RGB")
+            im = Image.open(os.path.join(HERO_SRC, f"{stem}_{kind}{ext}")).convert("RGB")
             for w in widths:
-                out = os.path.join(HERO_OUT, f"home-{n}-{kind}-{w}.webp")
+                out = os.path.join(HERO_OUT, f"{out_base}-{kind}-{w}.webp")
                 _resize(im, min(w, im.width)).save(out, format="WEBP", quality=82, method=6)
+                outputs.append(os.path.basename(out))
                 _report(out)
-            out = os.path.join(HERO_OUT, f"home-{n}-{kind}.jpg")
+            out = os.path.join(HERO_OUT, f"{out_base}-{kind}.jpg")
             _resize(im, min(widths[0], im.width)).save(
                 out, format="JPEG", quality=80, optimize=True, progressive=True
             )
+            outputs.append(os.path.basename(out))
             _report(out)
-        im = Image.open(os.path.join(HERO_SRC, f"home_{n}_wide.png")).convert("RGB")
-        out = os.path.join(HERO_OUT, f"home-{n}-preview.webp")
+
+        im = Image.open(os.path.join(HERO_SRC, f"{stem}_wide{ext}")).convert("RGB")
+        out = os.path.join(HERO_OUT, f"{out_base}-preview.webp")
         _resize(im, 480).save(out, format="WEBP", quality=78, method=6)
+        outputs.append(os.path.basename(out))
         _report(out)
+
+        manifest[stem] = {"sha256": digest, "outputs": sorted(outputs)}
+        changed += 1
+
+    _save_manifest(HERO_MANIFEST_DIR, manifest)
+    print(f"hero: {changed} slide(s) rebuilt\n")
 
 
 if __name__ == "__main__":
     args = set(sys.argv[1:])
-    build_marketing(force="--force" in args)
-    if "--hero" in args or "--force" in args:
-        build_hero()
+    force = "--force" in args
+    build_marketing(force=force)
+    build_hero(force=force)

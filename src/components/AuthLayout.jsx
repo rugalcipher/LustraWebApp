@@ -8,9 +8,10 @@ import AuthBackground from "@/components/auth/AuthBackground";
  * primary branding. (The legacy `icon` prop is accepted for compatibility but
  * no longer rendered.)
  *
- * The page sits on a cinematic background mood layer (see AuthBackground); the
- * card is raised above it with a translucent noir surface and a rose-gold hair
- * line, so the form stays the unmistakable focus. Every page using this layout
+ * The page sits on a cinematic background mood layer (see AuthBackground). The
+ * card stays CENTRED at every width and is raised above the image with a
+ * translucent noir surface and a rose-gold hair line, so the form is always the
+ * unmistakable focus. Every page using this layout
  * — login, register, forgot, reset — inherits the treatment, and `background`
  * allows a per-page image later without touching any page.
  *

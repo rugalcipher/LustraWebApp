@@ -55,8 +55,8 @@ function PreviewPanel({
       </div>
       {active && (
         <span
-          className="absolute bottom-0 left-0 h-0.5 bg-rose-gold"
-          style={{ width: `${progress * 100}%`, transition: "none" }}
+          className="absolute bottom-0 left-0 h-0.5 w-full bg-rose-gold origin-left will-change-transform"
+          style={{ transform: `scaleX(${progress})`, transition: "none" }}
         />
       )}
     </button>

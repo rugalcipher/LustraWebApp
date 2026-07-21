@@ -45,6 +45,21 @@ export function useExperienceHero(count: number, autoplayMs: number): Experience
   const lastTsRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
 
+  // Background tabs must not accumulate elapsed time. rAF already stops while
+  // hidden, but the first frame after returning would otherwise carry the whole
+  // hidden duration in its delta and jump the carousel forward.
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisibility = () => {
+      setHidden(document.visibilityState === "hidden");
+      lastTsRef.current = null; // resume from the paused position, not from a stale timestamp
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    onVisibility();
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
   const goTo = useCallback(
     (i: number) => setIndex(((i % count) + count) % count),
     [count]
@@ -69,12 +84,28 @@ export function useExperienceHero(count: number, autoplayMs: number): Experience
     });
   }, [index, count]);
 
-  // Autoplay loop — frozen while paused or when reduced motion is preferred.
+  /**
+   * Autoplay + progress loop — one rAF drives both, so the visible fill and the
+   * moment the slide advances can never drift apart.
+   *
+   * `index` IS a dependency on purpose: the loop stops itself when it reaches
+   * 100% (it advances the slide instead of requesting another frame), so the
+   * effect has to re-run for the new slide to start a fresh timer from 0.
+   * Without it the carousel advanced exactly once and then sat still with a
+   * frozen indicator.
+   *
+   * Frozen while paused (hover/focus), while the tab is hidden, and for
+   * reduced-motion users. Pausing keeps `elapsedRef`, so resuming continues from
+   * where it stopped; only a slide change resets it (see the effect above).
+   */
   useEffect(() => {
-    if (paused || reducedMotion || count <= 1) return;
+    if (paused || hidden || reducedMotion || count <= 1) return;
+
     const tick = (ts: number) => {
       if (lastTsRef.current == null) lastTsRef.current = ts;
-      const dt = ts - lastTsRef.current;
+      // Clamp the delta: a long frame (tab restore, GC pause, slow device) must
+      // never teleport the progress bar or skip a slide.
+      const dt = Math.min(ts - lastTsRef.current, 100);
       lastTsRef.current = ts;
       elapsedRef.current += dt;
       const p = Math.min(1, elapsedRef.current / autoplayMs);
@@ -87,12 +118,16 @@ export function useExperienceHero(count: number, autoplayMs: number): Experience
         rafRef.current = requestAnimationFrame(tick);
       }
     };
+
     rafRef.current = requestAnimationFrame(tick);
     return () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       lastTsRef.current = null;
     };
-  }, [paused, reducedMotion, autoplayMs, count]);
+  }, [paused, hidden, reducedMotion, autoplayMs, count, index]);
 
   return { index, count, progress, paused, reducedMotion, loaded, setPaused, next, prev, goTo };
 }

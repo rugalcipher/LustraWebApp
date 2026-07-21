@@ -12,21 +12,33 @@ import type { ExperienceSlide } from "./experienceSlides";
  * alignment varies per slide (center/left/right rhythm); mobile always sits in
  * the lower third, left-aligned, above the actions and safe area. Re-keyed by
  * slide id so the copy re-animates on each change.
+ *
+ * The gutters are a deliberate SAFE AREA, not decoration: the edge arrows used
+ * to hold the copy away from the screen edges, so with them gone the padding
+ * grows on its own (and honours the notch), and the measure is capped for
+ * readability.
+ *
+ * VERTICAL POSITION: the block is CENTRED at every width. This element fills the
+ * flex-1 region that already sits between the header and the progress/preview
+ * strip, so "centre" here means centred in the USABLE hero area — the header,
+ * indicators and safe areas are excluded by construction, with no `100vh` maths
+ * to get wrong. Mobile then takes a small, controlled downward bias (a few vh,
+ * hard-capped) purely to expose a little more of the photograph; it is an offset
+ * from centre, never bottom anchoring.
  */
 export default function ExperienceHeroContent({ slide }: { slide: ExperienceSlide }) {
   return (
     <div
       className={cn(
-        "w-full px-6 sm:px-10 lg:px-16",
-        "flex flex-col justify-end md:justify-center h-full",
-        "pb-4 md:pb-0"
+        "w-full hero-safe-x hero-content",
+        "flex flex-col justify-center h-full"
       )}
     >
       <div
         key={slide.id}
         className={cn(
-          "flex flex-col gap-4 sm:gap-6 animate-fade-up",
-          "max-w-[92%] sm:max-w-lg md:max-w-2xl",
+          "flex flex-col gap-3.5 sm:gap-5 md:gap-6 animate-fade-up",
+          "w-full max-w-[34rem] md:max-w-2xl",
           "items-start text-left", // mobile default
           slide.align === "center" && "md:mx-auto md:items-center md:text-center",
           slide.align === "left" && "md:mr-auto md:items-start md:text-left",
@@ -51,15 +63,17 @@ export default function ExperienceHeroContent({ slide }: { slide: ExperienceSlid
 
         <div
           className={cn(
-            "flex flex-col sm:flex-row gap-3 mt-1 w-full sm:w-auto",
+            // <=560px: two equal columns (see `.hero-cta-group` in index.css).
+            // 561px+: unchanged — stacked, then a row from `sm`.
+            "hero-cta-group flex flex-col sm:flex-row gap-3 mt-1 w-full sm:w-auto",
             slide.align === "center" && "md:justify-center",
             slide.align === "right" && "md:justify-end"
           )}
         >
-          <LustraButton as={Link} to="/request-access" size="lg" className="w-full sm:w-auto">
+          <LustraButton as={Link} to="/request-access" size="lg" className="hero-cta w-full sm:w-auto">
             Request Access
           </LustraButton>
-          <LustraButton as={Link} to="/talent" variant="outline" size="lg" className="w-full sm:w-auto">
+          <LustraButton as={Link} to="/talent" variant="outline" size="lg" className="hero-cta w-full sm:w-auto">
             Discover Lustra <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.4} />
           </LustraButton>
         </div>

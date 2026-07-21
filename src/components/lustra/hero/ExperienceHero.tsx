@@ -6,7 +6,6 @@ import { EXPERIENCE_SLIDES, AUTOPLAY_MS } from "./experienceSlides";
 import { useExperienceHero } from "./useExperienceHero";
 import ExperienceHeroSlide from "./ExperienceHeroSlide";
 import ExperienceHeroContent from "./ExperienceHeroContent";
-import ExperienceHeroControls from "./ExperienceHeroControls";
 import ExperienceHeroProgress from "./ExperienceHeroProgress";
 import ExperienceHeroPreviews from "./ExperienceHeroPreviews";
 
@@ -113,13 +112,10 @@ export default function ExperienceHero() {
 
           {/* Bottom bar: progress + previews */}
           <div className="px-6 sm:px-10 lg:px-16 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-3 lg:space-y-4">
-            <ExperienceHeroProgress index={index} count={count} progress={progress} onSelect={goTo} />
+            <ExperienceHeroProgress index={index} count={count} progress={progress} onSelect={goTo} reducedMotion={reducedMotion} />
             <ExperienceHeroPreviews slides={EXPERIENCE_SLIDES} index={index} progress={progress} onSelect={goTo} />
           </div>
         </div>
-
-        {/* Edge controls */}
-        <ExperienceHeroControls onPrev={prev} onNext={next} onFocusChange={setFocusWithin} />
 
         {/* Screen-reader announcement */}
         <div className="sr-only" aria-live="polite" role="status">

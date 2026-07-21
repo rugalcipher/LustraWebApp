@@ -80,7 +80,7 @@ function build(name: string): AuthBackground | null {
     posTablet: "80% 42%",
     posMobile: "50% 38%",
     intensityDesktop: 0.92,
-    intensityMobile: 0.55,
+    intensityMobile: 0.72,
     alt: "",
   };
 }

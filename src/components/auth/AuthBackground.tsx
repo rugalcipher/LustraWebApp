@@ -38,10 +38,19 @@ export default function AuthBackground({ variant = "default" }: Props) {
 
       {bg && (
         <picture>
+          {/* Portrait viewports (phones, upright tablets) get the 9:16 master —
+              the same query the CSS framing uses, so they never disagree. */}
           {bg.mobileSrcSet && (
-            <source media="(max-width: 560px)" type="image/webp" srcSet={bg.mobileSrcSet} sizes="100vw" />
+            <source
+              media="(max-width: 1023px) and (orientation: portrait)"
+              type="image/webp"
+              srcSet={bg.mobileSrcSet}
+              sizes="100vw"
+            />
           )}
-          {bg.mobileFallbackSrc && <source media="(max-width: 560px)" srcSet={bg.mobileFallbackSrc} />}
+          {bg.mobileFallbackSrc && (
+            <source media="(max-width: 1023px) and (orientation: portrait)" srcSet={bg.mobileFallbackSrc} />
+          )}
           <source type="image/webp" srcSet={bg.srcSet} sizes="100vw" />
           <img
             ref={imgRef}
@@ -67,17 +76,16 @@ export default function AuthBackground({ variant = "default" }: Props) {
         </picture>
       )}
 
-      {/* Spotlight scrim: deep noir pooled behind the centred card, opening up
-          toward the figure. This is what guarantees contrast for the form. */}
+      {/* Spotlight scrim: deep noir pooled behind the card — centred on phones,
+          shifted to the card's side on desktop. This is what guarantees form
+          contrast, so no bright hotspot can ever land under a label or input. */}
       <div className="auth-bg-spot absolute inset-0" />
-      {/* Calm left edge + settled base. */}
-      <div className="absolute inset-0 bg-gradient-to-r from-noir via-noir/45 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-noir via-noir/25 to-noir/55" />
+      {/* Horizontal wash: opens up over the figure, deepens under the form. */}
+      <div className="auth-bg-side absolute inset-0" />
+      {/* Settled base + soft top so the logo always has a calm field. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-noir via-noir/20 to-noir/45" />
       {/* A whisper of rose-gold so the noir never reads flat. */}
-      <div
-        className="absolute inset-0 opacity-[0.07]"
-        style={{ background: "radial-gradient(60% 50% at 78% 40%, #b8876b 0%, transparent 70%)" }}
-      />
+      <div className="auth-bg-tint absolute inset-0" />
     </div>
   );
 }

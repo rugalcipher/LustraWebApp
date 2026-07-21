@@ -39,6 +39,33 @@ for (const dir of outDirs) {
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 
 const problems = [];
+
+// Hero slides: masters are `<name>_{wide,mobile}.png`, hashed as a pair, with the
+// manifest kept beside them (never shipped in public/).
+const heroDir = join(root, "assets", "home");
+const heroOut = join(root, "src", "assets", "home");
+if (existsSync(heroDir)) {
+  const heroManifestPath = join(heroDir, ".manifest.json");
+  const heroManifest = existsSync(heroManifestPath)
+    ? JSON.parse(readFileSync(heroManifestPath, "utf8"))
+    : {};
+  for (const file of readdirSync(heroDir)) {
+    const ext = file.endsWith("_wide.webp") ? ".webp" : file.endsWith("_wide.png") ? ".png" : null;
+    if (!ext) continue;
+    const stem = file.slice(0, -`_wide${ext}`.length);
+    const entry = heroManifest[stem];
+    if (!entry) continue;
+    const mobile = join(heroDir, `${stem}_mobile${ext}`);
+    if (!existsSync(mobile)) continue;
+    if (entry.sha256 !== sha(join(heroDir, file)) + sha(mobile)) {
+      problems.push(`${stem}_{wide,mobile}.png was replaced — its hero derivatives are stale`);
+      continue;
+    }
+    const missing = (entry.outputs ?? []).filter((o) => !existsSync(join(heroOut, o)));
+    if (missing.length) problems.push(`${stem} is missing hero derivatives: ${missing.join(", ")}`);
+  }
+}
+
 for (const file of readdirSync(mastersDir)) {
   if (!file.endsWith(".webp")) continue;
   const stem = file.slice(0, -".webp".length);

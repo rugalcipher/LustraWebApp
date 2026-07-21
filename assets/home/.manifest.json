@@ -1,0 +1,67 @@
+{
+  "home_1": {
+    "outputs": [
+      "home-1-mobile-640.webp",
+      "home-1-mobile-900.webp",
+      "home-1-mobile.jpg",
+      "home-1-preview.webp",
+      "home-1-wide-1080.webp",
+      "home-1-wide-1440.webp",
+      "home-1-wide-1672.webp",
+      "home-1-wide.jpg"
+    ],
+    "sha256": "1b59d0a28eaf0e470e7a0e4dea949f0ae8632cdc9ed39f6056e3f9796ee639ff63002f060ed943fa8dc1632b884c660507ab110ec35c702dc77cd54feec04a6b"
+  },
+  "home_2": {
+    "outputs": [
+      "home-2-mobile-640.webp",
+      "home-2-mobile-900.webp",
+      "home-2-mobile.jpg",
+      "home-2-preview.webp",
+      "home-2-wide-1080.webp",
+      "home-2-wide-1440.webp",
+      "home-2-wide-1672.webp",
+      "home-2-wide.jpg"
+    ],
+    "sha256": "91cb262d068d6c1eeb372da9731fb9a99783d44854be87e2795ce962113faffbc4e51b5b56bdf2af5f7e955ca30e8092787821a5ee64d7b4f51e2f03e56caaf9"
+  },
+  "home_3": {
+    "outputs": [
+      "home-3-mobile-640.webp",
+      "home-3-mobile-900.webp",
+      "home-3-mobile.jpg",
+      "home-3-preview.webp",
+      "home-3-wide-1080.webp",
+      "home-3-wide-1440.webp",
+      "home-3-wide-1672.webp",
+      "home-3-wide.jpg"
+    ],
+    "sha256": "7d5501c88f549767c4671e5f64f1540f6c7e8ad65c50824bd6c7be7999aa305c4b0be29455e5875730b31ca274347c5e5c7c00aac3624589cefdd1fb7c99a7b8"
+  },
+  "home_4": {
+    "outputs": [
+      "home-4-mobile-640.webp",
+      "home-4-mobile-900.webp",
+      "home-4-mobile.jpg",
+      "home-4-preview.webp",
+      "home-4-wide-1080.webp",
+      "home-4-wide-1440.webp",
+      "home-4-wide-1672.webp",
+      "home-4-wide.jpg"
+    ],
+    "sha256": "898ce8fdd41a7f308f16cc71656228697391adaf5dd18e9104c6de001f3dab4501d09f3b35fe7fc0cc6d0db51fc695d4eb72bcd644d31df38b1183a5be239a26"
+  },
+  "home_5": {
+    "outputs": [
+      "home-5-mobile-640.webp",
+      "home-5-mobile-900.webp",
+      "home-5-mobile.jpg",
+      "home-5-preview.webp",
+      "home-5-wide-1080.webp",
+      "home-5-wide-1440.webp",
+      "home-5-wide-1672.webp",
+      "home-5-wide.jpg"
+    ],
+    "sha256": "6b8369e0993f33ef664a0f72ac12e704be1e1ec5f1b6b6267d38511c2475ab410ab048d74b639c19015122e7d83afc3b08703a5fec459b84225b30044e6b3ad2"
+  }
+}

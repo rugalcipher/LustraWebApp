@@ -10,23 +10,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <!-- Experience Hero — preload the first slide's artwork (wide ≥768px, portrait below). -->
-    <link
-      rel="preload"
-      as="image"
-      media="(min-width: 768px)"
-      imagesrcset="/home/home-1-wide-1080.webp 1080w, /home/home-1-wide-1440.webp 1440w, /home/home-1-wide-1672.webp 1672w"
-      imagesizes="100vw"
-      fetchpriority="high"
-    />
-    <link
-      rel="preload"
-      as="image"
-      media="(max-width: 767.98px)"
-      imagesrcset="/home/home-1-mobile-640.webp 640w, /home/home-1-mobile-900.webp 900w"
-      imagesizes="100vw"
-      fetchpriority="high"
-    />
+    <!-- No hero preload: hero art is content-hashed by Vite, so its URL is not
+         knowable in static HTML. The first slide is loaded eagerly with
+         fetchpriority="high" from the component instead. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Jost:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
