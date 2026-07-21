@@ -166,6 +166,12 @@ export const queryKeys = {
     conversationNotes: (id: string) => ["management", "conversations", "detail", id, "notes"] as const,
     proposal: (id: string) => ["management", "proposals", id] as const,
     bookings: (filters?: Filters) => ["management", "bookings", filters ?? null] as const,
+    // The booking-scoped talent picker. Keyed apart from the talent-admin roster
+    // because it is a different endpoint behind a different permission.
+    bookingTalentOptions: (filters?: Filters) =>
+      ["management", "bookings", "talent-options", filters ?? null] as const,
+    bookingTalentOption: (talentProfileId: string) =>
+      ["management", "bookings", "talent-options", talentProfileId] as const,
     booking: (id: string) => ["management", "bookings", "detail", id] as const,
     bookingVisibilityHistory: (id: string) =>
       ["management", "bookings", "detail", id, "visibility-history"] as const,

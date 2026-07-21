@@ -361,3 +361,82 @@ export function allowedActions(status: string): ("start" | "complete" | "no-show
       return [];
   }
 }
+
+// ---- booking-scoped talent picker ------------------------------------------
+
+/**
+ * A talent as an appointment picker sees them.
+ *
+ * Mirrors `BookingTalentOptionDto`. The narrowest view the backend offers: enough to
+ * recognise a person and know whether they can be assigned, and nothing more. There is
+ * deliberately no legal name, contact detail, invitation state or account-security field on
+ * this shape — a booker filling in a date has no business reading them.
+ */
+export interface BookingTalentOptionDto {
+  talentProfileId: string;
+  displayName: string;
+  coverImage: {
+    url: string;
+    srcSet: string | null;
+    width: number | null;
+    height: number | null;
+    aspectRatio?: number | null;
+  } | null;
+  cityName: string | null;
+  profileStatus: string;
+  accountStatus: string;
+  isArchived: boolean;
+  isSuspended: boolean;
+  isPublished: boolean;
+  /** Computed server-side from the same rule the booking command enforces. */
+  canReceiveNewBooking: boolean;
+  /** Why not, in words an operator can act on. Null when assignable. */
+  unavailableReason: string | null;
+}
+
+/** Filters for the booking talent picker. Query names mirror the backend exactly. */
+export interface BookingTalentOptionSearch {
+  query?: string | null;
+  /** Default false: hides archived, suspended, draft and rejected talent. */
+  includeUnavailable?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Searches talent for an appointment picker.
+ *
+ * `GET /management/bookings/talent-options`, behind **`Bookings.Manage` alone**. The talent
+ * administration roster (`GET /management/talents`) needs `Talent.View` because it exposes
+ * the whole record; choosing who to schedule must not require read access to legal names,
+ * contact details and account security. Do not point this back at the roster.
+ */
+export function searchBookingTalentOptions(
+  filters: BookingTalentOptionSearch = {},
+  signal?: AbortSignal
+) {
+  return api.get<PagedResult<BookingTalentOptionDto>>("/management/bookings/talent-options", {
+    query: {
+      query: filters.query ?? undefined,
+      includeUnavailable: filters.includeUnavailable ?? undefined,
+      page: filters.page ?? undefined,
+      pageSize: filters.pageSize ?? undefined,
+    },
+    signal,
+  });
+}
+
+/**
+ * Resolves one talent for a picker, whatever their current state.
+ *
+ * Exists so an EXISTING appointment still renders the person it was assigned to after they
+ * have been archived. The list hides them — correctly, they cannot take new work — but a
+ * historical record showing a blank where a name belongs is worse than showing an archived
+ * one.
+ */
+export function getBookingTalentOption(talentProfileId: string, signal?: AbortSignal) {
+  return api.get<BookingTalentOptionDto>(
+    `/management/bookings/talent-options/${talentProfileId}`,
+    { signal }
+  );
+}

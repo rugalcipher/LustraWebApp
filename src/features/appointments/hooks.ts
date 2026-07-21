@@ -222,3 +222,40 @@ export function useReassignAppointmentTalent(bookingId: string | undefined) {
     onSuccess: () => invalidate(bookingId),
   });
 }
+
+/**
+ * Searches talent for an appointment picker.
+ *
+ * Gated on **`Bookings.Manage`**, not `Talent.View`. Choosing who to schedule and
+ * administering the talent roster are separate privileges, and the backend enforces the
+ * split — `GET /management/bookings/talent-options` needs only the booking permission.
+ */
+export function useBookingTalentOptions(
+  filters: appointmentService.BookingTalentOptionSearch = {},
+  enabled = true
+) {
+  const canManage = usePermission("Bookings.Manage");
+  return useQuery({
+    queryKey: queryKeys.management.bookingTalentOptions(filters),
+    queryFn: ({ signal }) => appointmentService.searchBookingTalentOptions(filters, signal),
+    enabled: canManage && enabled,
+    staleTime: APPOINTMENT_STALE_TIME,
+  });
+}
+
+/**
+ * Resolves one talent for a picker regardless of their state.
+ *
+ * For an EXISTING appointment whose assigned talent has since been archived: the search
+ * list correctly hides them, but the record they are already on must still show a name.
+ */
+export function useBookingTalentOption(talentProfileId: string | null | undefined) {
+  const canManage = usePermission("Bookings.Manage");
+  return useQuery({
+    queryKey: queryKeys.management.bookingTalentOption(talentProfileId ?? ""),
+    queryFn: ({ signal }) =>
+      appointmentService.getBookingTalentOption(talentProfileId!, signal),
+    enabled: canManage && Boolean(talentProfileId),
+    staleTime: APPOINTMENT_STALE_TIME,
+  });
+}
