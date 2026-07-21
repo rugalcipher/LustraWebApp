@@ -75,29 +75,34 @@ describe("public asset casing", () => {
 });
 
 describe("API base URL", () => {
-  it("carries no reference to the obsolete UAT host in shipped code", () => {
-    // Source only. The deployment notes deliberately quote the broken URL as the
-    // symptom being explained, and documenting a past failure is not a reference to it.
-    const offenders = [...sourceFiles(SRC), path.join(ROOT, "index.html")].filter((file) =>
-      /uatapi\.lustra\.vip/i.test(fs.readFileSync(file, "utf8"))
-    );
+  it("hard-codes no API host in shipped code", () => {
+    // The base URL is configuration, not a constant: it differs per environment and is
+    // inlined by Vite at build time. A literal host in a component or service would
+    // silently win over the environment variable in one environment and not another.
+    //
+    // src/config/env.ts is exempt — it names hosts only inside the error message that
+    // tells an operator what a valid value looks like.
+    const offenders = [...sourceFiles(SRC), path.join(ROOT, "index.html")]
+      .filter((file) => !file.endsWith(path.join("config", "env.ts")))
+      .filter((file) => /https:\/\/[a-z0-9.-]*lustra\.vip/i.test(fs.readFileSync(file, "utf8")));
+
     expect(offenders).toEqual([]);
   });
 
   it("accepts the correct UAT origin", () => {
-    expect(deployedApiBaseUrlProblems("https://uat-api.lustra.vip/api/v1")).toEqual([]);
+    expect(deployedApiBaseUrlProblems("https://uatapi.lustra.vip/api/v1")).toEqual([]);
     expect(deployedApiBaseUrlProblems("https://api.lustra.vip/api/v1")).toEqual([]);
   });
 
   it("rejects a base URL missing the /api/v1 prefix", () => {
     // THE bug: the browser reported a blocked CORS preflight, because the request landed
     // on a path the API redirects rather than serves.
-    const problems = deployedApiBaseUrlProblems("https://uat-api.lustra.vip");
+    const problems = deployedApiBaseUrlProblems("https://uatapi.lustra.vip");
     expect(problems.join(" ")).toContain("/api/v1");
   });
 
-  it("rejects http, localhost and the obsolete host shape", () => {
-    expect(deployedApiBaseUrlProblems("http://uat-api.lustra.vip/api/v1").join(" ")).toContain("https");
+  it("rejects http and localhost", () => {
+    expect(deployedApiBaseUrlProblems("http://uatapi.lustra.vip/api/v1").join(" ")).toContain("https");
     expect(deployedApiBaseUrlProblems("https://localhost:7266/api/v1").join(" ")).toContain("localhost");
     expect(deployedApiBaseUrlProblems("http://127.0.0.1:5000").length).toBeGreaterThan(1);
   });
@@ -114,13 +119,13 @@ describe("URL joining", () => {
 
   it("trims trailing slashes so paths never double up", () => {
     for (const raw of [
-      "https://uat-api.lustra.vip/api/v1",
-      "https://uat-api.lustra.vip/api/v1/",
-      "https://uat-api.lustra.vip/api/v1///",
+      "https://uatapi.lustra.vip/api/v1",
+      "https://uatapi.lustra.vip/api/v1/",
+      "https://uatapi.lustra.vip/api/v1///",
     ]) {
       const base = normalise(raw);
-      expect(base).toBe("https://uat-api.lustra.vip/api/v1");
-      expect(`${base}/public/talents`).toBe("https://uat-api.lustra.vip/api/v1/public/talents");
+      expect(base).toBe("https://uatapi.lustra.vip/api/v1");
+      expect(`${base}/public/talents`).toBe("https://uatapi.lustra.vip/api/v1/public/talents");
       expect(`${base}/public/talents`).not.toContain("//public");
     }
   });
@@ -128,10 +133,10 @@ describe("URL joining", () => {
   it("resolves the public talent request against the configured origin", () => {
     // The route the backend actually exposes is api/v1/public/talents
     // (PublicTalentsController: [Route("api/v1/public/talents")]).
-    const base = normalise("https://uat-api.lustra.vip/api/v1");
+    const base = normalise("https://uatapi.lustra.vip/api/v1");
     const url = new URL(`${base}/public/talents`);
 
-    expect(url.origin).toBe("https://uat-api.lustra.vip");
+    expect(url.origin).toBe("https://uatapi.lustra.vip");
     expect(url.pathname).toBe("/api/v1/public/talents");
   });
 });
@@ -139,20 +144,47 @@ describe("URL joining", () => {
 describe("deployment templates", () => {
   const uat = fs.readFileSync(path.join(ROOT, "docs/deployment/uat.frontend.env.example"), "utf8");
 
-  it("documents the correct UAT API base URL with no trailing slash", () => {
-    expect(uat).toContain("VITE_API_BASE_URL=https://uat-api.lustra.vip/api/v1");
-    expect(uat).not.toMatch(/VITE_API_BASE_URL=\S*\/\s*$/m);
+  /** The uncommented `NAME=value` assignments — what an operator copies into Vercel. */
+  const assignments = new Map(
+    uat
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => /^VITE_[A-Z_]+=/.test(line))
+      .map((line) => {
+        const separator = line.indexOf("=");
+        return [line.slice(0, separator), line.slice(separator + 1)] as const;
+      })
+  );
+
+  it("assigns the canonical UAT values exactly", () => {
+    expect(assignments.get("VITE_DATA_MODE")).toBe("api");
+    expect(assignments.get("VITE_API_BASE_URL")).toBe("https://uatapi.lustra.vip/api/v1");
+    expect(assignments.get("VITE_SIGNALR_BASE_URL")).toBe("https://uatapi.lustra.vip");
+    expect(assignments.get("VITE_APP_ENV")).toBe("uat");
+    expect(assignments.get("VITE_ENABLE_DEV_ROLE_SWITCHER")).toBe("false");
   });
 
-  it("never ASSIGNS the obsolete host to a variable", () => {
-    // The template explains the outage, so the broken URL appears in prose. What must
-    // never appear is an uncommented VITE_* assignment carrying it — that is the value
-    // an operator would copy into Vercel.
-    const assignments = uat
-      .split(/\r?\n/)
-      .filter((line) => /^\s*VITE_[A-Z_]+\s*=/.test(line))
-      .filter((line) => /uatapi\.lustra\.vip/i.test(line));
+  it("uses the hostname without a hyphen", () => {
+    // uatapi, not uat-api. The hyphenated spelling was an incorrect assumption and does
+    // not resolve; every assignment must use the real host.
+    for (const [name, value] of assignments) {
+      expect(value, `${name} must not use the hyphenated host`).not.toMatch(/uat-api\.lustra\.vip/i);
+    }
+  });
 
-    expect(assignments).toEqual([]);
+  it("gives SignalR the ORIGIN and the API the versioned path", () => {
+    // Two different shapes, and mixing them up is easy: the hub is mapped at
+    // /hubs/chat on the root, so an origin carrying /api/v1 would negotiate against
+    // /api/v1/hubs/chat and 404.
+    expect(assignments.get("VITE_SIGNALR_BASE_URL")).not.toMatch(/\/api\/v\d+/);
+    expect(assignments.get("VITE_API_BASE_URL")).toMatch(/\/api\/v1$/);
+  });
+
+  it("leaves no trailing slash on any URL value", () => {
+    for (const [name, value] of assignments) {
+      if (/^https?:\/\//.test(value)) {
+        expect(value, `${name} must not end with a slash`).not.toMatch(/\/$/);
+      }
+    }
   });
 });

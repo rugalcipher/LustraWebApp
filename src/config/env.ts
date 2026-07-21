@@ -92,7 +92,7 @@ function buildEnv(): AppEnv {
     if (problems.length > 0) {
       throw new EnvironmentConfigError(
         `VITE_API_BASE_URL is not valid for a deployed build: ${problems.join(" ")} ` +
-          `Got "${apiBaseUrl}". Expected something like https://uat-api.lustra.vip/api/v1 ` +
+          `Got "${apiBaseUrl}". Expected something like https://uatapi.lustra.vip/api/v1 ` +
           `(https, no trailing slash, including the /api/v1 prefix).`
       );
     }
