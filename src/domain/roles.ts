@@ -84,3 +84,23 @@ export function primaryRole(roles: readonly Role[]): Role | Guest {
   }
   return GUEST;
 }
+
+/**
+ * Where a signed-in user's "home" is.
+ *
+ * <b>The single answer to "inside the app, where does home go?"</b> — used by
+ * post-login routing and by every authenticated shell's logo, so the logo can
+ * never disagree with where signing in would have put you.
+ *
+ * Multi-role precedence is {@link primaryRole}: highest privilege wins, so a
+ * user who is both Management and Admin lands on the Admin overview.
+ *
+ * An authenticated user whose roles are all unrecognised falls back to the
+ * client home rather than to `/`. They are signed in — sending them to the
+ * public landing page would look exactly like being signed out, which is the
+ * defect this helper exists to prevent.
+ */
+export function authenticatedHomePath(roles: readonly Role[]): string {
+  const primary = primaryRole(roles);
+  return primary === GUEST ? ROLE_HOME.client : ROLE_HOME[primary];
+}

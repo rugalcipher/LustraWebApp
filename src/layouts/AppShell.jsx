@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
 import { navForGroup } from "@/app/routeRegistry";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
+import { useHomeLink } from "@/auth/useHomeLink";
 import {
   useConversationListLiveUpdates,
   useUnreadConversationCount,
@@ -22,6 +23,7 @@ const ICONS = { Compass, Heart, MessageSquare, Calendar, CalendarCheck, User };
 const COLUMNS = { 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-5", 6: "grid-cols-6" };
 
 export default function AppShell() {
+  const homeLink = useHomeLink();
   const { role, user } = useRole();
   const location = useLocation();
 
@@ -40,7 +42,7 @@ export default function AppShell() {
       {/* Top bar */}
       <header className="sticky top-0 z-40 bg-noir/85 backdrop-blur-md border-b border-white/[0.05] safe-top">
         <div className="max-w-luxe mx-auto px-5 h-14 flex items-center justify-between">
-          <Link to="/" aria-label="Lustra home" className="flex items-center">
+          <Link to={homeLink} aria-label="Lustra home" className="flex items-center">
             <LustraHorizontalLogo className="h-6 w-auto" eager />
           </Link>
           <div className="flex items-center gap-4">

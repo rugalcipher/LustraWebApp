@@ -8,7 +8,8 @@ import { toFormErrors, toUserMessage, isApiError } from "@/api/problemDetails";
 import { useAuthStore } from "@/stores/authStore";
 import { usePrincipal } from "@/auth/PrincipalContext";
 import { consumeIntendedAction, routeForIntendedAction } from "@/features/auth/intendedAction";
-import { ROLE_HOME } from "@/domain/roles";
+import { authenticatedHomePath, normalizeRole } from "@/domain/roles";
+import type { Role } from "@/domain/roles";
 import type { AuthResultDto, SessionDto } from "@/services/dto/authDto";
 
 /**
@@ -66,14 +67,13 @@ export function usePostAuthRedirect(): (result: AuthResultDto) => void {
         navigate(intended, { replace: true });
         return;
       }
-      const roles = (result.user.roles ?? []).map((r) => r.toLowerCase());
-      const home =
-        (roles.includes("superadmin") && ROLE_HOME.superadmin) ||
-        (roles.includes("admin") && ROLE_HOME.admin) ||
-        (roles.includes("management") && ROLE_HOME.management) ||
-        (roles.includes("talent") && ROLE_HOME.talent) ||
-        ROLE_HOME.client;
-      navigate(home, { replace: true });
+      // The same helper the authenticated shells' logo uses, so "where signing in
+      // puts you" and "where home goes" cannot drift apart.
+      const roles = (result.user.roles ?? [])
+        .map((r) => normalizeRole(r))
+        .filter((r): r is Role => r !== null);
+
+      navigate(authenticatedHomePath(roles), { replace: true });
     },
     [navigate, location.state, consumeIntendedRoute]
   );

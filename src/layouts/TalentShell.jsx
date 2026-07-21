@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
 import { navForGroup } from "@/app/routeRegistry";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
+import { useHomeLink } from "@/auth/useHomeLink";
 import RouteFallback from "@/components/RouteFallback";
 
 const ICONS = { LayoutDashboard, CalendarClock, Calendar, Settings, Circle, User, Image, Star, CalendarCheck };
@@ -18,6 +19,7 @@ const ICONS = { LayoutDashboard, CalendarClock, Calendar, Settings, Circle, User
  * operational chrome used by Management/Admin.
  */
 export default function TalentShell() {
+  const homeLink = useHomeLink();
   const { user } = useRole();
   const location = useLocation();
   const nav = navForGroup("talent");
@@ -28,7 +30,7 @@ export default function TalentShell() {
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-white/[0.06] bg-deep-black/60 sticky top-0 h-screen">
         <div className="px-5 h-14 flex items-center border-b border-white/[0.06]">
-          <Link to="/" aria-label="Lustra home" className="flex items-center">
+          <Link to={homeLink} aria-label="Lustra home" className="flex items-center">
             <LustraHorizontalLogo className="h-6 w-auto" eager />
           </Link>
         </div>
@@ -70,7 +72,7 @@ export default function TalentShell() {
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="lg:hidden sticky top-0 z-40 bg-noir/85 backdrop-blur-md border-b border-white/[0.05] safe-top">
           <div className="px-4 h-14 flex items-center justify-between">
-            <Link to="/" aria-label="Lustra home" className="flex items-center">
+            <Link to={homeLink} aria-label="Lustra home" className="flex items-center">
               <LustraHorizontalLogo className="h-5 w-auto" eager />
             </Link>
             <span className="text-[0.5rem] tracking-luxe uppercase text-muted-grey">Talent</span>

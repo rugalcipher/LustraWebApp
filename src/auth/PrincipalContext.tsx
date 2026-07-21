@@ -83,3 +83,17 @@ export function usePrincipal(): PrincipalContextValue {
   if (!ctx) throw new Error("usePrincipal must be used within PrincipalProvider");
   return ctx;
 }
+
+/**
+ * The principal when there is one, or null outside the provider.
+ *
+ * For components that legitimately render on both sides of the auth boundary —
+ * the public marketing header is the case — where "no provider" means "treat
+ * this visitor as anonymous", not "this is a bug". Anything that makes an
+ * authorization decision must use {@link usePrincipal} and be told loudly when
+ * the provider is missing, because silently reading "no permissions" there
+ * would fail open in the wrong direction.
+ */
+export function usePrincipalOptional(): PrincipalContextValue | null {
+  return useContext(PrincipalContext);
+}

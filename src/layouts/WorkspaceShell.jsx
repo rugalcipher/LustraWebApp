@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import RouteFallback from "@/components/RouteFallback";
+import { useHomeLink } from "@/auth/useHomeLink";
 
 const ICONS = {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
@@ -50,6 +51,7 @@ function toSections(nav) {
  */
 export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "text-rose-gold" }) {
   const { user } = useRole();
+  const homeLink = useHomeLink();
   const location = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -61,7 +63,7 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
   const SidebarBody = (
     <>
       <div className="px-5 h-16 flex items-center border-b border-white/[0.06]">
-        <Link to="/" aria-label="Lustra home" className="flex items-center">
+        <Link to={homeLink} aria-label="Lustra home" className="flex items-center">
           <LustraHorizontalLogo className="h-7 w-auto" eager />
         </Link>
       </div>

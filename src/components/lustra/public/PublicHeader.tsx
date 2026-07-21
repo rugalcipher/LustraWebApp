@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
+import { useHomeLink } from "@/auth/useHomeLink";
 import { Sparkle } from "@/lib/lustra/Brand";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function PublicHeader({ variant = "solid", sticky = true }: Props) {
+  const homeLink = useHomeLink();
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const isActive = (to: string) => pathname === to || pathname.startsWith(to + "/");
@@ -40,7 +42,7 @@ export default function PublicHeader({ variant = "solid", sticky = true }: Props
       )}
     >
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-16 h-16 flex items-center justify-between">
-        <Link to="/" aria-label="Lustra home" className="flex items-center">
+        <Link to={homeLink} aria-label="Lustra home" className="flex items-center">
           <LustraHorizontalLogo className="h-6 sm:h-7 w-auto" eager />
         </Link>
 
