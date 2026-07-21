@@ -8,6 +8,7 @@ import BrowseTalent from "@/pages/BrowseTalent";
 import TalentProfile from "@/pages/TalentProfile";
 import RequestAccess from "@/pages/RequestAccess";
 import TalentApplication from "@/pages/TalentApplication";
+import ApplicationContinue from "@/pages/ApplicationContinue";
 import InfoPage from "@/pages/InfoPage";
 import Unauthorized from "@/pages/Unauthorized";
 import DevRoles from "@/pages/DevRoles";
@@ -52,6 +53,8 @@ const AdminDashboard = React.lazy(() => import("@/pages/AdminDashboard"));
 const AdminUsers = React.lazy(() => import("@/pages/AdminUsers"));
 const AdminPlatform = React.lazy(() => import("@/pages/AdminPlatform"));
 const AdminAudit = React.lazy(() => import("@/pages/AdminAudit"));
+const TalentApplicationsQueue = React.lazy(() => import("@/pages/TalentApplicationsQueue"));
+const TalentApplicationReview = React.lazy(() => import("@/pages/TalentApplicationReview"));
 
 /**
  * Typed route registry — the SINGLE source of truth for route → access, shell,
@@ -80,6 +83,8 @@ export interface NavMeta {
   label: string;
   icon: string;
   order: number;
+  /** Optional heading the item is grouped under in the sidebar (e.g. "People"). */
+  section?: string;
 }
 
 export interface RouteDef {
@@ -94,8 +99,12 @@ export interface RouteDef {
   /** Entitlement gate — reserved; NOT used for routes (VIP is media-access). */
   entitlement?: "vip";
   shell: ShellId;
-  /** If present, the route appears in that workspace's navigation. */
-  nav?: NavMeta;
+  /**
+   * If present, the route appears in that workspace's navigation. An array puts
+   * one route in more than one workspace — a Management reviewer and an admin
+   * reach the same page from different shells.
+   */
+  nav?: NavMeta | NavMeta[];
   /** Client index route (renders at /app). */
   index?: boolean;
   /** Only registered when the dev role preview is enabled. */
@@ -116,6 +125,10 @@ export const ROUTES: RouteDef[] = [
   { path: "/talent/:id", element: <TalentProfile />, access: "public", shell: "public" },
   { path: "/request-access", element: <RequestAccess />, access: "public", shell: "public" },
   { path: "/for-talent", element: <TalentApplication />, access: "public", shell: "public" },
+  // Target of the backend's changes-requested email. Public and deliberately
+  // ABOVE "/apply": the applicant arrives here holding a token, not an account,
+  // and the alias below would otherwise redirect them away from it.
+  { path: "/apply/continue", element: <ApplicationContinue />, access: "public", shell: "public" },
   // Friendly aliases for the talent application (shared in campaigns / QR codes).
   { path: "/apply", element: <Navigate to="/for-talent" replace />, access: "public", shell: "public" },
   { path: "/become-talent", element: <Navigate to="/for-talent" replace />, access: "public", shell: "public" },
@@ -185,6 +198,17 @@ export const ROUTES: RouteDef[] = [
   { path: "/admin/platform", element: <AdminPlatform />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Platform", icon: "Database", order: 3 } },
   { path: "/admin/audit", element: <AdminAudit />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Audit Log", icon: "ScrollText", order: 4 } },
 
+  // ---- Talent applications (Phase 1) ----
+  //
+  // Reachable by Management reviewers as well as admins, so it carries nav entries
+  // for both workspaces. Visibility follows the permission, not the role: the
+  // server enforces the same three permissions on every call.
+  { path: "/admin/talent-applications", element: <TalentApplicationsQueue />, access: "protected", roles: STAFF, permissions: ["TalentApplications.View"], shell: "internal", nav: [
+    { group: "management", label: "Talent Applications", icon: "UserPlus", order: 7, section: "People" },
+    { group: "admin", label: "Talent Applications", icon: "UserPlus", order: 5, section: "People" },
+  ] },
+  { path: "/admin/talent-applications/:id", element: <TalentApplicationReview />, access: "protected", roles: STAFF, permissions: ["TalentApplications.View"], shell: "internal" },
+
   // ---- Shared internal (shell selected by principal) ----
   { path: "/agency-calendar", element: <AgencyCalendar />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "management", label: "Calendar", icon: "Calendar", order: 4 } },
   { path: "/settings", element: <AccountSettings />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Settings", icon: "Settings", order: 9 } },
@@ -214,9 +238,41 @@ export function requiredPermissionsFor(pathname: string): string[] | undefined {
   return match?.permissions;
 }
 
-/** Navigation items for a workspace group, ordered. */
-export function navForGroup(group: NavGroup): { to: string; label: string; icon: string }[] {
-  return ROUTES.filter((r) => r.nav?.group === group)
-    .sort((a, b) => (a.nav!.order ?? 0) - (b.nav!.order ?? 0))
-    .map((r) => ({ to: r.path, label: r.nav!.label, icon: r.nav!.icon }));
+/** A route's nav entries, normalized — `nav` may be one entry or several. */
+export const navMetas = (nav: RouteDef["nav"]): NavMeta[] =>
+  nav ? (Array.isArray(nav) ? nav : [nav]) : [];
+
+export interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+  section?: string;
+}
+
+/**
+ * Navigation items for a workspace group, ordered.
+ *
+ * `hasPermission` hides links the caller cannot use. Passing it is optional so a
+ * caller with no principal (tests, storybook) still gets the full menu; the
+ * shells always pass it. This is presentation only — the route guard and the API
+ * both re-check, so a hidden link is a courtesy and never the control.
+ */
+export function navForGroup(
+  group: NavGroup,
+  hasPermission?: (permission: string) => boolean
+): NavItem[] {
+  return ROUTES.flatMap((r) =>
+    navMetas(r.nav)
+      .filter((meta) => meta.group === group)
+      .filter(() => !hasPermission || (r.permissions ?? []).every(hasPermission))
+      .map((meta) => ({
+        to: r.path,
+        label: meta.label,
+        icon: meta.icon,
+        section: meta.section,
+        order: meta.order ?? 0,
+      }))
+  )
+    .sort((a, b) => a.order - b.order)
+    .map(({ to, label, icon, section }) => ({ to, label, icon, section }));
 }

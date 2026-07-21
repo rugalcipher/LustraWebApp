@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { ROUTES, allowedRolesFor, requiredPermissionsFor } from "@/app/routeRegistry";
+import { ROUTES, allowedRolesFor, requiredPermissionsFor, navMetas } from "@/app/routeRegistry";
 import { queryKeys } from "@/api/queryKeys";
 
 /**
@@ -53,8 +53,8 @@ describe("route registry", () => {
 
   it("offers the client exactly four navigation entries", () => {
     // Discover · Saved · Messages · Profile. A fifth would mean the lifecycle crept back.
-    const clientNav = ROUTES.filter((r) => r.nav?.group === "client");
-    expect(clientNav.map((r) => r.nav!.label).sort()).toEqual(
+    const clientNav = ROUTES.flatMap((r) => navMetas(r.nav)).filter((m) => m.group === "client");
+    expect(clientNav.map((m) => m.label).sort()).toEqual(
       ["Discover", "Messages", "Profile", "Saved"]
     );
   });
@@ -75,8 +75,8 @@ describe("route registry", () => {
     // The formal proposal workflow is withdrawn. A mock Proposals entry in management
     // navigation would advertise a lifecycle the product no longer has.
     expect(paths).not.toContain("/proposal-builder");
-    const managementNav = ROUTES.filter((r) => r.nav?.group === "management");
-    expect(managementNav.map((r) => r.nav!.label)).not.toContain("Proposals");
+    const managementNav = ROUTES.flatMap((r) => navMetas(r.nav)).filter((m) => m.group === "management");
+    expect(managementNav.map((m) => m.label)).not.toContain("Proposals");
   });
 
   it("guards appointment creation behind the create permission", () => {

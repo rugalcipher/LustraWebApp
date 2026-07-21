@@ -1,15 +1,24 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Loader2, AlertTriangle, CheckCircle2, Upload, Star, ArrowRight, ArrowLeft, Trash2,
-} from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
 import LustraButton from "@/components/lustra/Button";
 import PublicMarketingLayout from "@/components/lustra/public/PublicMarketingLayout";
 import { PUBLIC_IMAGES } from "@/components/lustra/public/publicImages";
 import * as applications from "@/services/talentApplicationService";
 import { APPLICATION_ERROR_CODES } from "@/services/talentApplicationService";
 import { saveSession, loadSession, clearSession } from "@/features/talentApplication/session";
+import PhotographManager, { finalizedPhotos } from "@/features/talentApplication/PhotographManager";
+import {
+  CURRENCIES,
+  EMPTY_DETAILS,
+  ageFrom,
+  toDetails as buildDetails,
+  validateAbout as checkAbout,
+  validateProfile as checkProfile,
+} from "@/features/talentApplication/details";
 import { toUserMessage, isApiError } from "@/api/problemDetails";
+
+export { ageFrom };
 
 /**
  * FOR TALENT — the public application.
@@ -25,41 +34,6 @@ import { toUserMessage, isApiError } from "@/api/problemDetails";
  */
 
 const SECTIONS = ["About you", "Public profile", "Photos", "Review and submit"];
-const CURRENCIES = ["ZAR", "USD", "EUR", "GBP", "AED"];
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_BYTES = 8 * 1024 * 1024;
-
-const EMPTY = {
-  legalFirstName: "",
-  legalMiddleNames: "",
-  legalSurname: "",
-  requestedDisplayName: "",
-  email: "",
-  cellphoneNumber: "",
-  whatsAppNumber: "",
-  instagram: "",
-  additionalSocialUrl: "",
-  cityFreeText: "",
-  dateOfBirth: "",
-  isAdultDeclared: false,
-  shortBiography: "",
-  requestedHourlyRate: "",
-  currencyCode: "ZAR",
-  publishOnApproval: true,
-  consentToContact: false,
-};
-
-/** Age today from an ISO date. The server re-checks this at submission. */
-export function ageFrom(iso) {
-  if (!iso) return null;
-  const dob = new Date(iso);
-  if (Number.isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - dob.getFullYear();
-  const months = now.getMonth() - dob.getMonth();
-  if (months < 0 || (months === 0 && now.getDate() < dob.getDate())) age -= 1;
-  return age;
-}
 
 /** Maps a refusal code onto the field that caused it, so the error lands in place. */
 const CODE_TO_FIELD = {
@@ -97,7 +71,7 @@ function Field({ label, error, children, hint, required, htmlFor }) {
 
 export default function TalentApplication() {
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState(EMPTY_DETAILS);
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState("");
   const [busy, setBusy] = useState(false);
@@ -105,9 +79,7 @@ export default function TalentApplication() {
   const [session, setSession] = useState(() => loadSession());
   const [media, setMedia] = useState([]);
   const [limits, setLimits] = useState({ min: 3, max: 8 });
-  const [uploads, setUploads] = useState({});
   const [submitted, setSubmitted] = useState(null);
-  const fileInput = useRef(null);
 
   // Resume an in-progress draft in this tab so a reload does not lose the photos.
   useEffect(() => {
@@ -137,75 +109,22 @@ export default function TalentApplication() {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  const finalized = useMemo(
-    () => media.filter((m) => (m.uploadStatus ?? "").toLowerCase() !== "pending"),
-    [media]
-  );
+  const finalized = useMemo(() => finalizedPhotos(media), [media]);
   const enoughPhotos = finalized.length >= limits.min && finalized.length <= limits.max;
 
   function validateAbout() {
-    const next = {};
-    if (!form.legalFirstName.trim()) next.legalFirstName = "Required";
-    if (!form.legalSurname.trim()) next.legalSurname = "Required";
-    if (!form.email.trim()) next.email = "Required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
-      next.email = "Enter a valid email address";
-    if (!form.cellphoneNumber.trim()) next.cellphoneNumber = "Required";
-    else if (!/^\+?[0-9\s()-]{7,}$/.test(form.cellphoneNumber.trim()))
-      next.cellphoneNumber = "Enter a valid phone number";
-    if (form.whatsAppNumber && !/^\+?[0-9\s()-]{7,}$/.test(form.whatsAppNumber.trim()))
-      next.whatsAppNumber = "Enter a valid phone number";
-    if (!form.dateOfBirth) next.dateOfBirth = "Required";
-    else {
-      const age = ageFrom(form.dateOfBirth);
-      if (age !== null && age < 18) next.dateOfBirth = "You must be 18 or older to apply";
-    }
-    if (!form.isAdultDeclared) next.isAdultDeclared = "You must confirm you are 18 or older";
-    if (!form.consentToContact) next.consentToContact = "We need your consent to contact you";
+    const next = checkAbout(form);
     setErrors(next);
     return Object.keys(next).length === 0;
   }
 
   function validateProfile() {
-    const next = {};
-    if (!form.requestedDisplayName.trim()) next.requestedDisplayName = "Required";
-    if (!form.shortBiography.trim()) next.shortBiography = "Required";
-    else if (form.shortBiography.trim().length < 40)
-      next.shortBiography = "Tell us a little more — at least 40 characters";
-    if (form.requestedHourlyRate && Number.isNaN(Number(form.requestedHourlyRate)))
-      next.requestedHourlyRate = "Enter a number";
-    if (form.instagram && /\s/.test(form.instagram.trim()))
-      next.instagram = "Enter a handle or a full URL";
-    if (form.additionalSocialUrl && !/^https?:\/\/\S+$/i.test(form.additionalSocialUrl.trim()))
-      next.additionalSocialUrl = "Enter a full URL beginning with https://";
+    const next = checkProfile(form);
     setErrors(next);
     return Object.keys(next).length === 0;
   }
 
-  /** The exact contract body. Blank optional strings are sent as null, not "". */
-  function toDetails() {
-    const blankToNull = (v) => (v && v.trim() ? v.trim() : null);
-    return {
-      legalFirstName: form.legalFirstName.trim(),
-      legalMiddleNames: blankToNull(form.legalMiddleNames),
-      legalSurname: form.legalSurname.trim(),
-      requestedDisplayName: form.requestedDisplayName.trim(),
-      email: form.email.trim(),
-      cellphoneNumber: form.cellphoneNumber.trim(),
-      whatsAppNumber: blankToNull(form.whatsAppNumber),
-      instagram: blankToNull(form.instagram),
-      additionalSocialUrl: blankToNull(form.additionalSocialUrl),
-      cityId: null,
-      cityFreeText: blankToNull(form.cityFreeText),
-      dateOfBirth: form.dateOfBirth,
-      isAdultDeclared: form.isAdultDeclared,
-      shortBiography: form.shortBiography.trim(),
-      requestedHourlyRate: form.requestedHourlyRate ? Number(form.requestedHourlyRate) : null,
-      currencyCode: form.requestedHourlyRate ? form.currencyCode : null,
-      publishOnApproval: form.publishOnApproval,
-      consentToContact: form.consentToContact,
-    };
-  }
+  const toDetails = () => buildDetails(form);
 
   /** Surfaces a refusal on the field that caused it, using the API's `errorCode`. */
   function applyApiError(error) {
@@ -250,88 +169,6 @@ export default function TalentApplication() {
       setBusy(false);
     }
   }
-
-  async function uploadFiles(fileList) {
-    const files = Array.from(fileList ?? []);
-    if (!files.length || !session) return;
-
-    for (const file of files) {
-      const clientId = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
-      if (!IMAGE_TYPES.includes(file.type)) {
-        setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: "JPG, PNG or WebP only" } }));
-        continue;
-      }
-      if (file.size > MAX_BYTES) {
-        setUploads((u) => ({
-          ...u,
-          [clientId]: { name: file.name, error: "Each image must be 8MB or smaller" },
-        }));
-        continue;
-      }
-
-      setUploads((u) => ({ ...u, [clientId]: { name: file.name, progress: 0 } }));
-      try {
-        const ticket = await applications.requestUpload(session.applicationId, session.token, {
-          contentType: file.type,
-          expectedSizeBytes: file.size,
-          fileName: file.name,
-        });
-        await applications.uploadToStorage(ticket, file, (fraction) =>
-          setUploads((u) => ({ ...u, [clientId]: { ...u[clientId], progress: fraction } }))
-        );
-        // A photograph exists only once the server confirms the object landed.
-        const confirmed = await applications.finalizeUpload(
-          session.applicationId,
-          session.token,
-          ticket.mediaId
-        );
-        setMedia((prev) => [...prev.filter((m) => m.id !== confirmed.id), confirmed]);
-        setUploads((u) => {
-          const rest = { ...u };
-          delete rest[clientId];
-          return rest;
-        });
-      } catch (error) {
-        setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: toUserMessage(error) } }));
-      }
-    }
-  }
-
-  async function removePhoto(mediaId) {
-    if (!session) return;
-    try {
-      await applications.deleteMedia(session.applicationId, session.token, mediaId);
-      setMedia((prev) => prev.filter((m) => m.id !== mediaId));
-    } catch (error) {
-      setBanner(toUserMessage(error));
-    }
-  }
-
-  async function persistOrder(next) {
-    if (!session) return;
-    setMedia(next);
-    try {
-      const status = await applications.reorderMedia(
-        session.applicationId,
-        session.token,
-        next.map((m, index) => ({ mediaId: m.id, sortOrder: index, isCover: Boolean(m.isCover) }))
-      );
-      if (status?.media) setMedia(status.media);
-    } catch (error) {
-      setBanner(toUserMessage(error));
-    }
-  }
-
-  const move = (index, delta) => {
-    const next = [...finalized];
-    const target = index + delta;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    persistOrder(next);
-  };
-
-  const setCover = (mediaId) =>
-    persistOrder(finalized.map((m) => ({ ...m, isCover: m.id === mediaId })));
 
   async function submit() {
     if (!session || !enoughPhotos) return;
@@ -560,99 +397,13 @@ export default function TalentApplication() {
 
         {step === 2 && (
           <div className="space-y-4">
-            <p className="font-body text-body text-soft-ivory/75">
-              Add {limits.min}–{limits.max} photographs (JPG, PNG or WebP, up to 8MB each).
-              They are stored privately for Management review and are never published
-              automatically.
-            </p>
-
-            <div
-              onClick={() => fileInput.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                uploadFiles(e.dataTransfer.files);
-              }}
-              className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-white/15 px-4 py-8 cursor-pointer hover:border-rose-gold/40 transition"
-            >
-              <Upload className="w-5 h-5 text-rose-gold/80" strokeWidth={1.3} aria-hidden="true" />
-              <p className="font-body text-body text-soft-ivory/80">Drag &amp; drop, or browse</p>
-              <p className="font-body text-meta text-muted-grey">
-                {finalized.length}/{limits.max} uploaded
-              </p>
-              <input
-                ref={fileInput}
-                type="file"
-                accept={IMAGE_TYPES.join(",")}
-                multiple
-                className="hidden"
-                aria-label="Add photographs"
-                onChange={(e) => {
-                  uploadFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </div>
-
-            {Object.entries(uploads).map(([id, u]) => (
-              <div key={id} className="rounded-sm border border-white/10 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-body text-body text-soft-ivory/80 truncate">{u.name}</span>
-                  {u.error ? (
-                    <span className="font-body text-meta text-error">{u.error}</span>
-                  ) : (
-                    <span className="font-body text-meta text-muted-grey tabular-nums">
-                      {Math.round((u.progress ?? 0) * 100)}%
-                    </span>
-                  )}
-                </div>
-                {!u.error && (
-                  <div className="mt-2 h-0.5 bg-ivory/10">
-                    <div
-                      className="h-full bg-rose-gold origin-left"
-                      style={{ transform: `scaleX(${u.progress ?? 0})` }}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {finalized.length > 0 && (
-              <ul className="space-y-2">
-                {finalized.map((m, index) => (
-                  <li key={m.id} className="flex items-center gap-3 rounded-sm border border-white/10 p-2.5">
-                    <span className="font-body text-meta text-muted-grey tabular-nums w-5">{index + 1}</span>
-                    <span className="flex-1 min-w-0 font-body text-body text-soft-ivory/85 truncate">
-                      {m.originalFileName}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setCover(m.id)}
-                      aria-label={`Set ${m.originalFileName} as cover`}
-                      className={m.isCover ? "text-rose-gold" : "text-muted-grey hover:text-rose-gold"}
-                    >
-                      <Star className="w-4 h-4" fill={m.isCover ? "currentColor" : "none"} strokeWidth={1.4} />
-                    </button>
-                    <button type="button" onClick={() => move(index, -1)} aria-label={`Move ${m.originalFileName} up`} className="text-muted-grey hover:text-rose-gold">↑</button>
-                    <button type="button" onClick={() => move(index, 1)} aria-label={`Move ${m.originalFileName} down`} className="text-muted-grey hover:text-rose-gold">↓</button>
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(m.id)}
-                      aria-label={`Remove ${m.originalFileName}`}
-                      className="text-muted-grey hover:text-error"
-                    >
-                      <Trash2 className="w-4 h-4" strokeWidth={1.4} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <p className="font-body text-meta text-muted-grey">
-              {finalized.some((m) => m.isCover)
-                ? "The starred photograph is your preferred cover."
-                : "Star a photograph to set your preferred cover."}
-            </p>
+            <PhotographManager
+              session={session}
+              media={media}
+              onMediaChange={setMedia}
+              limits={limits}
+              onError={setBanner}
+            />
 
             <div className="flex gap-3 pt-2">
               <LustraButton variant="outline" size="md" onClick={() => setStep(1)}>

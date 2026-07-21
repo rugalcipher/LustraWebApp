@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
   Users, ShieldCheck, Image, BarChart3, Database, Activity, Circle,
-  Menu, X, Search, LogOut, ScrollText, MessagesSquare,
+  Menu, X, Search, LogOut, ScrollText, MessagesSquare, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
@@ -13,8 +13,25 @@ import RouteFallback from "@/components/RouteFallback";
 const ICONS = {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
   Users, ShieldCheck, Image, BarChart3, Database, Activity, Circle, ScrollText,
-  MessagesSquare,
+  MessagesSquare, UserPlus,
 };
+
+/**
+ * Splits the flat nav into its section groups while preserving order.
+ *
+ * Items with no `section` stay at the top, unheaded — the majority of the menu
+ * is a plain list and adding a heading to everything would be noise.
+ */
+function toSections(nav) {
+  const sections = [];
+  for (const item of nav) {
+    const title = item.section ?? null;
+    const last = sections[sections.length - 1];
+    if (last && last.title === title) last.items.push(item);
+    else sections.push({ title, items: [item] });
+  }
+  return sections;
+}
 
 /**
  * Desktop-first operational chrome shared by Management and Admin.
@@ -56,25 +73,34 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
         <p className="font-body text-meta text-muted-grey mt-0.5 truncate">{user.membership}</p>
       </div>
       <nav className="flex-1 overflow-y-auto lustra-scroll-hide px-3 py-4 space-y-0.5">
-        {nav.map(({ to, label, icon }) => {
-          const Icon = ICONS[icon] || Circle;
-          return (
-            <Link
-              key={to}
-              to={to}
-              onClick={() => setDrawerOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-body transition focus:outline-none focus-visible:ring-1 focus-visible:ring-rose-gold/60",
-                isActive(to)
-                  ? "bg-rose-gold/10 text-rose-gold border-l-2 border-rose-gold"
-                  : "text-soft-ivory/70 hover:bg-white/5 hover:text-ivory border-l-2 border-transparent"
-              )}
-            >
-              <Icon className="w-4 h-4 shrink-0" strokeWidth={1.2} />
-              <span className="tracking-wide-luxe text-nav uppercase">{label}</span>
-            </Link>
-          );
-        })}
+        {toSections(nav).map((section) => (
+          <div key={section.title ?? "_"} className={section.title ? "pt-4" : undefined}>
+            {section.title && (
+              <p className="px-3 pb-1.5 font-body text-meta tracking-luxe uppercase text-muted-grey/70">
+                {section.title}
+              </p>
+            )}
+            {section.items.map(({ to, label, icon }) => {
+              const Icon = ICONS[icon] || Circle;
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setDrawerOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-body transition focus:outline-none focus-visible:ring-1 focus-visible:ring-rose-gold/60",
+                    isActive(to)
+                      ? "bg-rose-gold/10 text-rose-gold border-l-2 border-rose-gold"
+                      : "text-soft-ivory/70 hover:bg-white/5 hover:text-ivory border-l-2 border-transparent"
+                  )}
+                >
+                  <Icon className="w-4 h-4 shrink-0" strokeWidth={1.2} />
+                  <span className="tracking-wide-luxe text-nav uppercase">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
       <div className="px-4 py-3 border-t border-white/[0.06]">
         <button

@@ -162,6 +162,15 @@ export const queryKeys = {
     safetyCase: (id: string) => ["management", "safety", "cases", "detail", id] as const,
     vipRequests: (filters?: Filters) => ["management", "vip-requests", filters ?? null] as const,
     entitlements: (clientUserId: string) => ["management", "entitlements", clientUserId] as const,
+    talentApplications: (filters?: Filters) =>
+      ["management", "talent-applications", filters ?? null] as const,
+    talentApplication: (id: string) => ["management", "talent-applications", "detail", id] as const,
+    /**
+     * A signed URL for one private application photograph. Keyed per photograph
+     * so one reviewer's short-lived link is never reused for another item.
+     */
+    talentApplicationMedia: (id: string, mediaId: string) =>
+      ["management", "talent-applications", "detail", id, "media", mediaId] as const,
     clients: (filters?: Filters) => ["management", "clients", filters ?? null] as const,
     clientConversations: (clientUserId: string) =>
       ["management", "clients", clientUserId, "conversations"] as const,

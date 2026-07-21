@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { ROUTES } from "@/app/routeRegistry";
+import { ROUTES, navMetas } from "@/app/routeRegistry";
 
 /**
  * Link integrity.
@@ -116,16 +116,19 @@ describe("route registry integrity", () => {
     const paths = new Set(ROUTES.map((r) => r.path));
     for (const route of ROUTES.filter((r) => r.nav)) {
       expect(paths.has(route.path)).toBe(true);
-      expect(route.nav!.label.length).toBeGreaterThan(0);
-      expect(route.nav!.icon.length).toBeGreaterThan(0);
+      for (const meta of navMetas(route.nav)) {
+        expect(meta.label.length).toBeGreaterThan(0);
+        expect(meta.icon.length).toBeGreaterThan(0);
+      }
     }
   });
 
   it("keeps navigation order unique within each group", () => {
     const groups = new Map<string, number[]>();
     for (const route of ROUTES.filter((r) => r.nav)) {
-      const group = route.nav!.group;
-      groups.set(group, [...(groups.get(group) ?? []), route.nav!.order]);
+      for (const meta of navMetas(route.nav)) {
+        groups.set(meta.group, [...(groups.get(meta.group) ?? []), meta.order]);
+      }
     }
 
     for (const [group, orders] of groups) {
