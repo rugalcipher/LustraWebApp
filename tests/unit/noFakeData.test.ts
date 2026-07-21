@@ -47,15 +47,30 @@ describe("admin dashboard renders only real data", () => {
     expect(dashboard).not.toContain("Media CDN");
   });
 
-  it("sources its counters from the real management dashboard endpoint", () => {
-    expect(dashboard).toContain("useManagementDashboard");
-    expect(dashboard).toContain("useAuditLogs");
+  it("sources its counters from the authoritative admin dashboard endpoint", () => {
+    // Migrated from /management/dashboard, which is Management's narrower
+    // operational view and never carried populations, queue depths, trends or
+    // measured dependency status.
+    expect(dashboard).toContain("useAdminDashboard");
+    expect(dashboard).toContain("useAdminDashboardActivity");
+    expect(dashboard).toContain("useSystemStatus");
+    expect(dashboard).not.toContain("useManagementDashboard");
   });
 
   it("keeps loading, error and empty states", () => {
-    expect(dashboard).toContain("isLoading");
+    expect(dashboard).toContain("isPending");
     expect(dashboard).toContain("isError");
-    expect(dashboard).toContain("No recorded activity yet.");
+    expect(dashboard).toContain("No recorded activity");
+  });
+
+  it("never calls recorded appointment value revenue", () => {
+    // Lustra processes no payments. The figure is what staff typed onto bookings:
+    // nothing has been invoiced, collected or reconciled, and calling it revenue
+    // would invite forecasting and commission decisions it cannot support.
+    expect(dashboard).toContain("Recorded Appointment Value");
+    for (const forbidden of ["Revenue", "Income", "Earnings", "Turnover"]) {
+      expect(dashboard).not.toContain(forbidden);
+    }
   });
 });
 

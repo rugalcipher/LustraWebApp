@@ -1,210 +1,383 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import {
-  Users, ShieldCheck, BarChart3, Inbox, Calendar, Activity, ArrowRight,
-  CalendarClock, FileText, MessageSquare, AlertTriangle, Loader2,
+  Users, UserCheck, UserPlus, Inbox, MessagesSquare, ShieldCheck, Image as ImageIcon,
+  CalendarCheck, CalendarRange, AlertTriangle, Loader2, RotateCw, Activity, Ban, ShieldAlert,
 } from "lucide-react";
-import { Card, Eyebrow } from "@/components/lustra/Primitives";
-import StatCard from "@/components/lustra/StatCard";
-import { useManagementDashboard } from "@/features/management/hooks";
-import { useAuditLogs } from "@/features/admin/hooks";
+import { Card, EmptyState } from "@/components/lustra/Primitives";
+import { cn } from "@/lib/utils";
 import { toUserMessage } from "@/api/problemDetails";
+import {
+  useAdminDashboard, useAdminDashboardActivity, useSystemStatus,
+} from "@/features/admin/hooks";
 
 /**
- * Executive overview.
+ * The administrative overview.
  *
- * Every number and every row on this page comes from the API. It previously
- * shipped invented counters, a fabricated revenue figure, five made-up people
- * and a permanently unhealthy dependency badge. Those are worse than an empty
- * dashboard: an operator cannot tell a real figure from a decorative one, and a
- * decorative outage indicator trains people to ignore the real one.
+ * Every figure comes from `GET /admin/dashboard`, which computes it from the
+ * database on request. **Nothing on this page is hardcoded, seeded or
+ * approximated.** A zero renders as a zero: an empty platform reads as an empty
+ * platform, which is the only way the numbers stay trustworthy once they are not
+ * zero.
  *
- * Where the API exposes no equivalent (revenue, dependency health), nothing is
- * rendered at all rather than something invented.
+ * Admins read this rather than `/management/dashboard`, which remains as
+ * Management's narrower operational view and never carried populations, queue
+ * depths, trends or measured dependency status.
+ *
+ * Two things this page is careful about:
+ *
+ *  - **Recorded Appointment Value is not revenue.** Lustra processes no
+ *    payments. The figure is what staff typed onto bookings; nothing has been
+ *    invoiced, collected or reconciled. It is labelled for what it is and shown
+ *    per currency, because summing across currencies produces a number that is
+ *    wrong in all of them.
+ *  - **System status reports only what was measured.** Components appear because
+ *    something checked them. There is no "Operational" default — a status nobody
+ *    measured is worse than none, because it gets believed.
  */
 
-/** Real counters from `GET /management/dashboard` (ManagementDashboardDto). */
-const KPI_FIELDS = [
-  { key: "totalClients", label: "Clients", icon: Users, accent: "rose" },
-  { key: "activeTalent", label: "Active Talent", icon: ShieldCheck, accent: "ivory" },
-  { key: "openInquiries", label: "Open Inquiries", icon: Inbox, accent: "warning" },
-  { key: "upcomingBookings", label: "Upcoming Bookings", icon: CalendarClock, accent: "rose" },
+const PEOPLE = [
+  { field: "totalClients", label: "Clients", icon: Users },
+  { field: "totalTalent", label: "Talent", icon: UserCheck },
+  { field: "publishedTalent", label: "Published talent", icon: UserCheck },
+  { field: "approvedUnpublishedTalent", label: "Approved, not published", icon: UserPlus },
+  { field: "activeManagementStaff", label: "Management staff", icon: Users },
+  { field: "suspendedAccounts", label: "Suspended accounts", icon: Ban },
 ];
 
-/** Actionable queues — each links to the page that clears it. */
-const QUEUE_FIELDS = [
-  { key: "pendingProfileReviews", label: "Profile reviews", to: "/moderation" },
-  { key: "pendingReviewModeration", label: "Review moderation", to: "/moderation" },
-  { key: "proposalsAwaitingResponse", label: "Proposals awaiting response", to: "/inquiry-pipeline" },
-  { key: "submittedReports", label: "Submitted reports", to: "/moderation" },
-  { key: "openSafetyCases", label: "Open safety cases", to: "/moderation" },
-  { key: "pendingOutboxMessages", label: "Pending notifications", to: "/admin/platform" },
+/** Queues someone has to act on. Each links to where the acting happens. */
+const QUEUES = [
+  { field: "pendingTalentApplications", label: "Talent applications", icon: UserPlus, to: "/admin/talent-applications" },
+  { field: "pendingProfileReviews", label: "Profile reviews", icon: ShieldCheck, to: "/moderation" },
+  { field: "pendingMediaReviews", label: "Media reviews", icon: ImageIcon, to: "/moderation" },
+  { field: "openInquiries", label: "Open inquiries", icon: Inbox, to: "/inquiry-pipeline" },
+  { field: "unreadConversations", label: "Unread conversations", icon: MessagesSquare, to: "/management-conversations" },
+  { field: "unassignedConversations", label: "Unassigned conversations", icon: MessagesSquare, to: "/management-conversations" },
+  { field: "pendingReviewModeration", label: "Reviews to moderate", icon: ShieldCheck, to: "/moderation" },
+  { field: "openSafetyCases", label: "Open safety cases", icon: ShieldAlert, to: "/moderation" },
 ];
 
-const QUICK = [
-  { to: "/admin/users", label: "Manage users", icon: Users },
-  { to: "/management-conversations", label: "Conversations", icon: MessageSquare },
-  { to: "/inquiry-pipeline", label: "Inquiry pipeline", icon: Inbox },
-  { to: "/agency-calendar", label: "Agency calendar", icon: Calendar },
-  { to: "/moderation", label: "Moderation queue", icon: ShieldCheck },
-  { to: "/analytics", label: "Agency analytics", icon: BarChart3 },
-  { to: "/admin/platform", label: "Platform taxonomy", icon: Activity },
-  { to: "/admin/audit", label: "Audit log", icon: FileText },
+const APPOINTMENTS = [
+  { field: "upcomingAppointments", label: "Upcoming", icon: CalendarCheck },
+  { field: "appointmentsToday", label: "Today", icon: CalendarCheck },
+  { field: "cancelledAppointmentsInPeriod", label: "Cancelled in period", icon: CalendarRange },
 ];
 
-function relativeTime(iso) {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (seconds < 60) return "just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
+const QUICK_LINKS = [
+  { to: "/admin/talent-applications", label: "Talent Applications", icon: UserPlus },
+  { to: "/admin/appointments", label: "Appointments", icon: CalendarCheck },
+  { to: "/admin/calendar", label: "Calendar", icon: CalendarRange },
+  { to: "/management-conversations", label: "Conversations", icon: MessagesSquare },
+  { to: "/moderation", label: "Moderation", icon: ShieldCheck },
+];
 
-/** Shared shell for a panel that can be loading, failed, empty or populated. */
-function PanelState({ query, empty, children }) {
-  if (query.isLoading) {
+/** Colour follows the measured word, and defaults to neutral for an unknown one. */
+const STATUS_TONE = {
+  healthy: "text-success",
+  ok: "text-success",
+  operational: "text-success",
+  degraded: "text-warning",
+  unhealthy: "text-destructive",
+  down: "text-destructive",
+};
+
+function Panel({ query, children, emptyIcon, emptyTitle, emptyBody }) {
+  if (query.isPending) {
     return (
-      <div className="flex items-center gap-2 py-6 text-muted-grey" role="status">
-        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-        <span className="font-body text-body">Loading…</span>
+      <div className="flex items-center gap-2 py-6 justify-center">
+        <Loader2 className="w-4 h-4 animate-spin text-rose-gold" aria-hidden="true" />
+        <span className="font-body text-helper text-muted-grey">Loading…</span>
       </div>
     );
   }
   if (query.isError) {
     return (
-      <div className="flex items-start gap-2 py-6 text-destructive" role="alert">
-        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-        <span className="font-body text-body">{toUserMessage(query.error)}</span>
+      <div className="space-y-3 py-2" role="alert">
+        <p className="flex items-center gap-2 font-body text-helper text-destructive">
+          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {toUserMessage(query.error)}
+        </p>
+        <button
+          onClick={() => query.refetch()}
+          className="inline-flex items-center gap-2 font-body text-meta tracking-luxe uppercase text-rose-gold hover:underline"
+        >
+          <RotateCw className="w-3.5 h-3.5" aria-hidden="true" /> Try again
+        </button>
       </div>
     );
   }
-  if (empty) {
-    return <p className="font-body text-body text-muted-grey py-6">{empty}</p>;
+  const empty = children == null || (Array.isArray(children) && children.length === 0);
+  if (empty && emptyTitle) {
+    return <EmptyState icon={emptyIcon} title={emptyTitle} body={emptyBody} />;
   }
   return children;
 }
 
-export default function AdminDashboard() {
-  const dashboard = useManagementDashboard();
-  const audit = useAuditLogs({ page: 1 });
-
-  const data = dashboard.data;
-  const entries = audit.data?.items ?? [];
-
-  return (
-    <div className="px-5 lg:px-8 py-6 lg:py-8 w-full">
-      <div className="mb-6">
-        <Eyebrow>Administrator</Eyebrow>
-        <h1 className="font-heading font-light text-3xl lg:text-4xl text-ivory mt-1">Executive Overview</h1>
-        <p className="font-body text-body text-muted-grey mt-2 max-w-2xl">
-          Platform-wide health, user management, and operational oversight for Lustra.
-        </p>
+function Counter({ icon: Icon, label, value, to }) {
+  const body = (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <Icon className="w-4 h-4 text-rose-gold/70 shrink-0" strokeWidth={1.3} aria-hidden="true" />
+        {/* A real zero is displayed as zero. Nothing here substitutes a dash. */}
+        <span className="font-heading text-2xl text-ivory tabular-nums">{value ?? 0}</span>
       </div>
+      <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey mt-1.5">
+        {label}
+      </p>
+    </>
+  );
 
-      {dashboard.isError && (
-        <div
-          role="alert"
-          className="mb-5 flex items-start gap-2 rounded-sm border border-destructive/30 bg-destructive/10 p-3"
-        >
-          <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" aria-hidden="true" />
-          <p className="font-body text-body text-destructive">{toUserMessage(dashboard.error)}</p>
+  return to ? (
+    <Link
+      to={to}
+      className="block rounded-sm border border-white/[0.08] bg-card-black/40 p-3.5 hover:border-rose-gold/40 transition"
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className="rounded-sm border border-white/[0.08] bg-card-black/40 p-3.5">{body}</div>
+  );
+}
+
+/** A bar per month, scaled to the tallest point. Says so when there is nothing. */
+function Trend({ title, points }) {
+  const max = Math.max(1, ...points.map((p) => p.count));
+  return (
+    <div className="space-y-2">
+      <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">{title}</p>
+      {points.length === 0 ? (
+        <p className="font-body text-helper text-muted-grey">No activity in this period.</p>
+      ) : (
+        <div className="flex items-end gap-1 h-20" role="img" aria-label={`${title} by month`}>
+          {points.map((point) => (
+            <div key={point.period} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+              <div
+                className="w-full bg-rose-gold/50 rounded-t-sm"
+                style={{ height: `${(point.count / max) * 100}%` }}
+                title={`${point.period}: ${point.count}`}
+              />
+              <span className="font-body text-[0.5rem] text-muted-grey truncate w-full text-center">
+                {point.period.slice(5)}
+              </span>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {KPI_FIELDS.map((k) => (
-          <StatCard
-            key={k.key}
-            label={k.label}
-            // Never invent a number: until the API answers, show a placeholder.
-            value={dashboard.isSuccess ? (data?.[k.key] ?? 0) : "—"}
-            icon={k.icon}
-            accent={k.accent}
-          />
-        ))}
+export default function AdminDashboard() {
+  const dashboard = useAdminDashboard();
+  const activity = useAdminDashboardActivity(20);
+  const system = useSystemStatus();
+  const data = dashboard.data;
+
+  return (
+    <div className="px-5 lg:px-8 py-6 space-y-6">
+      <div>
+        <p className="font-body text-meta tracking-luxe uppercase text-rose-gold/80">Administration</p>
+        <h1 className="font-heading font-light text-3xl text-ivory mt-1">Overview</h1>
+        {data && (
+          <p className="font-body text-helper text-muted-grey mt-1">
+            {new Date(data.fromUtc).toLocaleDateString()} – {new Date(data.toUtc).toLocaleDateString()}
+            {" · generated "}
+            {new Date(data.generatedAtUtc).toLocaleTimeString()}
+          </p>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
-        <div className="xl:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-5">
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <Eyebrow>Recent Activity</Eyebrow>
-              <Link
-                to="/admin/audit"
-                className="inline-flex items-center gap-1 text-meta tracking-luxe uppercase text-rose-gold/80 hover:text-light-rose-gold"
-              >
-                Audit log <ArrowRight className="w-3 h-3" aria-hidden="true" />
-              </Link>
+      <nav className="flex flex-wrap gap-2" aria-label="Quick actions">
+        {QUICK_LINKS.map(({ to, label, icon: Icon }) => (
+          <Link
+            key={to}
+            to={to}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-white/10 font-body text-meta tracking-luxe uppercase text-soft-ivory/85 hover:border-rose-gold/40 hover:text-rose-gold transition"
+          >
+            <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {label}
+          </Link>
+        ))}
+      </nav>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="font-heading text-lg text-ivory">People</h2>
+        <Panel query={dashboard}>
+          {data ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+              {PEOPLE.map((kpi) => (
+                <Counter key={kpi.field} icon={kpi.icon} label={kpi.label} value={data[kpi.field]} />
+              ))}
             </div>
-            <PanelState query={audit} empty={entries.length === 0 ? "No recorded activity yet." : null}>
-              <div className="space-y-1">
-                {entries.slice(0, 6).map((entry) => (
+          ) : null}
+        </Panel>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="font-heading text-lg text-ivory">Waiting on someone</h2>
+        <Panel query={dashboard}>
+          {data ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {QUEUES.map((kpi) => (
+                <Counter
+                  key={kpi.field}
+                  icon={kpi.icon}
+                  label={kpi.label}
+                  value={data[kpi.field]}
+                  to={kpi.to}
+                />
+              ))}
+            </div>
+          ) : null}
+        </Panel>
+      </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <Card className="p-5 space-y-4">
+          <h2 className="font-heading text-lg text-ivory">Appointments</h2>
+          <Panel query={dashboard}>
+            {data ? (
+              <div className="grid grid-cols-3 gap-3">
+                {APPOINTMENTS.map((kpi) => (
+                  <Counter key={kpi.field} icon={kpi.icon} label={kpi.label} value={data[kpi.field]} />
+                ))}
+              </div>
+            ) : null}
+          </Panel>
+        </Card>
+
+        {/*
+          NOT revenue, and never to be labelled as one. Lustra processes no
+          payments; this is the sum of amounts staff recorded on appointments.
+        */}
+        <Card className="p-5 space-y-3">
+          <h2 className="font-heading text-lg text-ivory">Recorded Appointment Value</h2>
+          <p className="font-body text-meta text-muted-grey">
+            Amounts recorded on appointments by staff, per currency. Lustra processes no
+            payments — nothing here has been invoiced, collected or reconciled.
+          </p>
+          <Panel query={dashboard}>
+            {data ? (
+              data.recordedAppointmentValue.length === 0 ? (
+                <p className="font-body text-helper text-muted-grey">
+                  No amounts recorded in this period.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {data.recordedAppointmentValue.map((entry) => (
+                    <li
+                      key={entry.currencyCode}
+                      className="flex items-baseline justify-between gap-4 border-b border-white/[0.06] pb-2 last:border-0"
+                    >
+                      <span className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+                        {entry.currencyCode} · {entry.appointmentCount}{" "}
+                        {entry.appointmentCount === 1 ? "appointment" : "appointments"}
+                      </span>
+                      <span className="font-heading text-xl text-ivory tabular-nums">
+                        {entry.amount.toLocaleString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : null}
+          </Panel>
+        </Card>
+      </div>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="font-heading text-lg text-ivory">Trends</h2>
+        <Panel query={dashboard}>
+          {data ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Trend title="Registrations" points={data.registrationTrend} />
+              <Trend title="Applications" points={data.applicationTrend} />
+              <Trend title="Appointments" points={data.appointmentTrend} />
+            </div>
+          ) : null}
+        </Panel>
+      </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <Card className="p-5 space-y-3">
+          <h2 className="font-heading text-lg text-ivory">Recent activity</h2>
+          <Panel
+            query={activity}
+            emptyIcon={Activity}
+            emptyTitle="No recorded activity"
+            emptyBody="Actions taken in the console appear here as they happen."
+          >
+            {activity.data && activity.data.length > 0
+              ? activity.data.map((entry) => (
                   <div
                     key={entry.id}
-                    className="flex items-start gap-2 py-2.5 border-b border-white/[0.04] last:border-0"
+                    className="flex items-start justify-between gap-4 border-b border-white/[0.06] py-2 last:border-0"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-gold/70 mt-1.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-body text-body text-ivory">
-                        <span className="text-soft-ivory">{entry.actorDisplay ?? "System"}</span>{" "}
+                    <div className="min-w-0">
+                      <p className="font-body text-helper text-soft-ivory/90 break-words">
                         {entry.summary}
                       </p>
                       <p className="font-body text-meta text-muted-grey mt-0.5">
-                        {entry.entityType} · {relativeTime(entry.createdAtUtc)}
+                        {entry.actorDisplay ?? "System"} · {entry.entityType}
                       </p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </PanelState>
-          </Card>
-
-          <Card className="p-4">
-            <Eyebrow>Quick Actions</Eyebrow>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              {QUICK.map(({ to, label, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex flex-col gap-2 p-3 rounded-sm border border-white/[0.06] bg-deep-black/40 hover:border-rose-gold/40 hover:bg-rose-gold/5 transition"
-                >
-                  <Icon className="w-4 h-4 text-rose-gold/80" strokeWidth={1.2} aria-hidden="true" />
-                  <span className="font-body text-helper text-soft-ivory/80 leading-tight">{label}</span>
-                </Link>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        <Card className="p-4">
-          <Eyebrow>Action Queues</Eyebrow>
-          <PanelState query={dashboard}>
-            <div className="mt-3 space-y-1">
-              {QUEUE_FIELDS.map((q) => {
-                const count = dashboard.isSuccess ? (data?.[q.key] ?? 0) : null;
-                return (
-                  <Link
-                    key={q.key}
-                    to={q.to}
-                    className="flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 rounded-sm border-b border-white/[0.04] last:border-0 hover:bg-rose-gold/5 transition"
-                  >
-                    <span className="font-body text-body text-soft-ivory/85">{q.label}</span>
-                    <span
-                      className={`font-body text-body tabular-nums ${
-                        count ? "text-rose-gold" : "text-muted-grey"
-                      }`}
-                    >
-                      {count ?? "—"}
+                    <span className="font-body text-meta text-muted-grey whitespace-nowrap">
+                      {new Date(entry.createdAtUtc).toLocaleString()}
                     </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </PanelState>
+                  </div>
+                ))
+              : null}
+          </Panel>
+        </Card>
+
+        <Card className="p-5 space-y-3">
+          <h2 className="font-heading text-lg text-ivory">System status</h2>
+          <p className="font-body text-meta text-muted-grey">
+            Only components that were actually checked appear here.
+          </p>
+          <Panel
+            query={system}
+            emptyIcon={Activity}
+            emptyTitle="Nothing measured"
+            emptyBody="No dependency reported a measured status."
+          >
+            {system.data && system.data.components.length > 0
+              ? system.data.components.map((component) => (
+                  <div
+                    key={component.name}
+                    className="flex items-start justify-between gap-4 border-b border-white/[0.06] py-2 last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-body text-helper text-soft-ivory/90">{component.name}</p>
+                      {component.detail && (
+                        <p className="font-body text-meta text-muted-grey break-words">
+                          {component.detail}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right whitespace-nowrap">
+                      <p
+                        className={cn(
+                          "font-body text-meta tracking-wide-luxe uppercase",
+                          STATUS_TONE[(component.status ?? "").toLowerCase()] ?? "text-muted-grey"
+                        )}
+                      >
+                        {component.status}
+                      </p>
+                      {component.latencyMs != null && (
+                        <p className="font-body text-meta text-muted-grey tabular-nums">
+                          {Math.round(component.latencyMs)} ms
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              : null}
+          </Panel>
+          {system.data && (
+            <p className="font-body text-meta text-muted-grey">
+              Checked {new Date(system.data.checkedAtUtc).toLocaleTimeString()}
+            </p>
+          )}
         </Card>
       </div>
     </div>

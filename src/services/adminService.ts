@@ -192,3 +192,133 @@ export function updateTaxonomyItem(
 export function deleteTaxonomyItem(type: TaxonomyType, id: string): Promise<void> {
   return api.delete<void>(`/admin/taxonomies/${type}/${id}`);
 }
+
+// ---- administrative dashboard ----------------------------------------------
+
+/**
+ * The administrative dashboard.
+ *
+ * Every figure is computed from the database on request. The screen this
+ * replaced showed 412 users, 86 active talent, 23 open inquiries and $184k
+ * revenue — none of which existed anywhere. A zero from this endpoint means
+ * zero, and it is displayed as zero.
+ */
+
+/** Mirrors `DashboardTrendPointDto`. `period` is `yyyy-MM`. */
+export interface DashboardTrendPointDto {
+  period: string;
+  count: number;
+}
+
+/**
+ * Mirrors `RecordedAppointmentValueDto`.
+ *
+ * **This is not revenue and must never be labelled as such.** Lustra processes
+ * no payments: the amount is a figure a member of staff typed onto a booking,
+ * settlement happens outside the system, and nothing here has been invoiced,
+ * collected or reconciled. It is reported per currency because adding amounts in
+ * different currencies produces a number that is wrong in all of them.
+ */
+export interface RecordedAppointmentValueDto {
+  currencyCode: string;
+  amount: number;
+  appointmentCount: number;
+}
+
+/** Mirrors `AdminDashboardDto`. */
+export interface AdminDashboardDto {
+  totalClients: number;
+  totalTalent: number;
+  publishedTalent: number;
+  approvedUnpublishedTalent: number;
+  activeManagementStaff: number;
+  suspendedAccounts: number;
+
+  pendingTalentApplications: number;
+  pendingProfileReviews: number;
+  pendingMediaReviews: number;
+  openInquiries: number;
+  unreadConversations: number;
+  unassignedConversations: number;
+  pendingReviewModeration: number;
+  openSafetyCases: number;
+
+  upcomingAppointments: number;
+  appointmentsToday: number;
+  cancelledAppointmentsInPeriod: number;
+
+  registrationTrend: DashboardTrendPointDto[];
+  applicationTrend: DashboardTrendPointDto[];
+  appointmentTrend: DashboardTrendPointDto[];
+
+  recordedAppointmentValue: RecordedAppointmentValueDto[];
+  fromUtc: string;
+  toUtc: string;
+  generatedAtUtc: string;
+}
+
+/** Mirrors `DashboardActivityDto` — a real audit-log row. */
+export interface DashboardActivityDto {
+  id: string;
+  actorUserId: string | null;
+  actorDisplay: string | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  summary: string;
+  createdAtUtc: string;
+}
+
+/**
+ * Mirrors `SystemComponentStatusDto`.
+ *
+ * A component appears here only because something actually checked it. There is
+ * no "Operational" placeholder: a status nobody measured is worse than none,
+ * because it is believed.
+ */
+export interface SystemComponentStatusDto {
+  name: string;
+  status: string;
+  detail: string | null;
+  latencyMs: number | null;
+}
+
+/** Mirrors `SystemStatusDto`. */
+export interface SystemStatusDto {
+  status: string;
+  components: SystemComponentStatusDto[];
+  checkedAtUtc: string;
+}
+
+/**
+ * The dashboard over a window.
+ *
+ * `fromUtc`/`toUtc` bound the trends, the cancelled count and the recorded
+ * value. Queue depths and population counts are current by nature and ignore
+ * them — a queue that was deep last month is not a queue.
+ */
+export function getAdminDashboard(
+  range: { fromUtc?: string | null; toUtc?: string | null } = {},
+  signal?: AbortSignal
+): Promise<AdminDashboardDto> {
+  return api.get<AdminDashboardDto>("/admin/dashboard", {
+    query: { fromUtc: range.fromUtc || undefined, toUtc: range.toUtc || undefined },
+    signal,
+  });
+}
+
+/** Real audit-log entries. Behind `AuditLogs.View`, not `Analytics.View`. */
+export function getAdminDashboardActivity(
+  take = 20,
+  signal?: AbortSignal
+): Promise<DashboardActivityDto[]> {
+  return api.get<DashboardActivityDto[]>("/admin/dashboard/activity", {
+    query: { take },
+    signal,
+  });
+}
+
+/** The measured state of the platform's dependencies. */
+export function getSystemStatus(signal?: AbortSignal): Promise<SystemStatusDto> {
+  return api.get<SystemStatusDto>("/admin/dashboard/system-status", { signal });
+}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Compass, Heart, MessageSquare, Calendar, User, Circle, Bell } from "lucide-react";
+import { Compass, Heart, MessageSquare, Calendar, CalendarCheck, User, Circle, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/roleStore";
 import { navForGroup } from "@/app/routeRegistry";
@@ -11,7 +11,15 @@ import {
 } from "@/features/conversations/hooks";
 import { useUnreadNotificationCount } from "@/features/notifications/hooks";
 
-const ICONS = { Compass, Heart, MessageSquare, Calendar, User };
+const ICONS = { Compass, Heart, MessageSquare, Calendar, CalendarCheck, User };
+
+/**
+ * Tailwind needs whole class names at build time, so the column count cannot be
+ * interpolated. Mapping it explicitly also means adding a sixth destination
+ * fails loudly here rather than silently rendering an uneven bar — which is what
+ * happened when four links were laid out in a hardcoded six-column grid.
+ */
+const COLUMNS = { 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-5", 6: "grid-cols-6" };
 
 export default function AppShell() {
   const { role, user } = useRole();
@@ -36,8 +44,8 @@ export default function AppShell() {
             <LustraHorizontalLogo className="h-6 w-auto" eager />
           </Link>
           <div className="flex items-center gap-4">
-            {/* The bell lives here rather than in the bottom bar: that bar is a fixed
-                six-column grid and a seventh item would break the approved layout. */}
+            {/* The bell lives here rather than in the bottom bar: that bar holds the five
+                approved destinations and a sixth would crowd them below 360px. */}
             <Link
               to="/app/notifications"
               aria-label={
@@ -71,7 +79,7 @@ export default function AppShell() {
 
       {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-noir/95 backdrop-blur-xl border-t border-white/[0.06] safe-bottom">
-        <div className="max-w-luxe mx-auto grid grid-cols-6 px-2">
+        <div className={cn("max-w-luxe mx-auto grid px-1", COLUMNS[nav.length] ?? "grid-cols-5")}>
           {nav.map(({ to, label, icon }) => {
             const Icon = ICONS[icon] || Circle;
             const active =
@@ -81,8 +89,12 @@ export default function AppShell() {
               <Link
                 key={to}
                 to={to}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors min-h-[52px]",
+                  // min-w-0 lets every column shrink equally at 320px instead of the
+                  // widest label forcing the bar wider than the viewport.
+                  "min-w-0 flex flex-col items-center justify-center gap-0.5 px-0.5 py-2.5",
+                  "transition-colors min-h-[52px]",
                   active ? "text-rose-gold" : "text-muted-grey hover:text-soft-ivory"
                 )}
               >
@@ -97,7 +109,9 @@ export default function AppShell() {
                     </span>
                   )}
                 </span>
-                <span className="text-[0.5rem] tracking-wide-luxe uppercase font-body">{label}</span>
+                <span className="max-w-full truncate text-[0.5rem] leading-tight tracking-wide-luxe uppercase font-body">
+                  {label}
+                </span>
               </Link>
             );
           })}

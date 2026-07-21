@@ -1,11 +1,34 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen, fireEvent, createEvent } from "@testing-library/react";
+import { render as rtlRender, screen, fireEvent, createEvent } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { ROUTES } from "@/app/routeRegistry";
-import PasswordField, { PASSWORD_RULES, passwordStrength } from "@/components/auth/PasswordField";
+import PasswordField from "@/components/auth/PasswordField";
+import { rulesFromPolicy, strengthFor } from "@/features/auth/passwordPolicy";
+import { CONSERVATIVE_PASSWORD_POLICY } from "@/services/passwordPolicyService";
+
+/**
+ * PasswordField now reads its requirements from the API, so every render needs a
+ * query client. The tests here use the conservative fallback deliberately: it is
+ * what an offline or failing policy request produces, and it must never be
+ * weaker than the server's real rules. `talentApplication`-style policy-driven
+ * assertions live in passwordPolicy.test.tsx.
+ */
+const PASSWORD_RULES = rulesFromPolicy(CONSERVATIVE_PASSWORD_POLICY);
+const passwordStrength = (value: string) => strengthFor(value, PASSWORD_RULES);
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrap = (node: React.ReactElement) => (
+    <QueryClientProvider client={client}>{node}</QueryClientProvider>
+  );
+  const result = rtlRender(wrap(ui));
+  // rerender must re-wrap, or the second render loses the provider.
+  return { ...result, rerender: (node: React.ReactElement) => result.rerender(wrap(node)) };
+}
 
 /**
  * Account-recovery routing and the shared password control.
@@ -42,16 +65,16 @@ describe("account email routes", () => {
 });
 
 describe("password policy", () => {
-  it("mirrors the backend Identity policy exactly", () => {
+  it("derives its rules from the policy rather than a frontend constant", () => {
     expect(PASSWORD_RULES.map((r) => r.id)).toEqual(["length", "upper", "lower", "digit", "symbol"]);
   });
 
   it.each([
     ["", 0],
     ["short", 1],
-    ["Password", 3],
+    ["Password", 2],
     ["Password1", 3],
-    ["Password1!", 3],
+    ["Password1!Aa", 3],
     ["Password1!LongerStill", 4],
   ])("scores %s", (value, expected) => {
     expect(passwordStrength(value)).toBe(expected);
@@ -93,7 +116,7 @@ describe("PasswordField", () => {
   });
 
   it("announces met and unmet requirements for screen readers", () => {
-    render(<PasswordField value="Password1!" onChange={() => {}} showRequirements />);
+    render(<PasswordField value="Password1!Aa" onChange={() => {}} showRequirements />);
     // Every rule is satisfied by this value.
     expect(screen.getAllByText("— met")).toHaveLength(PASSWORD_RULES.length);
   });

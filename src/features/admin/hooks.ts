@@ -178,3 +178,52 @@ export function useTaxonomyMutations(type: adminService.TaxonomyType) {
 
   return { create, update, remove };
 }
+
+// ---- administrative dashboard ----------------------------------------------
+
+/**
+ * The Admin/SuperAdmin dashboard.
+ *
+ * Distinct from `useManagementDashboard`, which serves Management's narrower
+ * operational view. Admins read this one: it is computed from the database and
+ * covers populations, queues, appointments and trends that the management
+ * dashboard never carried.
+ */
+export function useAdminDashboard(range: { fromUtc?: string | null; toUtc?: string | null } = {}) {
+  const enabled = usePermission("Analytics.View");
+  return useQuery({
+    queryKey: queryKeys.admin.dashboard(range),
+    queryFn: ({ signal }) => adminService.getAdminDashboard(range, signal),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * The activity feed.
+ *
+ * Gated on `AuditLogs.View` rather than `Analytics.View`: activity names
+ * individual staff and what they did, which is a stricter thing to read than an
+ * aggregate. An admin without it sees the rest of the dashboard and no feed.
+ */
+export function useAdminDashboardActivity(take = 20) {
+  const enabled = usePermission("AuditLogs.View");
+  return useQuery({
+    queryKey: queryKeys.admin.dashboardActivity(take),
+    queryFn: ({ signal }) => adminService.getAdminDashboardActivity(take, signal),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+/** The measured state of the platform's dependencies. */
+export function useSystemStatus() {
+  const enabled = usePermission("Analytics.View");
+  return useQuery({
+    queryKey: queryKeys.admin.systemStatus(),
+    queryFn: ({ signal }) => adminService.getSystemStatus(signal),
+    enabled,
+    // Short: a status is only worth reading if it is roughly current.
+    staleTime: 15_000,
+  });
+}

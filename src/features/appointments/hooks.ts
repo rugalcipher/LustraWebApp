@@ -7,8 +7,11 @@ import type { CreateAppointmentInput } from "@/services/appointmentService";
 /**
  * Internal appointment hooks (management).
  *
- * There is no client equivalent and there must not be one: an appointment is Lustra's
- * operational record, and the client arranges everything by talking to management.
+ * An appointment is Lustra's operational record. The client now has a read-only
+ * view of the ones reserved for them (`features/clientAppointments`), built on a
+ * separate service and a separate DTO — it is not this record with fields
+ * removed, and the two must not be merged. Clients still create, reschedule and
+ * cancel nothing: that is arranged by talking to management.
  */
 
 const APPOINTMENT_STALE_TIME = 20_000;
@@ -50,7 +53,12 @@ function useAppointmentInvalidation() {
 }
 
 export function useAppointments(
-  filters: { status?: string | null; talentProfileId?: string | null; page?: number } = {}
+  filters: {
+    status?: string | null;
+    talentProfileId?: string | null;
+    isVisibleToClient?: boolean | null;
+    page?: number;
+  } = {}
 ) {
   const enabled = usePermission("Bookings.View");
   return useQuery({
@@ -158,5 +166,59 @@ export function useAddAppointmentNote(bookingId: string | undefined) {
     retry: false,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.management.booking(bookingId ?? "") }),
+  });
+}
+
+// ---- client visibility ------------------------------------------------------
+
+/**
+ * Who changed an appointment's client visibility, when and why.
+ *
+ * Kept out of the detail query so a reviewer who never opens the panel does not
+ * pay for it, and so a failure to load the history cannot blank the appointment.
+ */
+export function useAppointmentVisibilityHistory(bookingId: string | undefined, enabled = true) {
+  const canView = usePermission("Bookings.View");
+  return useQuery({
+    queryKey: queryKeys.management.bookingVisibilityHistory(bookingId ?? ""),
+    queryFn: ({ signal }) =>
+      appointmentService.getAppointmentVisibilityHistory(bookingId!, signal),
+    enabled: canView && enabled && Boolean(bookingId),
+    staleTime: APPOINTMENT_STALE_TIME,
+  });
+}
+
+/**
+ * Shows or hides an appointment from its client.
+ *
+ * Invalidates the visibility history alongside the usual set: the panel that
+ * records the change must not still be showing the state before it.
+ */
+export function useSetAppointmentClientVisibility(bookingId: string | undefined) {
+  const queryClient = useQueryClient();
+  const invalidate = useAppointmentInvalidation();
+  return useMutation({
+    mutationFn: ({ visible, internalReason }: { visible: boolean; internalReason?: string | null }) =>
+      visible
+        ? appointmentService.showAppointmentToClient(bookingId!, internalReason)
+        : appointmentService.hideAppointmentFromClient(bookingId!, internalReason),
+    retry: false,
+    onSuccess: () => {
+      invalidate(bookingId);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.management.bookingVisibilityHistory(bookingId ?? ""),
+      });
+    },
+  });
+}
+
+/** Moves an appointment to a different talent, recording why. */
+export function useReassignAppointmentTalent(bookingId: string | undefined) {
+  const invalidate = useAppointmentInvalidation();
+  return useMutation({
+    mutationFn: ({ talentProfileId, reason }: { talentProfileId: string; reason: string }) =>
+      appointmentService.reassignAppointmentTalent(bookingId!, talentProfileId, reason),
+    retry: false,
+    onSuccess: () => invalidate(bookingId),
   });
 }

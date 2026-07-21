@@ -3,6 +3,7 @@ import { Lock, Eye, EyeOff, Check, X, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { usePasswordPolicy, strengthFor } from "@/features/auth/passwordPolicy";
 
 /**
  * The single password control used by every password field in the app.
@@ -12,10 +13,15 @@ import { cn } from "@/lib/utils";
  * strength meter, live requirement checklist, confirm-match state and real
  * labels. Centralising them means a fix lands once.
  *
- * The requirement list mirrors the backend Identity policy (and
- * `features/auth/schemas.ts`) exactly — 8+ chars, upper, lower, digit, symbol.
- * It is FEEDBACK, not authorization: the server revalidates and its field
- * errors are mapped back onto the control.
+ * The requirement list comes from `GET /public/password-policy`, which reads the
+ * live ASP.NET Identity options — the same object that rejects the password. The
+ * frontend holds no copy of those numbers, so changing the policy server-side
+ * changes this checklist without a redeploy. It is FEEDBACK, not authorization:
+ * the server revalidates and its field errors are mapped back onto the control.
+ *
+ * If the policy cannot be fetched the control shows the conservative assumption
+ * and says the requirements are unconfirmed. It never falls back to something
+ * weaker than the server might be enforcing.
  *
  * Accessibility: the toggle is a real button with `aria-pressed` and an
  * `aria-label` that states the resulting action; the checklist and caps-lock
@@ -23,23 +29,6 @@ import { cn } from "@/lib/utils";
  * `aria-invalid`. Nothing here ever renders an existing password — the value is
  * always supplied by the user in this session.
  */
-
-/** The password policy, mirrored from the backend Identity options. */
-export const PASSWORD_RULES = [
-  { id: "length", label: "At least 8 characters", test: (v) => v.length >= 8 },
-  { id: "upper", label: "One uppercase letter", test: (v) => /[A-Z]/.test(v) },
-  { id: "lower", label: "One lowercase letter", test: (v) => /[a-z]/.test(v) },
-  { id: "digit", label: "One number", test: (v) => /[0-9]/.test(v) },
-  { id: "symbol", label: "One symbol", test: (v) => /[^A-Za-z0-9]/.test(v) },
-];
-
-/** 0–4. Rules satisfied, with a bonus band for length — never a false "strong". */
-export function passwordStrength(value) {
-  if (!value) return 0;
-  const met = PASSWORD_RULES.filter((r) => r.test(value)).length;
-  if (met < PASSWORD_RULES.length) return Math.min(met, 3);
-  return value.length >= 14 ? 4 : 3;
-}
 
 const STRENGTH = [
   { label: "", bar: "", text: "" },
@@ -89,10 +78,11 @@ const PasswordField = forwardRef(function PasswordField(
   const [revealed, setRevealed] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
 
-  const strength = useMemo(() => passwordStrength(value), [value]);
+  const { rules, isFallback } = usePasswordPolicy();
+  const strength = useMemo(() => strengthFor(value, rules), [value, rules]);
   const results = useMemo(
-    () => PASSWORD_RULES.map((r) => ({ ...r, ok: r.test(value ?? "") })),
-    [value]
+    () => rules.map((r) => ({ ...r, ok: r.test(value ?? "") })),
+    [value, rules]
   );
 
   const confirming = matchValue !== undefined;
@@ -193,6 +183,13 @@ const PasswordField = forwardRef(function PasswordField(
               {STRENGTH[strength].label}
             </span>
           </div>
+
+          {isFallback && (
+            <p className="text-xs text-warning" role="status">
+              We could not confirm the current requirements. These are the strictest we
+              apply — your password is checked again when you submit.
+            </p>
+          )}
 
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
             {results.map((r) => (

@@ -25,6 +25,12 @@ export const queryKeys = {
   reference: {
     all: () => ["reference"] as const,
     taxonomy: (type: string) => ["reference", "taxonomy", type] as const,
+    /**
+     * The backend's password requirements. No input in the key: it is one shared
+     * entry so several PasswordFields on a page make one request between them,
+     * and typing can never trigger a fetch.
+     */
+    passwordPolicy: () => ["reference", "password-policy"] as const,
     countries: () => ["reference", "countries"] as const,
     regions: (countryId?: string | null) => ["reference", "regions", countryId ?? null] as const,
     cities: (regionId?: string | null) => ["reference", "cities", regionId ?? null] as const,
@@ -100,6 +106,16 @@ export const queryKeys = {
     collection: (collectionId: string) => ["client", "collections", collectionId] as const,
     entitlements: () => ["client", "entitlements"] as const,
   },
+  /**
+   * The client's OWN appointments. A separate namespace from `bookings` (the
+   * withdrawn client booking lifecycle) and from `management.bookings`, so the
+   * client-safe projection is never confused with a management record.
+   */
+  clientAppointments: {
+    all: () => ["client-appointments"] as const,
+    list: (filters?: Filters) => ["client-appointments", "list", filters ?? null] as const,
+    detail: (id: string) => ["client-appointments", "detail", id] as const,
+  },
   inquiries: {
     all: () => ["inquiries"] as const,
     mine: (filters?: Filters) => ["inquiries", "mine", filters ?? null] as const,
@@ -151,6 +167,8 @@ export const queryKeys = {
     proposal: (id: string) => ["management", "proposals", id] as const,
     bookings: (filters?: Filters) => ["management", "bookings", filters ?? null] as const,
     booking: (id: string) => ["management", "bookings", "detail", id] as const,
+    bookingVisibilityHistory: (id: string) =>
+      ["management", "bookings", "detail", id, "visibility-history"] as const,
     calendar: (filters?: Filters) => ["management", "calendar", filters ?? null] as const,
     conflicts: () => ["management", "calendar", "conflicts"] as const,
     invitations: (status?: string) => ["management", "invitations", status ?? null] as const,
@@ -185,6 +203,13 @@ export const queryKeys = {
 
   // --- Admin ---
   admin: {
+    /**
+     * The administrative dashboard. Keyed by window because the trends, the
+     * cancelled count and the recorded value are all bounded by it.
+     */
+    dashboard: (range?: Filters) => ["admin", "dashboard", range ?? null] as const,
+    dashboardActivity: (take: number) => ["admin", "dashboard", "activity", take] as const,
+    systemStatus: () => ["admin", "dashboard", "system-status"] as const,
     users: (filters?: Filters) => ["admin", "users", filters ?? null] as const,
     user: (id: string) => ["admin", "users", "detail", id] as const,
     roles: () => ["admin", "roles"] as const,
@@ -217,6 +242,7 @@ export const USER_SCOPED_NAMESPACES: readonly string[] = [
   "media",
   "talent-portal",
   "client",
+  "client-appointments",
   "inquiries",
   "conversations",
   "proposals",

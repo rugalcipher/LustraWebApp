@@ -51,11 +51,15 @@ describe("route registry", () => {
     }
   });
 
-  it("offers the client exactly four navigation entries", () => {
-    // Discover · Saved · Messages · Profile. A fifth would mean the lifecycle crept back.
+  it("offers the client exactly five navigation entries", () => {
+    // Discover · Saved · Messages · Appointments · Profile.
+    //
+    // Appointments is READ-ONLY: the client sees what Lustra reserved for them and
+    // arranges every change by talking to management. A sixth entry would mean the
+    // withdrawn booking lifecycle had crept back, so the list is pinned here.
     const clientNav = ROUTES.flatMap((r) => navMetas(r.nav)).filter((m) => m.group === "client");
     expect(clientNav.map((m) => m.label).sort()).toEqual(
-      ["Discover", "Messages", "Profile", "Saved"]
+      ["Appointments", "Discover", "Messages", "Profile", "Saved"]
     );
   });
 

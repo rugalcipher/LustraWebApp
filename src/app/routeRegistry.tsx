@@ -27,6 +27,8 @@ import StartConversation from "@/pages/StartConversation";
 import Notifications from "@/pages/Notifications";
 import Report from "@/pages/Report";
 import Profile from "@/pages/Profile";
+import ClientAppointments from "@/pages/ClientAppointments";
+import ClientAppointmentDetail from "@/pages/ClientAppointmentDetail";
 
 // Internal-shell pages are lazy-loaded (route-level code splitting): they are
 // not needed for the initial public/client load, and this moves recharts (only
@@ -53,6 +55,8 @@ const AdminDashboard = React.lazy(() => import("@/pages/AdminDashboard"));
 const AdminUsers = React.lazy(() => import("@/pages/AdminUsers"));
 const AdminPlatform = React.lazy(() => import("@/pages/AdminPlatform"));
 const AdminAudit = React.lazy(() => import("@/pages/AdminAudit"));
+const ManagementAppointments = React.lazy(() => import("@/pages/ManagementAppointments"));
+const ManagementAppointmentDetail = React.lazy(() => import("@/pages/ManagementAppointmentDetail"));
 const TalentApplicationsQueue = React.lazy(() => import("@/pages/TalentApplicationsQueue"));
 const TalentApplicationReview = React.lazy(() => import("@/pages/TalentApplicationReview"));
 
@@ -169,7 +173,11 @@ export const ROUTES: RouteDef[] = [
   // Safety reporting. Linked from talent profiles; the route was missing until Stage 12,
   // so "Report profile" silently 404'd.
   { path: "/app/report", element: <Report />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
-  { path: "/app/profile", element: <Profile />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Profile", icon: "User", order: 4 } },
+  // The client's own appointments — read-only. They are reserved by management;
+  // nothing on this surface creates, reschedules or cancels one.
+  { path: "/app/appointments", element: <ClientAppointments />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Appointments", icon: "CalendarCheck", order: 4 } },
+  { path: "/app/appointments/:id", element: <ClientAppointmentDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
+  { path: "/app/profile", element: <Profile />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Profile", icon: "User", order: 5 } },
 
   // ---- Talent portal ----
   { path: "/talent-portal", element: <TalentPortal />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },
@@ -188,9 +196,9 @@ export const ROUTES: RouteDef[] = [
   { path: "/management-conversations/:id", element: <ManagementConversation />, access: "protected", roles: STAFF, permissions: ["Conversations.View"], shell: "internal" },
   // Creating an appointment is a Bookings.Create action reached from a conversation.
   { path: "/create-appointment", element: <CreateAppointment />, access: "protected", roles: STAFF, permissions: ["Bookings.Create"], shell: "internal" },
-  { path: "/management-clients", element: <ClientDirectory />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Clients", icon: "Users", order: 5 } },
-  { path: "/moderation", element: <ModerationQueue />, access: "protected", roles: STAFF, permissions: ["Talent.ModerateMedia"], shell: "internal", nav: { group: "management", label: "Moderation", icon: "ShieldCheck", order: 6 } },
-  { path: "/analytics", element: <AgencyAnalytics />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Analytics", icon: "BarChart3", order: 8 } },
+  { path: "/management-clients", element: <ClientDirectory />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Clients", icon: "Users", order: 4 } },
+  { path: "/moderation", element: <ModerationQueue />, access: "protected", roles: STAFF, permissions: ["Talent.ModerateMedia"], shell: "internal", nav: { group: "management", label: "Moderation", icon: "ShieldCheck", order: 5 } },
+  { path: "/analytics", element: <AgencyAnalytics />, access: "protected", roles: STAFF, shell: "internal", nav: { group: "management", label: "Analytics", icon: "BarChart3", order: 6 } },
 
   // ---- Admin ----
   { path: "/admin", element: <AdminDashboard />, access: "protected", roles: ADMINS, shell: "internal", nav: { group: "admin", label: "Overview", icon: "LayoutDashboard", order: 1 } },
@@ -204,13 +212,30 @@ export const ROUTES: RouteDef[] = [
   // for both workspaces. Visibility follows the permission, not the role: the
   // server enforces the same three permissions on every call.
   { path: "/admin/talent-applications", element: <TalentApplicationsQueue />, access: "protected", roles: STAFF, permissions: ["TalentApplications.View"], shell: "internal", nav: [
-    { group: "management", label: "Talent Applications", icon: "UserPlus", order: 7, section: "People" },
-    { group: "admin", label: "Talent Applications", icon: "UserPlus", order: 5, section: "People" },
+    { group: "management", label: "Talent Applications", icon: "UserPlus", order: 9, section: "People" },
+    { group: "admin", label: "Talent Applications", icon: "UserPlus", order: 7, section: "People" },
   ] },
   { path: "/admin/talent-applications/:id", element: <TalentApplicationReview />, access: "protected", roles: STAFF, permissions: ["TalentApplications.View"], shell: "internal" },
 
+  // ---- Operations (Phase 2) ----
+  //
+  // The appointment register and the calendar are the same operational surface
+  // seen two ways, so they share one navigation section. Both are real
+  // destinations — neither is registered before its page exists.
+  { path: "/admin/appointments", element: <ManagementAppointments />, access: "protected", roles: STAFF, permissions: ["Bookings.View"], shell: "internal", nav: [
+    { group: "management", label: "Appointments", icon: "CalendarCheck", order: 7, section: "Operations" },
+    { group: "admin", label: "Appointments", icon: "CalendarCheck", order: 5, section: "Operations" },
+  ] },
+  { path: "/admin/appointments/:id", element: <ManagementAppointmentDetail />, access: "protected", roles: STAFF, permissions: ["Bookings.View"], shell: "internal" },
+  // The same calendar page as /agency-calendar, registered under the operations
+  // prefix so the console's own links and a direct visit both resolve.
+  { path: "/admin/calendar", element: <AgencyCalendar />, access: "protected", roles: STAFF, permissions: ["Bookings.View"], shell: "internal", nav: [
+    { group: "management", label: "Calendar", icon: "Calendar", order: 8, section: "Operations" },
+    { group: "admin", label: "Calendar", icon: "Calendar", order: 6, section: "Operations" },
+  ] },
+
   // ---- Shared internal (shell selected by principal) ----
-  { path: "/agency-calendar", element: <AgencyCalendar />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "management", label: "Calendar", icon: "Calendar", order: 4 } },
+  { path: "/agency-calendar", element: <AgencyCalendar />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Calendar", icon: "Calendar", order: 7 } },
   { path: "/settings", element: <AccountSettings />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Settings", icon: "Settings", order: 9 } },
 ];
 

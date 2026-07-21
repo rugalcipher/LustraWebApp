@@ -8,14 +8,18 @@ import { z } from "zod";
 
 const email = z.string().trim().min(1, "Email is required").email("Enter a valid email address");
 
-/** Mirrors the backend Identity password policy. */
-const password = z
-  .string()
-  .min(8, "Password must be at least 8 characters")
-  .regex(/[A-Z]/, "Include at least one uppercase letter")
-  .regex(/[a-z]/, "Include at least one lowercase letter")
-  .regex(/[0-9]/, "Include at least one number")
-  .regex(/[^A-Za-z0-9]/, "Include at least one symbol");
+/**
+ * Presence only — the composition rules deliberately do NOT live here.
+ *
+ * They are fetched from `GET /public/password-policy`, which reads the live
+ * Identity options, and are shown by `PasswordField` as a live checklist. A
+ * second copy in this file would be a policy that eventually disagrees with the
+ * one that actually rejects the password, and the user is who would find out.
+ * A zod schema is evaluated synchronously at module scope and cannot consult the
+ * fetched policy, so it asserts only that something was typed; the checklist
+ * guides, and the server decides.
+ */
+const password = z.string().min(1, "Password is required");
 
 export const loginSchema = z.object({
   email,

@@ -47,6 +47,8 @@ export interface AppointmentDto {
   assignedManagementUserId: string | null;
   createdAtUtc: string;
   conversationId: string | null;
+  /** Whether the client can currently see this appointment. */
+  isVisibleToClient: boolean;
   history: { fromStatus: string | null; toStatus: string; reason: string | null; createdAtUtc: string }[];
   internalNotes: { id: string; authorUserId: string; note: string; createdAtUtc: string }[];
 }
@@ -64,6 +66,13 @@ export interface AppointmentListItemDto {
   currencyCode: string;
   agreedAmount: number | null;
   createdAtUtc: string;
+  /**
+   * A MANAGEMENT signal. Safe on this row because it already carries
+   * `agreedAmount` and has never been a client-facing shape — the client's own
+   * list is `ClientAppointmentListItemDto`, which cannot contain a hidden
+   * appointment at all and so has no need of the flag.
+   */
+  isVisibleToClient: boolean;
 }
 
 /** Mirrors `CalendarBookingDto`. */
@@ -115,6 +124,12 @@ export interface CreateAppointmentInput {
   clientVisibleNotes?: string | null;
   talentInstructions?: string | null;
   talentAvailabilityConfirmed: boolean;
+  /**
+   * Whether the client may see the appointment. Defaults to TRUE, matching the
+   * backend: an appointment reserved for someone is normally theirs to know
+   * about, and concealment should be a deliberate act rather than a default.
+   */
+  isVisibleToClient?: boolean;
 }
 
 /**
@@ -130,15 +145,23 @@ export function createAppointment(
 }
 
 export function listAppointments(
-  filters: { status?: string | null; talentProfileId?: string | null; page?: number } = {},
+  filters: {
+    status?: string | null;
+    talentProfileId?: string | null;
+    /** `false` reviews everything currently concealed from its client. */
+    isVisibleToClient?: boolean | null;
+    page?: number;
+    pageSize?: number;
+  } = {},
   signal?: AbortSignal
 ): Promise<PagedResult<AppointmentListItemDto>> {
   return api.get<PagedResult<AppointmentListItemDto>>("/management/bookings", {
     query: {
       status: filters.status ?? undefined,
       talentProfileId: filters.talentProfileId ?? undefined,
+      isVisibleToClient: filters.isVisibleToClient ?? undefined,
       page: filters.page ?? 1,
-      pageSize: 50,
+      pageSize: filters.pageSize ?? 50,
     },
     signal,
   });
@@ -196,6 +219,72 @@ export function markAppointmentNoShow(bookingId: string): Promise<void> {
 
 export function addAppointmentNote(bookingId: string, note: string) {
   return api.post<{ noteId: string }>(`/management/bookings/${bookingId}/notes`, { note });
+}
+
+// ---- client visibility ----------------------------------------------------
+
+/**
+ * Mirrors `BookingVisibilityChangeDto`.
+ *
+ * Note what it does NOT carry: a display name for the actor. Only
+ * `changedByUserId` is recorded, because a name captured at the time would go
+ * stale and a name resolved at read time is a second query the audit trail does
+ * not need to be correct. The UI resolves it opportunistically and must render
+ * fine without it.
+ */
+export interface AppointmentVisibilityChangeDto {
+  id: string;
+  changedByUserId: string;
+  previousValue: boolean;
+  newValue: boolean;
+  internalReason: string | null;
+  createdAtUtc: string;
+}
+
+/**
+ * Reveals an appointment to its client, and notifies them it is there.
+ *
+ * The optional reason is recorded on the visibility history for other staff and
+ * is never shown to the client.
+ */
+export function showAppointmentToClient(bookingId: string, internalReason?: string | null) {
+  return api.post<void>(`/management/bookings/${bookingId}/show-to-client`, {
+    internalReason: internalReason?.trim() || null,
+  });
+}
+
+/**
+ * Hides an appointment from its client.
+ *
+ * The client is deliberately NOT notified: announcing a disappearance would
+ * disclose exactly what hiding it withholds.
+ */
+export function hideAppointmentFromClient(bookingId: string, internalReason?: string | null) {
+  return api.post<void>(`/management/bookings/${bookingId}/hide-from-client`, {
+    internalReason: internalReason?.trim() || null,
+  });
+}
+
+export function getAppointmentVisibilityHistory(
+  bookingId: string,
+  signal?: AbortSignal
+): Promise<AppointmentVisibilityChangeDto[]> {
+  return api.get<AppointmentVisibilityChangeDto[]>(
+    `/management/bookings/${bookingId}/visibility-history`,
+    { signal }
+  );
+}
+
+/** Moves an appointment to a different talent, recording why. */
+export function reassignAppointmentTalent(
+  bookingId: string,
+  talentProfileId: string,
+  reason: string
+) {
+  return api.post<void>(`/management/bookings/${bookingId}/reassign-talent`, {
+    talentProfileId,
+    reason,
+  });
 }
 
 // ---- presentation ----------------------------------------------------------

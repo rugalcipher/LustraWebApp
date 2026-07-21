@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, CheckCircle2, User } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
-import PasswordField, { PASSWORD_RULES } from "@/components/auth/PasswordField";
+import PasswordField from "@/components/auth/PasswordField";
+import { usePasswordPolicy } from "@/features/auth/passwordPolicy";
 import * as authService from "@/services/authService";
 import { toUserMessage } from "@/api/problemDetails";
 
@@ -26,6 +27,7 @@ export default function TalentActivate() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get("token") ?? "";
+  const { rules: passwordRules } = usePasswordPolicy();
 
   const [state, setState] = useState(token ? "validating" : "invalid");
   const [info, setInfo] = useState(null);
@@ -71,7 +73,10 @@ export default function TalentActivate() {
 
   const validate = () => {
     const next = {};
-    const unmet = PASSWORD_RULES.filter((r) => !r.test(form.password));
+    // The rules the SERVER is enforcing, not a copy of them. If the policy could
+    // not be fetched these are the conservative fallback, which over-states
+    // rather than under-states; the server decides acceptance either way.
+    const unmet = passwordRules.filter((r) => !r.test(form.password));
     if (!form.password) next.password = "Choose a password";
     else if (unmet.length) next.password = unmet[0].label;
     if (form.confirmPassword !== form.password) next.confirmPassword = "Passwords do not match";
