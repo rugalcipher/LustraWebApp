@@ -5,8 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
+import { LogIn, Mail, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import PasswordField from "@/components/auth/PasswordField";
 import { loginSchema } from "@/features/auth/schemas";
 import { useLogin, applyServerErrors } from "@/features/auth/hooks";
 
@@ -21,6 +22,7 @@ export default function Login() {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(loginSchema),
@@ -81,30 +83,20 @@ export default function Login() {
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
+        <PasswordField
+          id="password"
+          label="Password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+          value={watch("password") ?? ""}
+          error={errors.password?.message}
+          labelSuffix={
             <Link to="/forgot-password" className="text-xs text-primary hover:underline">
               Forgot password?
             </Link>
-          </div>
-          <div className="relative">
-            <Lock
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className="pl-10 h-12"
-              aria-invalid={Boolean(errors.password)}
-              {...register("password")}
-            />
-          </div>
-          {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-        </div>
+          }
+          {...register("password")}
+        />
 
         <Button type="submit" className="w-full h-12 font-medium" disabled={busy}>
           {busy ? (

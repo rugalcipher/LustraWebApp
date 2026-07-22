@@ -41,6 +41,7 @@ const STRENGTH = [
 /**
  * @typedef {object} PasswordFieldProps
  * @property {import("react").ReactNode} [label]
+ * @property {import("react").ReactNode} [labelSuffix] Rendered at the end of the label row (e.g. a "Forgot password?" link).
  * @property {string} [value]
  * @property {string} [error]
  * @property {import("react").ReactNode} [hint]
@@ -58,6 +59,7 @@ const STRENGTH = [
 const PasswordField = forwardRef(function PasswordField(
   {
     label = "Password",
+    labelSuffix,
     value = "",
     error,
     hint,
@@ -109,7 +111,14 @@ const PasswordField = forwardRef(function PasswordField(
 
   return (
     <div className={cn("space-y-2", className)}>
-      <Label htmlFor={id}>{label}</Label>
+      {labelSuffix ? (
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor={id}>{label}</Label>
+          {labelSuffix}
+        </div>
+      ) : (
+        <Label htmlFor={id}>{label}</Label>
+      )}
 
       <div className="relative">
         <Lock

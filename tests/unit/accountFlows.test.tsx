@@ -152,12 +152,30 @@ describe("PasswordField", () => {
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input.getAttribute("aria-describedby")).toContain(`${input.id}-error`);
   });
+
+  it("renders a label suffix beside the label without a second label element", () => {
+    // Login puts "Forgot password?" on the label row; it must live inside the shared
+    // control, not force the page back to a hand-rolled input.
+    render(
+      <PasswordField
+        label="Password"
+        value=""
+        onChange={() => {}}
+        labelSuffix={<a href="/forgot-password">Forgot password?</a>}
+      />
+    );
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toBeInTheDocument();
+    // Still exactly one password control, and the reveal toggle is present.
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
+    expect(screen.getByRole("button", { name: "Show password" })).toBeInTheDocument();
+  });
 });
 
 describe("password control adoption", () => {
   const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
   it.each([
+    "src/pages/Login.jsx",
     "src/pages/Register.jsx",
     "src/pages/ResetPassword.jsx",
     "src/pages/AccountSettings.jsx",
