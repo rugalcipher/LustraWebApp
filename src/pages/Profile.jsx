@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bell, Lock, Shield, LogOut, ChevronRight, Loader2, Check } from "lucide-react";
+import { Bell, Lock, Shield, LogOut, ChevronRight, Loader2, Check, MapPin } from "lucide-react";
 import { usePrincipal } from "@/auth/PrincipalContext";
 import { useLogout } from "@/auth/useLogout";
 import { Monogram } from "@/lib/lustra/Brand";
@@ -209,6 +209,7 @@ export default function Profile() {
 
       <Section title="Account">
         <Row icon={Bell} label="Notifications & security" to="/settings" />
+        <Row icon={MapPin} label="Saved addresses" to="/app/addresses" />
       </Section>
 
       <Section title="Legal">

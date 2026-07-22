@@ -7,6 +7,7 @@ import { Card, Skeleton } from "@/components/lustra/Primitives";
 import { cn } from "@/lib/utils";
 import { isApiError, toUserMessage } from "@/api/problemDetails";
 import { useClientAppointment } from "@/features/clientAppointments/hooks";
+import { formatAddressLine } from "@/domain/address";
 import {
   formatAppointmentDate, formatAppointmentTime, formatDuration, formatLocation,
   presentStatus, statusTone,
@@ -193,6 +194,9 @@ export default function ClientAppointmentDetail() {
         />
         <Row icon={Hourglass} label="Duration" value={duration} />
         <Row icon={MapPin} label="Where" value={place} />
+        {appointment.addressSnapshot && (
+          <Row icon={MapPin} label="Address" value={formatAddressLine(appointment.addressSnapshot)} />
+        )}
         <Row icon={Clock} label="Engagement" value={appointment.engagementCategory} />
         {appointment.venueType && <Row icon={MapPin} label="Venue type" value={appointment.venueType} />}
       </Card>

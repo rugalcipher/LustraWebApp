@@ -1,4 +1,5 @@
 import { api } from "@/api/client";
+import type { StructuredAddress, StructuredAddressInput } from "@/domain/address";
 
 /**
  * The talent's own profile — `/api/v1/talent/profile*`.
@@ -167,6 +168,16 @@ export function submitMyDraft(): Promise<void> {
 
 export function getMyPreview(signal?: AbortSignal): Promise<TalentPreviewDto> {
   return api.get<TalentPreviewDto>("/talent/profile/preview", { signal });
+}
+
+/** The talent's PRIVATE base/working address — owner only, never public. */
+export function getMyBaseAddress(signal?: AbortSignal): Promise<StructuredAddress | null> {
+  return api.get<StructuredAddress | null>("/talent/profile/base-address", { signal });
+}
+
+/** Sets or clears the talent's private base address. */
+export function updateMyBaseAddress(input: StructuredAddressInput): Promise<StructuredAddress | null> {
+  return api.put<StructuredAddress | null>("/talent/profile/base-address", input);
 }
 
 export function getMyVersions(signal?: AbortSignal): Promise<TalentProfileVersionDto[]> {

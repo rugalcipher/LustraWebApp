@@ -28,6 +28,7 @@ import StartConversation from "@/pages/StartConversation";
 import Notifications from "@/pages/Notifications";
 import Report from "@/pages/Report";
 import Profile from "@/pages/Profile";
+import ClientAddresses from "@/pages/ClientAddresses";
 import ClientAppointments from "@/pages/ClientAppointments";
 import ClientAppointmentDetail from "@/pages/ClientAppointmentDetail";
 
@@ -200,6 +201,9 @@ export const ROUTES: RouteDef[] = [
   { path: "/app/appointments", element: <ClientAppointments />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Appointments", icon: "CalendarCheck", order: 4 } },
   { path: "/app/appointments/:id", element: <ClientAppointmentDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/profile", element: <Profile />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Profile", icon: "User", order: 5 } },
+  // Saved addresses — reached from the profile, not the bottom bar (a seventh tab would break
+  // the approved six-column client grid).
+  { path: "/app/addresses", element: <ClientAddresses />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
 
   // ---- Talent portal ----
   //

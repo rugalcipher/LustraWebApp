@@ -96,6 +96,8 @@ export interface ClientAppointmentDto {
   conversationId: string | null;
   /** The booking conversation (client ↔ talent ↔ management) for this appointment, if any. */
   bookingConversationId: string | null;
+  /** The appointment's structured address snapshot (only present on a visible appointment). */
+  addressSnapshot: import("@/domain/address").StructuredAddress | null;
 }
 
 /**
