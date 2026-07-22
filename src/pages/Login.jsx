@@ -1,15 +1,19 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Loader2 } from "lucide-react";
+import { LogIn, Mail, Loader2, MailCheck } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import PasswordField from "@/components/auth/PasswordField";
 import { loginSchema } from "@/features/auth/schemas";
-import { useLogin, applyServerErrors } from "@/features/auth/hooks";
+import { useLogin, applyServerErrors, useResendVerification } from "@/features/auth/hooks";
+import { isApiError } from "@/api/problemDetails";
+
+/** Seconds to disable the resend button after a send, so a link can't be spammed out. */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 /**
  * Sign in against `POST /api/v1/auth/login`.
@@ -30,13 +34,46 @@ export default function Login() {
   });
 
   const login = useLogin();
+  const resend = useResendVerification();
+
+  // When sign-in is refused because the email is unverified, we show a calm panel with a
+  // resend action instead of a red "login failed" — the credentials were fine.
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const onSubmit = async (values) => {
+    setNeedsVerification(false);
+    setResent(false);
     try {
+      // A failed login never leaves a session behind — mutateAsync throws and nothing is stored.
       await login.mutateAsync(values);
     } catch (error) {
+      if (isApiError(error) && error.code === "auth.email_not_verified") {
+        setNeedsVerification(true);
+        return;
+      }
       applyServerErrors(error, setError);
     }
+  };
+
+  const resendVerification = async () => {
+    if (cooldown > 0 || resend.isPending) return;
+    const email = watch("email");
+    try {
+      // The endpoint is non-disclosing: it succeeds whether or not the email exists.
+      await resend.mutateAsync(email);
+    } catch {
+      // Swallow — we never reveal whether the address is registered.
+    }
+    setResent(true);
+    setCooldown(RESEND_COOLDOWN_SECONDS);
   };
 
   const busy = isSubmitting || login.isPending;
@@ -55,9 +92,44 @@ export default function Login() {
         </>
       }
     >
-      {errors.root && (
+      {errors.root && !needsVerification && (
         <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {errors.root.message}
+        </div>
+      )}
+
+      {needsVerification && (
+        <div role="status" className="mb-4 p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <MailCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-sm text-foreground/90">
+              Almost there — please verify your email address to finish signing in. We sent a
+              verification link when your account was set up.
+            </p>
+          </div>
+          {resent ? (
+            <p className="text-xs text-muted-foreground">
+              If that address needs verifying, a new link is on its way. Please check your inbox.
+            </p>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-10"
+              onClick={resendVerification}
+              disabled={cooldown > 0 || resend.isPending}
+            >
+              {resend.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending…
+                </>
+              ) : cooldown > 0 ? (
+                `Resend available in ${cooldown}s`
+              ) : (
+                "Resend verification email"
+              )}
+            </Button>
+          )}
         </div>
       )}
 

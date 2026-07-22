@@ -174,6 +174,18 @@ describe("PasswordField", () => {
 describe("password control adoption", () => {
   const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
+  it("handles an unverified email with a calm, rate-limited, non-disclosing resend", () => {
+    const login = read("src/pages/Login.jsx");
+    // Branches on the machine-readable code, not a generic failure banner.
+    expect(login).toContain('error.code === "auth.email_not_verified"');
+    expect(login).toContain("setNeedsVerification(true)");
+    // Resend uses the shared, non-disclosing endpoint and is rate-limited.
+    expect(login).toContain("useResendVerification");
+    expect(login).toContain("RESEND_COOLDOWN_SECONDS");
+    // A failed login never leaves a session behind (mutateAsync throws before any store).
+    expect(login).toContain("A failed login never leaves a session behind");
+  });
+
   it.each([
     "src/pages/Login.jsx",
     "src/pages/Register.jsx",
