@@ -250,6 +250,21 @@ export function postMessage(
   return api.postForm(`/management/conversations/${conversationId}/messages`, form);
 }
 
+/**
+ * Post a message on behalf of the booking's assigned talent. Only valid on a booking
+ * conversation; the server records the manager as the real sender and the talent as the
+ * represented party, and attributes it "Management on behalf of {talent}".
+ */
+export function postMessageOnBehalf(
+  conversationId: string,
+  input: { body?: string | null; file?: File | null }
+) {
+  const form = new FormData();
+  if (input.body) form.append("body", input.body);
+  if (input.file) form.append("file", input.file);
+  return api.postForm(`/management/conversations/${conversationId}/messages/on-behalf`, form);
+}
+
 export function markConversationRead(conversationId: string): Promise<void> {
   return api.post<void>(`/management/conversations/${conversationId}/read`, undefined);
 }

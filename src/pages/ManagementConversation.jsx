@@ -74,16 +74,36 @@ export default function ManagementConversation() {
     staleTime: 10_000,
   });
 
+  // The send mode is chosen explicitly and NEVER retained across conversations or between
+  // proxy sends — a manager must deliberately opt into speaking for the talent each time.
+  const [sendMode, setSendMode] = useState("management");
+  useEffect(() => setSendMode("management"), [id]);
+
+  const invalidateThread = () => {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.management.conversationMessages(id ?? "", 1),
+    });
+    queryClient.invalidateQueries({ queryKey: ["management", "conversations"] });
+  };
+
   const send = useMutation({
     mutationFn: (body) => managementService.postMessage(id, { body }),
     // No idempotency key on this endpoint, so a silent retry could double-post.
     retry: false,
     onSuccess: () => {
       setDraft("");
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.management.conversationMessages(id ?? "", 1),
-      });
-      queryClient.invalidateQueries({ queryKey: ["management", "conversations"] });
+      invalidateThread();
+    },
+  });
+
+  const sendOnBehalf = useMutation({
+    mutationFn: (body) => managementService.postMessageOnBehalf(id, { body }),
+    retry: false,
+    onSuccess: () => {
+      setDraft("");
+      // Back to Management after each proxy send: the next one needs a fresh, explicit choice.
+      setSendMode("management");
+      invalidateThread();
     },
   });
 
@@ -106,12 +126,21 @@ export default function ManagementConversation() {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length]);
 
+  // Proxy sending is only offered on a booking conversation, where a talent is a participant
+  // to represent. Everywhere else the composer sends plainly as management.
+  const isBookingConversation = conversation.data?.type === "BookingManagement";
+  const talentName = conversation.data?.talentDisplayName;
+  const proxyAvailable = isBookingConversation && Boolean(talentName);
+  const proxyMode = proxyAvailable && sendMode === "proxy";
+  const sending = send.isPending || sendOnBehalf.isPending;
+
   const submit = async (event) => {
     event.preventDefault();
     const body = draft.trim();
     if (!body) return;
     try {
-      await send.mutateAsync(body);
+      if (sendMode === "proxy") await sendOnBehalf.mutateAsync(body);
+      else await send.mutateAsync(body);
     } catch (err) {
       toast({ title: "Couldn't send", description: toUserMessage(err), variant: "destructive" });
     }
@@ -197,10 +226,16 @@ export default function ManagementConversation() {
                             : "bg-card-black border border-white/[0.06]"
                       )}
                     >
-                      {message.isSystem && (
+                      {message.isSystem ? (
                         <p className="text-[0.5rem] tracking-wide-luxe uppercase text-muted-grey/70 mb-1">
                           System
                         </p>
+                      ) : (
+                        message.displayAttribution && (
+                          <p className="text-[0.5rem] tracking-wide-luxe uppercase text-muted-grey/70 mb-1">
+                            {message.displayAttribution}
+                          </p>
+                        )
                       )}
                       <p className="font-body text-sm text-soft-ivory/90 whitespace-pre-line leading-relaxed">
                         {message.body}
@@ -223,26 +258,66 @@ export default function ManagementConversation() {
           )}
 
           <form onSubmit={submit} className="mt-4 pt-4 border-t border-white/[0.06]">
+            {proxyAvailable && (
+              <div className="mb-2.5">
+                <p className="text-[0.5rem] tracking-wide-luxe uppercase text-muted-grey/70 mb-1.5">
+                  Send as
+                </p>
+                <div className="inline-flex rounded-sm border border-white/10 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setSendMode("management")}
+                    className={cn(
+                      "px-3 py-1.5 text-[0.6rem] tracking-luxe uppercase transition",
+                      !proxyMode ? "bg-rose-gold/15 text-rose-gold" : "text-muted-grey hover:text-soft-ivory"
+                    )}
+                  >
+                    Management
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSendMode("proxy")}
+                    className={cn(
+                      "px-3 py-1.5 text-[0.6rem] tracking-luxe uppercase transition border-l border-white/10",
+                      proxyMode ? "bg-amber-500/20 text-amber-300" : "text-muted-grey hover:text-soft-ivory"
+                    )}
+                  >
+                    On behalf of {talentName}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={3}
               maxLength={4000}
-              placeholder="Reply as Lustra management…"
-              className="w-full bg-transparent border border-white/10 rounded-sm p-3 font-body text-sm text-ivory placeholder:text-muted-grey/60 focus:outline-none focus:border-rose-gold/50 transition resize-none"
+              placeholder={proxyMode ? `Reply as ${talentName} (sent by you)…` : "Reply as Lustra management…"}
+              className={cn(
+                "w-full bg-transparent border rounded-sm p-3 font-body text-sm text-ivory placeholder:text-muted-grey/60 focus:outline-none transition resize-none",
+                proxyMode ? "border-amber-500/40 focus:border-amber-400/60" : "border-white/10 focus:border-rose-gold/50"
+              )}
             />
             <div className="flex items-center justify-between gap-3 mt-2">
               <p className="inline-flex items-center gap-1.5 text-[0.55rem] text-muted-grey">
                 <Lock className="w-2.5 h-2.5" strokeWidth={1.3} />
-                Visible to the client. Use internal notes for anything private.
+                {proxyMode
+                  ? `Attributed "Management on behalf of ${talentName}" — recorded as sent by you.`
+                  : "Visible to the client. Use internal notes for anything private."}
               </p>
               <button
                 type="submit"
-                disabled={draft.trim().length === 0 || send.isPending}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm border border-rose-gold/40 text-rose-gold text-[0.6rem] tracking-luxe uppercase hover:bg-rose-gold/10 transition disabled:opacity-50"
+                disabled={draft.trim().length === 0 || sending}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-4 py-2 rounded-sm border text-[0.6rem] tracking-luxe uppercase transition disabled:opacity-50",
+                  proxyMode
+                    ? "border-amber-400/50 text-amber-300 hover:bg-amber-500/10"
+                    : "border-rose-gold/40 text-rose-gold hover:bg-rose-gold/10"
+                )}
               >
                 <Send className="w-3 h-3" strokeWidth={1.3} />
-                {send.isPending ? "Sending…" : "Send"}
+                {sending ? "Sending…" : proxyMode ? `Send as ${talentName}` : "Send"}
               </button>
             </div>
           </form>
