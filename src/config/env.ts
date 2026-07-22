@@ -35,6 +35,8 @@ const rawSchema = z.object({
   VITE_APP_ENV: z.enum(["development", "uat", "production"]).optional(),
   VITE_ENABLE_DEV_ROLE_SWITCHER: z.enum(["true", "false"]).optional(),
   VITE_ENABLE_QUERY_DEVTOOLS: z.enum(["true", "false"]).optional(),
+  VITE_GOOGLE_MAPS_API_KEY: z.string().trim().optional(),
+  VITE_GOOGLE_PLACES_COUNTRIES: z.string().trim().optional(),
 });
 
 export type AppEnvironment = "development" | "uat" | "production";
@@ -49,6 +51,10 @@ export interface AppEnv {
   appEnv: AppEnvironment;
   devRolePreviewEnabled: boolean;
   queryDevtoolsEnabled: boolean;
+  /** The Google Maps JS (Places) API key, or "" when not configured. Public by nature. */
+  googleMapsApiKey: string;
+  /** ISO country codes the address autocomplete is restricted to (lower-cased). */
+  googlePlacesCountries: string[];
   isProd: boolean;
   isDev: boolean;
 }
@@ -111,6 +117,11 @@ function buildEnv(): AppEnv {
     appEnv: e.VITE_APP_ENV ?? (isProd ? "production" : "development"),
     devRolePreviewEnabled,
     queryDevtoolsEnabled: isProd ? false : e.VITE_ENABLE_QUERY_DEVTOOLS === "true",
+    googleMapsApiKey: (e.VITE_GOOGLE_MAPS_API_KEY ?? "").trim(),
+    googlePlacesCountries: (e.VITE_GOOGLE_PLACES_COUNTRIES ?? "za")
+      .split(",")
+      .map((c) => c.trim().toLowerCase())
+      .filter(Boolean),
     isProd,
     isDev,
   };
