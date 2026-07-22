@@ -111,6 +111,12 @@ export interface Talent {
  * UI should fall back to its own fixed ratio rather than guessing.
  */
 export interface TalentImage {
+  /**
+   * The media id, when this image came from a full profile. A gallery keys and deduplicates
+   * by it: two photographs with the same filename are distinct, the same photograph twice is
+   * one. Null for a search card's cover, which has no per-item id and never needs one.
+   */
+  id: string | null;
   url: string;
   srcSet: string | null;
   width: number | null;
@@ -123,11 +129,15 @@ export interface TalentImage {
  * Returns null for a missing image so a caller renders its own placeholder rather than a
  * broken `<img>`.
  */
-export function toTalentImage(dto: PublicImageDto | null | undefined): TalentImage | null {
+export function toTalentImage(
+  dto: PublicImageDto | null | undefined,
+  id: string | null = null
+): TalentImage | null {
   if (!dto) return null;
   const url = resolveMediaUrl(dto.url);
   if (!url) return null;
   return {
+    id,
     url,
     // The srcset candidates are absolute CDN URLs already; only the primary URL can be
     // relative, so the srcset is passed through untouched.
@@ -197,11 +207,21 @@ export function talentFromListItem(dto: TalentListItemDto): Talent {
 
 /** The full public profile → the view model. */
 export function talentFromDetail(dto: PublicTalentDetailDto): Talent {
-  // Cover first, then the rest, so slide 1 is always the intended image.
+  // Cover first, then the rest, so slide 1 is always the intended image. Each item keeps its
+  // own media id and its own URL, and is deduplicated by id — so seven distinct photographs
+  // render as seven distinct images, never one repeated, and an accidental duplicate row
+  // collapses to a single slide rather than a phantom extra.
+  const seenMediaIds = new Set<string>();
   const galleryImages = [...dto.media]
     .sort((a, b) => Number(b.isCover) - Number(a.isCover))
-    .map((m) => toTalentImage(m.image))
-    .filter((image): image is TalentImage => image !== null);
+    .map((m) => toTalentImage(m.image, m.id))
+    .filter((image): image is TalentImage => image !== null)
+    .filter((image) => {
+      if (image.id === null) return true;
+      if (seenMediaIds.has(image.id)) return false;
+      seenMediaIds.add(image.id);
+      return true;
+    });
   const gallery = galleryImages.map((image) => image.url);
 
   return {

@@ -95,12 +95,14 @@ describe("talent view model", () => {
       personalityTags: ["Elegant"],
       media: [
         {
+          id: "media-2",
           image: { url: "/api/v1/media/2", srcSet: null, width: 800, height: 1200, aspectRatio: 2 / 3 },
           caption: null,
           mediaType: "Image",
           isCover: false,
         },
         {
+          id: "media-1",
           image: { url: "/api/v1/media/1", srcSet: null, width: 900, height: 1200, aspectRatio: 0.75 },
           caption: null,
           mediaType: "Image",

@@ -105,7 +105,7 @@ export default function TalentGallerySlide({ talent, reduced }) {
           <div className="flex gap-1.5">
             {media.map((m, i) => (
               <button
-                key={m.id}
+                key={m.id ?? i}
                 onClick={(e) => {
                   e.stopPropagation();
                   setImgIdx(i);

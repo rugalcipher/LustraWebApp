@@ -4,6 +4,7 @@ import {
   useDiscoverySearch,
   usePrefetchTalent,
   useDiscoveryFilterOptions,
+  useTalentProfile,
 } from "@/features/discovery/hooks";
 
 export const TOTAL_SLIDES = 7;
@@ -65,6 +66,14 @@ export function useDiscoverState() {
   }, [results.length, currentIndex, setCurrentIndex]);
 
   const current = results[currentIndex] ?? null;
+
+  // The story renders a full seven-slide profile, and every slide draws its image from the
+  // gallery. A search card carries ONLY the cover, so without the full profile each slide
+  // falls back to it — seven slots, one repeated image. Fetch the full public profile for the
+  // talent on screen and render that; the card stays the instant fallback until it loads, and
+  // adjacent talents are already prefetched so advancing rarely waits.
+  const currentProfile = useTalentProfile(current?.slug);
+  const currentStory = currentProfile.talent ?? current;
 
   // Record the viewed talent, and prefetch the next couple so advancing is instant.
   const lastViewed = useRef(null);
@@ -165,6 +174,10 @@ export function useDiscoverState() {
 
     results,
     current,
+    // The full-profile object the story renders. Falls back to the card while the profile
+    // loads, so the surrounding navigation still keys off `current`.
+    currentStory,
+    currentStoryLoading: currentProfile.isLoading,
     currentIndex,
     slideIndex,
     mode,

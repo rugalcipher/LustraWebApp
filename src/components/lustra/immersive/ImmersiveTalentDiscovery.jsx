@@ -41,6 +41,7 @@ export default function ImmersiveTalentDiscovery() {
     findLoadedTalent,
     results,
     current,
+    currentStory,
     currentIndex,
     slideIndex,
     mode,
@@ -352,7 +353,7 @@ export default function ImmersiveTalentDiscovery() {
                 className="absolute inset-0"
               >
                 <TalentStory
-                  talent={current}
+                  talent={currentStory}
                   slideIndex={slideIndex}
                   totalSlides={totalSlides}
                   slideTitles={SLIDE_TITLES}

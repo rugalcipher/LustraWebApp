@@ -73,6 +73,8 @@ export interface PublicImageDto {
 
 /** Mirrors `PublicMediaDto`. */
 export interface PublicMediaDto {
+  /** The media id — the stable identity a gallery keys and deduplicates by. */
+  id: string;
   image: PublicImageDto;
   caption: string | null;
   mediaType: string;
