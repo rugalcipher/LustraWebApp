@@ -420,7 +420,15 @@ describe("For Talent page", () => {
     expect(page).toContain("PasswordField");
     expect(page).toContain('autoComplete="new-password"');
     expect(page).toContain("applications.submitApplication(");
-    expect(page).toContain("session.token, password");
+    // Anonymous applicants send the chosen password; a signed-in (linked) applicant sends none.
+    expect(page).toContain("linkedApplicant ? undefined : password");
+  });
+
+  it("links a signed-in client instead of asking them for a new password", () => {
+    expect(page).toContain("usePrincipal");
+    expect(page).toContain("const linkedApplicant =");
+    // The draft-create call sends the token so the server links the existing account.
+    expect(page).toContain("{ authenticated: linkedApplicant }");
   });
 
   it("holds the password apart from the application details, never in the wire body", () => {

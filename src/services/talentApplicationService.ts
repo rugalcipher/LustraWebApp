@@ -123,11 +123,20 @@ export interface TalentApplicationMediaOrderItem {
 
 // ---- applicant-facing calls ------------------------------------------------
 
-/** Starts an application. Anonymous — this is the only call without a token. */
+/**
+ * Starts an application.
+ *
+ * Anonymous by default. When a signed-in client applies to become talent, pass
+ * `authenticated: true` so the bearer token IS sent: the server then links the application to
+ * their existing account instead of blocking the email. Their own account email must be used.
+ */
 export function createApplication(
-  details: TalentApplicationDetails
+  details: TalentApplicationDetails,
+  options?: { authenticated?: boolean }
 ): Promise<CreatedTalentApplicationDto> {
-  return api.post<CreatedTalentApplicationDto>(PUBLIC, details, { anonymous: true });
+  return api.post<CreatedTalentApplicationDto>(PUBLIC, details, {
+    anonymous: !options?.authenticated,
+  });
 }
 
 export function updateApplication(

@@ -11,6 +11,7 @@ import PhotographManager, { finalizedPhotos } from "@/features/talentApplication
 import { useWizardStepScroll } from "@/features/talentApplication/useWizardStepScroll";
 import PasswordField from "@/components/auth/PasswordField";
 import { usePasswordPolicy } from "@/features/auth/passwordPolicy";
+import { usePrincipal } from "@/auth/PrincipalContext";
 import {
   CURRENCIES,
   EMPTY_DETAILS,
@@ -90,6 +91,19 @@ export default function TalentApplication() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const { rules: passwordRules } = usePasswordPolicy();
 
+  // A signed-in client applying to become talent links their EXISTING account: no new password,
+  // and they apply with their own account email. Anonymous applicants choose a password.
+  const { principal } = usePrincipal();
+  const linkedApplicant = principal.source === "real" && Boolean(principal.userId);
+
+  // Lock the email to the account's for a signed-in applicant, so the server's "apply as
+  // yourself" rule cannot be tripped.
+  useEffect(() => {
+    if (linkedApplicant && principal.email) {
+      setForm((prev) => (prev.email === principal.email ? prev : { ...prev, email: principal.email }));
+    }
+  }, [linkedApplicant, principal.email]);
+
   const [session, setSession] = useState(() => loadSession());
   const [media, setMedia] = useState([]);
   const [limits, setLimits] = useState({ min: 3, max: 8 });
@@ -132,6 +146,8 @@ export default function TalentApplication() {
    * refusal is mapped back onto this field.
    */
   function credentialErrors() {
+    // A signed-in applicant reuses their existing account password — nothing to validate here.
+    if (linkedApplicant) return {};
     const next = {};
     if (!password) {
       next.password = "Choose a password";
@@ -176,7 +192,7 @@ export default function TalentApplication() {
       await applications.updateApplication(session.applicationId, session.token, toDetails());
       return session;
     }
-    const created = await applications.createApplication(toDetails());
+    const created = await applications.createApplication(toDetails(), { authenticated: linkedApplicant });
     const next = {
       applicationId: created.applicationId,
       token: created.accessToken,
@@ -222,7 +238,7 @@ export default function TalentApplication() {
     setBanner("");
     try {
       const result = await applications.submitApplication(
-        session.applicationId, session.token, password);
+        session.applicationId, session.token, linkedApplicant ? undefined : password);
       // The editing token is revoked by this call; keep only the read-only one.
       const next = {
         applicationId: result.applicationId,
@@ -356,8 +372,21 @@ export default function TalentApplication() {
             <Field label="Middle names" htmlFor="legalMiddleNames">
               <input id="legalMiddleNames" className={inputCls} value={form.legalMiddleNames} onChange={set("legalMiddleNames")} />
             </Field>
-            <Field label="Email" required error={errors.email} htmlFor="email">
-              <input id="email" type="email" className={inputCls} value={form.email} onChange={set("email")} />
+            <Field
+              label="Email"
+              required
+              error={errors.email}
+              hint={linkedApplicant ? "You're applying from your Lustra account." : undefined}
+              htmlFor="email"
+            >
+              <input
+                id="email"
+                type="email"
+                className={`${inputCls}${linkedApplicant ? " opacity-70 cursor-not-allowed" : ""}`}
+                value={form.email}
+                onChange={set("email")}
+                readOnly={linkedApplicant}
+              />
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Cellphone" required error={errors.cellphoneNumber} htmlFor="cellphoneNumber">
@@ -397,37 +426,48 @@ export default function TalentApplication() {
               <p className="font-body text-meta text-error" role="alert">{errors.consentToContact}</p>
             )}
 
-            <div className="space-y-4 pt-2 border-t border-white/[0.06]">
-              <div>
-                <p className="font-heading text-lg text-ivory">Choose a password</p>
-                <p className="font-body text-meta text-muted-grey mt-1">
-                  Your account is created when you submit. If Lustra Management approves your
-                  application, you sign in with this password — there is no separate activation step.
+            {linkedApplicant ? (
+              <div className="space-y-1 pt-2 border-t border-white/[0.06]">
+                <p className="font-heading text-lg text-ivory">Your account</p>
+                <p className="font-body text-meta text-muted-grey">
+                  You're applying from your existing Lustra account, so there's no new password to
+                  choose. You'll keep signing in as you do now, and gain talent access if Management
+                  approves your application.
                 </p>
               </div>
-              <PasswordField
-                label="Password"
-                autoComplete="new-password"
-                showRequirements
-                value={password}
-                error={errors.password}
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                  setErrors((prev) => ({ ...prev, password: undefined }));
-                }}
-              />
-              <PasswordField
-                label="Confirm password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                matchValue={password}
-                error={errors.confirmPassword}
-                onChange={(event) => {
-                  setConfirmPassword(event.target.value);
-                  setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
-                }}
-              />
-            </div>
+            ) : (
+              <div className="space-y-4 pt-2 border-t border-white/[0.06]">
+                <div>
+                  <p className="font-heading text-lg text-ivory">Choose a password</p>
+                  <p className="font-body text-meta text-muted-grey mt-1">
+                    Your account is created when you submit. If Lustra Management approves your
+                    application, you sign in with this password — there is no separate activation step.
+                  </p>
+                </div>
+                <PasswordField
+                  label="Password"
+                  autoComplete="new-password"
+                  showRequirements
+                  value={password}
+                  error={errors.password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setErrors((prev) => ({ ...prev, password: undefined }));
+                  }}
+                />
+                <PasswordField
+                  label="Confirm password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  matchValue={password}
+                  error={errors.confirmPassword}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value);
+                    setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                  }}
+                />
+              </div>
+            )}
 
             <div className="pt-2">
               <LustraButton onClick={() => validateAbout() && setStep(1)} size="md">
