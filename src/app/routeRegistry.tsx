@@ -41,6 +41,8 @@ const TalentReviews = React.lazy(() => import("@/pages/TalentReviews"));
 const TalentBookingDetail = React.lazy(() => import("@/pages/TalentBookingDetail"));
 const TalentAppointments = React.lazy(() => import("@/pages/TalentAppointments"));
 const TalentAvailability = React.lazy(() => import("@/pages/TalentAvailability"));
+const TalentMessages = React.lazy(() => import("@/pages/TalentMessages"));
+const TalentConversation = React.lazy(() => import("@/pages/TalentConversation"));
 const ManagementDashboard = React.lazy(() => import("@/pages/ManagementDashboard"));
 const InquiryPipeline = React.lazy(() => import("@/pages/InquiryPipeline"));
 const ManagementInquiryDetail = React.lazy(() => import("@/pages/ManagementInquiryDetail"));
@@ -197,6 +199,10 @@ export const ROUTES: RouteDef[] = [
   { path: "/talent-profile", element: <TalentProfileEditor />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Profile", icon: "User", order: 2 } },
   { path: "/talent-media", element: <TalentMedia />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Media", icon: "Image", order: 3 } },
   { path: "/talent-appointments", element: <TalentAppointments />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Appointments", icon: "CalendarCheck", order: 4 } },
+  // A talent's booking conversations (client ↔ talent ↔ management). Participant-gated on the
+  // server: a talent only ever sees threads for bookings assigned to them.
+  { path: "/talent-messages", element: <TalentMessages />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Messages", icon: "MessageSquare", order: 8 } },
+  { path: "/talent-messages/:id", element: <TalentConversation />, access: "protected", roles: ["talent", ...STAFF], shell: "internal" },
   { path: "/talent-availability", element: <TalentAvailability />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Availability", icon: "CalendarClock", order: 5 } },
   { path: "/talent-reviews", element: <TalentReviews />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Reviews", icon: "Star", order: 6 } },
   { path: "/talent-bookings/:id", element: <TalentBookingDetail />, access: "protected", roles: ["talent", ...STAFF], shell: "internal" },
