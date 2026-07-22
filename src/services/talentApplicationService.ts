@@ -268,14 +268,22 @@ export function reorderMedia(
   );
 }
 
-/** Final submission. Revokes the editing token and returns a status-only one. */
+/**
+ * Final submission. Revokes the editing token and returns a status-only one.
+ *
+ * On a first submission the applicant's chosen `password` is sent so the API can create
+ * their account immediately (in the pending-approval state). It is write-only: forwarded to
+ * the server in the request body and never returned. A resubmission omits it — the account
+ * already exists and the server ignores any password supplied.
+ */
 export function submitApplication(
   id: string,
-  token: string
+  token: string,
+  password?: string
 ): Promise<SubmittedTalentApplicationDto> {
   return api.post<SubmittedTalentApplicationDto>(
     `${PUBLIC}/${id}/submit`,
-    {},
+    password ? { password } : {},
     { anonymous: true, headers: tokenHeader(token) }
   );
 }

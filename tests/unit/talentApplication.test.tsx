@@ -96,6 +96,18 @@ describe("talent application API surface", () => {
     expect(lastUrl().pathname.endsWith(expected)).toBe(true);
   });
 
+  it("sends the chosen password in the submit body on a first submission", async () => {
+    await service.submitApplication("a", "t", "Secret#Pass1");
+    const body = JSON.parse(String(calls[calls.length - 1].init.body));
+    expect(body.password).toBe("Secret#Pass1");
+  });
+
+  it("omits the password when resubmitting an application whose account already exists", async () => {
+    await service.submitApplication("a", "t");
+    const body = JSON.parse(String(calls[calls.length - 1].init.body));
+    expect(body.password).toBeUndefined();
+  });
+
   it.each([
     ["queue", () => service.listApplications({}), "/management/talent-applications"],
     ["detail", () => service.getApplication("a"), "/management/talent-applications/a"],
@@ -401,6 +413,21 @@ describe("For Talent page", () => {
   it("branches on the machine-readable errorCode, not on message text", () => {
     expect(page).toContain("APPLICATION_ERROR_CODES");
     expect(page).toContain("error.code");
+  });
+
+  it("collects a password through the shared control and sends it on submission", () => {
+    // The account is created at submission, so the applicant chooses a password here.
+    expect(page).toContain("PasswordField");
+    expect(page).toContain('autoComplete="new-password"');
+    expect(page).toContain("applications.submitApplication(");
+    expect(page).toContain("session.token, password");
+  });
+
+  it("holds the password apart from the application details, never in the wire body", () => {
+    // A credential must never travel with toDetails to the draft.
+    expect(page).toContain("const [password, setPassword]");
+    const details = read("src/features/talentApplication/details.js");
+    expect(details.toLowerCase()).not.toContain("password");
   });
 });
 

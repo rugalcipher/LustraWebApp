@@ -9,6 +9,8 @@ import { APPLICATION_ERROR_CODES } from "@/services/talentApplicationService";
 import { saveSession, loadSession, clearSession } from "@/features/talentApplication/session";
 import PhotographManager, { finalizedPhotos } from "@/features/talentApplication/PhotographManager";
 import { useWizardStepScroll } from "@/features/talentApplication/useWizardStepScroll";
+import PasswordField from "@/components/auth/PasswordField";
+import { usePasswordPolicy } from "@/features/auth/passwordPolicy";
 import {
   CURRENCIES,
   EMPTY_DETAILS,
@@ -43,6 +45,9 @@ const CODE_TO_FIELD = {
   [APPLICATION_ERROR_CODES.consentRequired]: "consentToContact",
   [APPLICATION_ERROR_CODES.duplicateActive]: "email",
   [APPLICATION_ERROR_CODES.alreadyTalent]: "email",
+  // Submission creates the account, so its credential refusals land on step 0's fields.
+  "auth.password_policy": "password",
+  "talent_application.email_in_use": "email",
 };
 
 const inputCls =
@@ -77,6 +82,13 @@ export default function TalentApplication() {
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // The password is held apart from `form` — it is a credential, not an application detail,
+  // and must never travel with `toDetails` to the draft. It is sent only on final submission,
+  // where the API uses it to create the applicant's account (in the pending-approval state).
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const { rules: passwordRules } = usePasswordPolicy();
 
   const [session, setSession] = useState(() => loadSession());
   const [media, setMedia] = useState([]);
@@ -114,8 +126,28 @@ export default function TalentApplication() {
   const finalized = useMemo(() => finalizedPhotos(media), [media]);
   const enoughPhotos = finalized.length >= limits.min && finalized.length <= limits.max;
 
+  /**
+   * The password the applicant will sign in with once approved. Checked against the live
+   * policy so a person is told here, not after a round-trip; the server revalidates and its
+   * refusal is mapped back onto this field.
+   */
+  function credentialErrors() {
+    const next = {};
+    if (!password) {
+      next.password = "Choose a password";
+    } else if (!passwordRules.every((rule) => rule.test(password))) {
+      next.password = "Your password does not meet the requirements below";
+    }
+    if (!confirmPassword) {
+      next.confirmPassword = "Confirm your password";
+    } else if (confirmPassword !== password) {
+      next.confirmPassword = "Passwords do not match";
+    }
+    return next;
+  }
+
   function validateAbout() {
-    const next = checkAbout(form);
+    const next = { ...checkAbout(form), ...credentialErrors() };
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -174,10 +206,23 @@ export default function TalentApplication() {
 
   async function submit() {
     if (!session || !enoughPhotos) return;
+
+    // The account is created at submission, so the credentials must be valid before we ask.
+    // A failure here sends the applicant back to where the fields are, never scrolling past
+    // an error they cannot see.
+    const credentialProblems = credentialErrors();
+    if (Object.keys(credentialProblems).length > 0) {
+      setErrors((prev) => ({ ...prev, ...credentialProblems }));
+      setBanner("Please choose a valid password before submitting.");
+      setStep(0);
+      return;
+    }
+
     setBusy(true);
     setBanner("");
     try {
-      const result = await applications.submitApplication(session.applicationId, session.token);
+      const result = await applications.submitApplication(
+        session.applicationId, session.token, password);
       // The editing token is revoked by this call; keep only the read-only one.
       const next = {
         applicationId: result.applicationId,
@@ -231,9 +276,10 @@ export default function TalentApplication() {
               <li>Management reviews your details and photographs privately.</li>
               <li>If anything needs changing, we email you a secure link to amend it.</li>
               <li>
-                If you are approved we email an activation link so you can set a password.
-                Approval does not automatically publish your profile — Lustra Management
-                decides whether and when a profile goes live.
+                If you are approved we email you, and you sign in with the password you chose
+                here — there is no separate activation step. Approval does not automatically
+                publish your profile — Lustra Management decides whether and when a profile
+                goes live.
               </li>
             </ul>
           </div>
@@ -350,6 +396,38 @@ export default function TalentApplication() {
             {errors.consentToContact && (
               <p className="font-body text-meta text-error" role="alert">{errors.consentToContact}</p>
             )}
+
+            <div className="space-y-4 pt-2 border-t border-white/[0.06]">
+              <div>
+                <p className="font-heading text-lg text-ivory">Choose a password</p>
+                <p className="font-body text-meta text-muted-grey mt-1">
+                  Your account is created when you submit. If Lustra Management approves your
+                  application, you sign in with this password — there is no separate activation step.
+                </p>
+              </div>
+              <PasswordField
+                label="Password"
+                autoComplete="new-password"
+                showRequirements
+                value={password}
+                error={errors.password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setErrors((prev) => ({ ...prev, password: undefined }));
+                }}
+              />
+              <PasswordField
+                label="Confirm password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                matchValue={password}
+                error={errors.confirmPassword}
+                onChange={(event) => {
+                  setConfirmPassword(event.target.value);
+                  setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                }}
+              />
+            </div>
 
             <div className="pt-2">
               <LustraButton onClick={() => validateAbout() && setStep(1)} size="md">
