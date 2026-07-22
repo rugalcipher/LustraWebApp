@@ -39,6 +39,7 @@ function listItem(overrides: Partial<TalentListItemDto> = {}): TalentListItemDto
     categories: ["Event Companions", "Hosts"],
     isNearby: true,
     isPlaced: false,
+    distanceKm: null,
     ...overrides,
   };
 }

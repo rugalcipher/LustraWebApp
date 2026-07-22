@@ -69,6 +69,7 @@ describe("talent view model images", () => {
       categories: [],
       isNearby: false,
       isPlaced: false,
+      distanceKm: null,
     } as TalentListItemDto;
   }
 

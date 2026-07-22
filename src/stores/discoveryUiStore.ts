@@ -17,8 +17,14 @@ import { create } from "zustand";
 
 const STORAGE_KEY = "lustra-discover";
 
-export type DiscoverySort = "Featured" | "Newest" | "RateAsc" | "RateDesc" | "Rating";
+export type DiscoverySort = "Featured" | "Newest" | "RateAsc" | "RateDesc" | "Rating" | "Distance";
 export type DiscoveryMode = "immersive" | "grid";
+
+/** The default radius (km) applied when the visitor searches nearby without choosing one. */
+export const DEFAULT_RADIUS_KM = 50;
+
+/** Radius options offered in the nearby control. */
+export const RADIUS_OPTIONS_KM = [10, 25, 50, 100, 250] as const;
 
 export interface DiscoveryFilters {
   /** City id (backend Guid) — the canonical location filter. */
@@ -37,6 +43,14 @@ export interface DiscoveryFilters {
   maxRate: number | null;
   /** Free-text search (debounced by the feature hook, not here). */
   query: string;
+  /**
+   * The visitor's own nearby search point. Present only when they searched nearby (typed a
+   * place or used their location). Sent to the API as a strict filter; never a talent's.
+   */
+  latitude: number | null;
+  longitude: number | null;
+  /** The nearby search radius in km. Null when no nearby search is active. */
+  radiusKm: number | null;
 }
 
 export const EMPTY_FILTERS: DiscoveryFilters = {
@@ -49,6 +63,9 @@ export const EMPTY_FILTERS: DiscoveryFilters = {
   minRate: null,
   maxRate: null,
   query: "",
+  latitude: null,
+  longitude: null,
+  radiusKm: null,
 };
 
 /** How the visitor's current location was determined. */
@@ -97,6 +114,13 @@ interface DiscoveryUiState {
   setLocation: (location: SelectedLocation) => void;
   clearLocation: () => void;
   dismissLocationPrompt: () => void;
+
+  /** Sets the nearby search point (and switches to distance sort). Resets paging. */
+  setNearbyPoint: (point: { latitude: number; longitude: number; cityName?: string | null }) => void;
+  /** Changes the nearby radius. No-op when no nearby search is active. */
+  setRadiusKm: (radiusKm: number) => void;
+  /** Clears the nearby search entirely and restores the default sort. */
+  clearNearby: () => void;
 
   setCurrentIndex: (index: number) => void;
   setSlideIndex: (index: number) => void;
@@ -217,6 +241,49 @@ export const useDiscoveryUiStore = create<DiscoveryUiState>((set, get) => {
       }),
 
     dismissLocationPrompt: () => update({ locationPromptDismissed: true }),
+
+    // A nearby search is the visitor's own point + a radius, driving a distance sort. The
+    // coordinates live in the applied filters (they are a hard filter), and paging resets so
+    // the visitor starts at the nearest result. Only the coarse city NAME is kept for display.
+    setNearbyPoint: ({ latitude, longitude, cityName = null }) =>
+      update({
+        appliedFilters: {
+          ...get().appliedFilters,
+          latitude,
+          longitude,
+          radiusKm: get().appliedFilters.radiusKm ?? DEFAULT_RADIUS_KM,
+        },
+        draftFilters: {
+          ...get().draftFilters,
+          latitude,
+          longitude,
+          radiusKm: get().draftFilters.radiusKm ?? DEFAULT_RADIUS_KM,
+        },
+        location: { ...get().location, cityName: cityName ?? get().location.cityName },
+        sort: "Distance",
+        currentIndex: 0,
+        slideIndex: 0,
+      }),
+
+    setRadiusKm: (radiusKm) => {
+      if (get().appliedFilters.latitude == null) return;
+      update({
+        appliedFilters: { ...get().appliedFilters, radiusKm },
+        draftFilters: { ...get().draftFilters, radiusKm },
+        currentIndex: 0,
+        slideIndex: 0,
+      });
+    },
+
+    clearNearby: () =>
+      update({
+        appliedFilters: { ...get().appliedFilters, latitude: null, longitude: null, radiusKm: null },
+        draftFilters: { ...get().draftFilters, latitude: null, longitude: null, radiusKm: null },
+        // Distance sort no longer has a point to measure from, so fall back to the default.
+        sort: get().sort === "Distance" ? "Featured" : get().sort,
+        currentIndex: 0,
+        slideIndex: 0,
+      }),
 
     setCurrentIndex: (index) => update({ currentIndex: Math.max(0, index) }),
     setSlideIndex: (index) => update({ slideIndex: Math.max(0, index) }),

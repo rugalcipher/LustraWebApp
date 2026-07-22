@@ -99,6 +99,11 @@ export interface Talent {
   /** Lifted by an admin placement for the visitor's market. */
   isPlaced: boolean;
   /**
+   * Coarse distance in km from the visitor's nearby search point, when one was used. Null
+   * otherwise. A distance BAND from the visitor — never the talent's coordinates.
+   */
+  distanceKm: number | null;
+  /**
    * True when this record came from a search card rather than a full profile fetch,
    * so a component can tell "not loaded yet" from "genuinely empty".
    */
@@ -201,6 +206,7 @@ export function talentFromListItem(dto: TalentListItemDto): Talent {
     ratesDisclaimer: "",
     isNearby: dto.isNearby ?? false,
     isPlaced: dto.isPlaced ?? false,
+    distanceKm: dto.distanceKm ?? null,
     isSummary: true,
   };
 }
@@ -259,6 +265,7 @@ export function talentFromDetail(dto: PublicTalentDetailDto): Talent {
     ratesDisclaimer: dto.ratesDisclaimer ?? "",
     isNearby: false,
     isPlaced: false,
+    distanceKm: null,
     isSummary: false,
   };
 }

@@ -3,6 +3,7 @@ import { MapPin, Loader2, Navigation, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDiscoveryUiStore } from "@/stores/discoveryUiStore";
 import { useCities, useResolveMyLocation, useSelectCity } from "@/features/discovery/hooks";
+import NearbyLocation from "@/features/discovery/NearbyLocation";
 
 /**
  * City selection for location-aware discovery.
@@ -29,6 +30,15 @@ export default function LocationPicker({ compact = false }) {
 
   return (
     <div className="space-y-3">
+      {/* Distance search: a precise nearby search over the visitor's own point. */}
+      <NearbyLocation />
+
+      <div className="flex items-center gap-3 py-1">
+        <span className="h-px flex-1 bg-white/[0.06]" />
+        <span className="font-body text-[0.5rem] tracking-wide-luxe uppercase text-muted-grey">or choose a city</span>
+        <span className="h-px flex-1 bg-white/[0.06]" />
+      </div>
+
       <button
         type="button"
         onClick={request}
@@ -40,7 +50,7 @@ export default function LocationPicker({ compact = false }) {
         ) : (
           <Navigation className="w-3 h-3" strokeWidth={1.4} />
         )}
-        Use my location
+        Resolve my city
       </button>
 
       {message && (

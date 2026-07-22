@@ -65,7 +65,9 @@ export default function DiscoverToolbar({
         {/* Sort + result count */}
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex gap-1.5 overflow-x-auto lustra-scroll-hide -mx-1 px-1">
-            {SORTS.map((s) => (
+            {/* "Nearest" appears only while a nearby search is active (sort === Distance), so it
+                is never selectable without a search point — which the API would reject. */}
+            {(sort === "Distance" ? [{ value: "Distance", label: "Nearest" }, ...SORTS] : SORTS).map((s) => (
               <button
                 key={s.value}
                 onClick={() => onSort(s.value)}

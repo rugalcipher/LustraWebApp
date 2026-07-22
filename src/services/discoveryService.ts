@@ -50,6 +50,8 @@ export interface TalentListItemDto {
   categories: string[];
   isNearby: boolean;
   isPlaced: boolean;
+  /** Coarse distance km from the visitor's nearby search point, when one was used. */
+  distanceKm: number | null;
 }
 
 /**
@@ -168,6 +170,7 @@ const SORT_MAP: Record<DiscoverySort, string> = {
   RateAsc: "RateLowToHigh",
   RateDesc: "RateHighToLow",
   Rating: "HighestRated",
+  Distance: "Distance",
 };
 
 export interface SearchParams {
@@ -198,6 +201,11 @@ function toQuery(params: SearchParams): Record<string, string | number | boolean
     nearCityId: near?.cityId ?? undefined,
     nearRegionId: near?.regionId ?? undefined,
     nearCountryId: near?.countryId ?? undefined,
+    // A strict nearby search point — the VISITOR's own coordinates, sent only when they chose
+    // to search nearby. Omitted otherwise so the query key stays stable.
+    latitude: filters.latitude ?? undefined,
+    longitude: filters.longitude ?? undefined,
+    radiusKm: filters.radiusKm ?? undefined,
     sort: SORT_MAP[sort] ?? SORT_MAP.Featured,
     page,
     pageSize,

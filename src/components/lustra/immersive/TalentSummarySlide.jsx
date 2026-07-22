@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import TalentStorySlide from "./TalentStorySlide";
 import { AvailabilityPill } from "@/components/lustra/Primitives";
+import { formatDistanceBand } from "@/features/discovery/NearbyLocation";
 import { Sparkle, StarDivider } from "@/lib/lustra/Brand";
 import { formatRate } from "@/domain/talent";
 
@@ -52,6 +53,11 @@ export default function TalentSummarySlide({
             <span className="inline-flex items-center gap-1 text-[0.6rem] text-muted-grey font-body">
               <MapPin className="w-3 h-3" strokeWidth={1.2} /> {talent.city}
             </span>
+            {formatDistanceBand(talent.distanceKm) && (
+              <span className="inline-flex items-center gap-1 text-[0.6rem] text-rose-gold/80 font-body tracking-wide-luxe uppercase">
+                {formatDistanceBand(talent.distanceKm)}
+              </span>
+            )}
             <AvailabilityPill status={talent.availability} />
           </div>
 
