@@ -61,11 +61,16 @@ export function unusablePhotos(media) {
  * @param {{
  *   session: { applicationId: string, token: string },
  *   media: any[],
- *   onMediaChange: (media: any[]) => void,
+ *   onMediaChange: (media: any[] | ((prev: any[]) => any[])) => void,
  *   limits: { min: number, max: number },
  *   onError?: (message: string) => void,
  *   disabled?: boolean,
  * }} props
+ *
+ * `onMediaChange` MUST accept a functional updater as well as a value — parallel
+ * uploads rely on it to accumulate into the latest state rather than a stale
+ * snapshot. Both call sites (the initial application's useState setter and the
+ * continuation's custom setter) support this.
  */
 export default function PhotographManager({
   session,
@@ -85,66 +90,120 @@ export default function PhotographManager({
   const unusable = unusablePhotos(media);
   const report = (error) => onError?.(removalFailureMessage(error));
 
+  /**
+   * Uploads a batch of selected files.
+   *
+   * The defect this fixes: each completing upload merged its result into the
+   * `media` captured when the batch STARTED — a stale snapshot. Four uploads each
+   * wrote `[originalMedia, thisOne]`, so every completion discarded the others and
+   * the last write won, showing one row while all four sat on the server.
+   *
+   * The rules now:
+   *  - every merge is a FUNCTIONAL update, so each completion sees the latest
+   *    state and adds to it rather than replacing a stale copy;
+   *  - files upload in parallel and are collected with allSettled, so one failure
+   *    never blocks the successes;
+   *  - a row is keyed by a stable client id that includes randomness, so two files
+   *    with the same name are two rows, not one;
+   *  - after the batch settles the canonical media is refetched from the server,
+   *    the single source of truth, reconciling order and dropping any
+   *    cancelled reservation.
+   */
   async function uploadFiles(fileList) {
-    const files = Array.from(fileList ?? []);
-    if (!files.length || !session || disabled) return;
+    const selected = Array.from(fileList ?? []);
+    if (!selected.length || !session || disabled) return;
 
-    for (const file of files) {
-      const clientId = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
-      if (!IMAGE_TYPES.includes(file.type)) {
-        setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: "JPG, PNG or WebP only" } }));
-        continue;
-      }
-      if (file.size > MAX_BYTES) {
-        setUploads((u) => ({
-          ...u,
-          [clientId]: { name: file.name, error: "Each image must be 8MB or smaller" },
-        }));
-        continue;
-      }
+    // Never start more uploads than slots remain. finalized + in-flight is what
+    // is already spoken for; the server enforces this too, but refusing here means
+    // the applicant is told before a doomed upload rather than after.
+    const inFlight = Object.values(uploads).filter((u) => !u.error).length;
+    const remaining = Math.max(0, limits.max - finalized.length - inFlight);
 
-      setUploads((u) => ({ ...u, [clientId]: { name: file.name, progress: 0 } }));
+    if (selected.length > remaining) {
+      onError?.(
+        remaining === 0
+          ? `You already have the maximum of ${limits.max} photographs. Remove one to add another.`
+          : `Only ${remaining} more ${remaining === 1 ? "photograph" : "photographs"} can be added. ` +
+              `The first ${remaining} of your selection ${remaining === 1 ? "was" : "were"} used.`
+      );
+    }
+
+    const files = selected.slice(0, remaining);
+    if (!files.length) return;
+
+    await Promise.allSettled(files.map((file) => uploadOne(file)));
+
+    // The server is the source of truth. After the whole batch settles, replace the
+    // finalized list with what actually landed — this is what guarantees all four
+    // successes are shown regardless of the order they completed in.
+    try {
+      const status = await applications.getApplicationStatus(session.applicationId, session.token);
+      onMediaChange(status.media ?? []);
+    } catch {
+      // The optimistic per-file merges already reflect each success; a failed
+      // reconcile just means we keep those rather than losing anything.
+    }
+  }
+
+  /** Uploads one file, returning nothing; all outcomes are written to component state. */
+  async function uploadOne(file) {
+    // Stable and unique: the random suffix means two files named the same are two
+    // distinct rows rather than one that overwrites the other.
+    const clientId = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
+
+    if (!IMAGE_TYPES.includes(file.type)) {
+      setUploads((u) => ({ ...u, [clientId]: { name: file.name, error: "JPG, PNG or WebP only" } }));
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setUploads((u) => ({
+        ...u,
+        [clientId]: { name: file.name, error: "Each image must be 8MB or smaller" },
+      }));
+      return;
+    }
+
+    setUploads((u) => ({ ...u, [clientId]: { name: file.name, progress: 0 } }));
+    try {
+      const ticket = await applications.requestUpload(session.applicationId, session.token, {
+        contentType: file.type,
+        expectedSizeBytes: file.size,
+        fileName: file.name,
+      });
       try {
-        const ticket = await applications.requestUpload(session.applicationId, session.token, {
-          contentType: file.type,
-          expectedSizeBytes: file.size,
-          fileName: file.name,
-        });
-        try {
-          await applications.uploadToStorage(ticket, file, (fraction) =>
-            setUploads((u) => ({ ...u, [clientId]: { ...u[clientId], progress: fraction } }))
-          );
-        } catch (uploadError) {
-          // The bytes never landed, so the reservation is worthless. Release it
-          // ONCE — leaving it behind is what made a failed upload reappear after
-          // a refresh and consume one of the applicant's slots. Best effort: the
-          // upload failure is what they need to read, not a cleanup failure.
-          await applications
-            .deleteMedia(session.applicationId, session.token, ticket.mediaId)
-            .catch(() => {});
-          throw uploadError;
-        }
-
-        // A photograph exists only once the server confirms the object landed.
-        // Unreachable unless the PUT resolved, so a failed upload can never
-        // finalize a row that points at nothing.
-        const confirmed = await applications.finalizeUpload(
-          session.applicationId,
-          session.token,
-          ticket.mediaId
+        await applications.uploadToStorage(ticket, file, (fraction) =>
+          setUploads((u) => (u[clientId] ? { ...u, [clientId]: { ...u[clientId], progress: fraction } } : u))
         );
-        onMediaChange([...(media ?? []).filter((m) => m.id !== confirmed.id), confirmed]);
-        setUploads((u) => {
-          const rest = { ...u };
-          delete rest[clientId];
-          return rest;
-        });
-      } catch (error) {
-        setUploads((u) => ({
-          ...u,
-          [clientId]: { name: file.name, error: uploadFailureMessage(error), retryable: true },
-        }));
+      } catch (uploadError) {
+        // The bytes never landed, so the reservation is worthless. Release it ONCE —
+        // leaving it behind is what made a failed upload reappear after a refresh and
+        // consume a slot. Best effort: the upload failure is what they need to read.
+        await applications
+          .deleteMedia(session.applicationId, session.token, ticket.mediaId)
+          .catch(() => {});
+        throw uploadError;
       }
+
+      // A photograph exists only once the server confirms the object landed.
+      const confirmed = await applications.finalizeUpload(
+        session.applicationId,
+        session.token,
+        ticket.mediaId
+      );
+
+      // FUNCTIONAL merge — sees the latest state, so parallel completions accumulate
+      // instead of overwriting one another.
+      onMediaChange((prev) => [...(prev ?? []).filter((m) => m.id !== confirmed.id), confirmed]);
+      setUploads((u) => {
+        const rest = { ...u };
+        delete rest[clientId];
+        return rest;
+      });
+    } catch (error) {
+      setUploads((u) => ({
+        ...u,
+        [clientId]: { name: file.name, error: uploadFailureMessage(error), retryable: true },
+      }));
     }
   }
 
@@ -156,7 +215,9 @@ export default function PhotographManager({
     setRemoving((current) => new Set(current).add(mediaId));
     try {
       await applications.deleteMedia(session.applicationId, session.token, mediaId);
-      onMediaChange((media ?? []).filter((m) => m.id !== mediaId));
+      // Functional, so a removal that overlaps an in-flight upload's merge does not
+      // resurrect a row from a stale snapshot.
+      onMediaChange((prev) => (prev ?? []).filter((m) => m.id !== mediaId));
     } catch (error) {
       const correlationId = correlationIdOf(error);
       onError?.(
