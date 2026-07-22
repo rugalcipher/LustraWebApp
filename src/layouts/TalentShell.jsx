@@ -8,6 +8,7 @@ import { useRole } from "@/lib/roleStore";
 import { navForGroup } from "@/app/routeRegistry";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import { useHomeLink } from "@/auth/useHomeLink";
+import AuthenticatedErrorBoundary from "@/components/AuthenticatedErrorBoundary";
 import RouteFallback from "@/components/RouteFallback";
 
 const ICONS = { LayoutDashboard, CalendarClock, Calendar, Settings, Circle, User, Image, Star, CalendarCheck };
@@ -81,7 +82,9 @@ export default function TalentShell() {
 
         <main className="flex-1 min-w-0 pb-24 lg:pb-8">
           <Suspense fallback={<RouteFallback />}>
-            <Outlet />
+            <AuthenticatedErrorBoundary routeKey={location.pathname}>
+              <Outlet />
+            </AuthenticatedErrorBoundary>
           </Suspense>
         </main>
       </div>

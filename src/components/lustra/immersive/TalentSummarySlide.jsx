@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import TalentStorySlide from "./TalentStorySlide";
 import { AvailabilityPill } from "@/components/lustra/Primitives";
 import { Sparkle, StarDivider } from "@/lib/lustra/Brand";
+import { formatRate } from "@/domain/talent";
 
 /**
  * SLIDE 7 — Final profile summary. Main portrait, display name, category,
@@ -55,9 +56,13 @@ export default function TalentSummarySlide({
           </div>
 
           <div className="mt-5 flex items-baseline gap-2">
-            <span className="text-[0.5rem] tracking-luxe uppercase text-muted-grey">From</span>
+            {/* A talent may have published no public rate; formatRate renders "On request"
+                rather than crashing on a null. */}
+            {talent.startingRate != null && (
+              <span className="text-[0.5rem] tracking-luxe uppercase text-muted-grey">From</span>
+            )}
             <span className="font-heading text-2xl text-light-rose-gold">
-              ${talent.startingRate.toLocaleString()}
+              {formatRate(talent.startingRate, talent.startingRateCurrency)}
             </span>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { Clock, Plane, CalendarPlus, Info } from "lucide-react";
 import TalentStorySlide from "./TalentStorySlide";
 import { Eyebrow } from "@/components/lustra/Primitives";
 import { Sparkle, StarDivider } from "@/lib/lustra/Brand";
+import { formatRate } from "@/domain/talent";
 
 const DURATIONS = {
   "Private Dinner": "3–5 hours",
@@ -46,9 +47,11 @@ export default function TalentRatesSlide({ talent }) {
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[0.5rem] tracking-luxe uppercase text-muted-grey">From</p>
+                {talent.startingRate != null && (
+                  <p className="text-[0.5rem] tracking-luxe uppercase text-muted-grey">From</p>
+                )}
                 <p className="font-heading text-base text-light-rose-gold">
-                  ${talent.startingRate.toLocaleString()}
+                  {formatRate(talent.startingRate, talent.startingRateCurrency)}
                 </p>
               </div>
             </div>

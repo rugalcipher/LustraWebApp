@@ -3,6 +3,7 @@ import { ChevronUp, MapPin, Star, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AvailabilityPill } from "@/components/lustra/Primitives";
+import { formatRate } from "@/domain/talent";
 
 /**
  * Expandable summary overlay for the intro slide. Collapsed shows name,
@@ -86,9 +87,11 @@ export default function TalentOverlay({ talent, saved, reduced }) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[0.5rem] tracking-luxe uppercase text-muted-grey">From</p>
+            {talent.startingRate != null && (
+              <p className="text-[0.5rem] tracking-luxe uppercase text-muted-grey">From</p>
+            )}
             <p className="font-heading text-xl text-light-rose-gold leading-none mt-0.5">
-              ${talent.startingRate.toLocaleString()}
+              {formatRate(talent.startingRate, talent.startingRateCurrency)}
             </p>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { useRole } from "@/lib/roleStore";
 import { navForGroup } from "@/app/routeRegistry";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import { useHomeLink } from "@/auth/useHomeLink";
+import AuthenticatedErrorBoundary from "@/components/AuthenticatedErrorBoundary";
 import {
   useConversationListLiveUpdates,
   useUnreadConversationCount,
@@ -76,7 +77,9 @@ export default function AppShell() {
       </header>
 
       <main className="flex-1 max-w-luxe mx-auto w-full pb-24">
-        <Outlet />
+        <AuthenticatedErrorBoundary routeKey={location.pathname}>
+          <Outlet />
+        </AuthenticatedErrorBoundary>
       </main>
 
       {/* Bottom navigation */}

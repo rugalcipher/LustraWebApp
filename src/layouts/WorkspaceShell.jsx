@@ -10,6 +10,7 @@ import { useRole } from "@/lib/roleStore";
 import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import RouteFallback from "@/components/RouteFallback";
 import { useHomeLink } from "@/auth/useHomeLink";
+import AuthenticatedErrorBoundary from "@/components/AuthenticatedErrorBoundary";
 
 const ICONS = {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
@@ -178,7 +179,9 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
 
         <main className="flex-1 min-w-0 w-full">
           <Suspense fallback={<RouteFallback />}>
-            <Outlet />
+            <AuthenticatedErrorBoundary routeKey={location.pathname}>
+              <Outlet />
+            </AuthenticatedErrorBoundary>
           </Suspense>
         </main>
       </div>
