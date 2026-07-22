@@ -46,7 +46,10 @@ export interface AppointmentDto {
   talentInstructions: string | null;
   assignedManagementUserId: string | null;
   createdAtUtc: string;
+  /** The pre-booking inquiry thread. */
   conversationId: string | null;
+  /** The booking conversation (client ↔ talent ↔ management), if one exists. */
+  bookingConversationId: string | null;
   /** Whether the client can currently see this appointment. */
   isVisibleToClient: boolean;
   history: { fromStatus: string | null; toStatus: string; reason: string | null; createdAtUtc: string }[];

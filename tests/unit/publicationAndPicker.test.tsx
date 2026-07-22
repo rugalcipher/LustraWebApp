@@ -496,10 +496,10 @@ describe("notification compatibility with the Phase 5 producers", () => {
     ).toBeNull();
   });
 
-  it("sends booking notifications to the talent portal, not a client route", () => {
+  it("sends booking notifications to the client appointment detail (the notification centre is client-facing)", () => {
     expect(
       notificationTarget({ type: "BookingConfirmed", relatedEntityId: "b-1", linkUrl: null } as never)
-    ).toBe("/talent-bookings/b-1");
+    ).toBe("/app/appointments/b-1");
   });
 
   it("resolves nothing for the withdrawn client lifecycle", () => {

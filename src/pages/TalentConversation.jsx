@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Send, Loader2, Lock, CalendarCheck, RefreshCw } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Lock, CalendarCheck, RefreshCw, Paperclip, X, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
 import { toUserMessage, isApiError } from "@/api/problemDetails";
+import { resolveMediaUrl } from "@/services/mediaUrl";
 import { usePrincipal } from "@/auth/PrincipalContext";
+
+/** Attachments are capped client-side to match the server's 10 MB limit. */
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 import {
   getTalentMessages,
   postTalentMessage,
@@ -29,7 +33,9 @@ export default function TalentConversation() {
 
   const [limit, setLimit] = useState(30);
   const [draft, setDraft] = useState("");
+  const [file, setFile] = useState(null);
   const scrollRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const messagesQuery = useQuery({
     queryKey: ["talent", "conversations", id, "messages", limit],
@@ -70,10 +76,12 @@ export default function TalentConversation() {
   }, [messages.length]);
 
   const sendMessage = useMutation({
-    mutationFn: (body) => postTalentMessage(id, { body }),
+    mutationFn: (input) => postTalentMessage(id, input),
     retry: false,
     onSuccess: () => {
       setDraft("");
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       queryClient.invalidateQueries({ queryKey: ["talent", "conversations", id, "messages"] });
       queryClient.invalidateQueries({ queryKey: ["talent", "conversations"] });
     },
@@ -81,10 +89,25 @@ export default function TalentConversation() {
       toast({ title: "Message not sent", description: toUserMessage(err), variant: "destructive" }),
   });
 
+  const pickFile = (event) => {
+    const chosen = event.target.files?.[0];
+    if (!chosen) return;
+    if (chosen.size > MAX_ATTACHMENT_BYTES) {
+      toast({
+        title: "Attachment too large",
+        description: "Attachments must be 10 MB or smaller.",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+    setFile(chosen);
+  };
+
   const busy = sendMessage.isPending;
-  const canSend = draft.trim().length > 0 && !busy;
+  const canSend = (draft.trim().length > 0 || file) && !busy;
   const send = () => {
-    if (canSend) sendMessage.mutate(draft.trim());
+    if (canSend) sendMessage.mutate({ body: draft.trim() || null, file });
   };
 
   if (messagesQuery.isError) {
@@ -167,7 +190,32 @@ export default function TalentConversation() {
 
       {/* Composer */}
       <div className="border-t border-white/[0.06] bg-noir/80 px-3 py-2.5 safe-bottom">
+        {file && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-sm bg-card-black border border-white/[0.08]">
+            <FileText className="w-3.5 h-3.5 text-rose-gold shrink-0" strokeWidth={1.2} />
+            <span className="flex-1 min-w-0 truncate font-body text-[0.7rem] text-soft-ivory/85">{file.name}</span>
+            <button
+              onClick={() => {
+                setFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+              aria-label="Remove attachment"
+              className="text-muted-grey hover:text-ivory"
+            >
+              <X className="w-3.5 h-3.5" strokeWidth={1.4} />
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
+          <input ref={fileInputRef} type="file" onChange={pickFile} className="hidden" id="talent-chat-attachment" />
+          <label
+            htmlFor="talent-chat-attachment"
+            aria-label="Attach a file"
+            className="w-9 h-9 flex items-center justify-center text-muted-grey hover:text-rose-gold transition cursor-pointer shrink-0"
+          >
+            <Paperclip className="w-5 h-5" strokeWidth={1.2} />
+          </label>
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -184,7 +232,7 @@ export default function TalentConversation() {
             onClick={send}
             disabled={!canSend}
             aria-label="Send message"
-            className="w-9 h-9 rounded-full bg-gradient-to-br from-light-rose-gold to-rose-gold flex items-center justify-center text-noir disabled:opacity-30 transition"
+            className="w-9 h-9 rounded-full bg-gradient-to-br from-light-rose-gold to-rose-gold flex items-center justify-center text-noir disabled:opacity-30 transition shrink-0"
           >
             {busy ? (
               <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
@@ -242,6 +290,24 @@ function MessageBubble({ message, userId }) {
         )}
       >
         {message.body}
+
+        {message.attachments?.length > 0 && (
+          <div className={cn("mt-2 space-y-1.5", message.body && "pt-2 border-t border-current/15")}>
+            {message.attachments.map((attachment) => (
+              <a
+                key={attachment.id}
+                href={resolveMediaUrl(attachment.url) ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-[0.7rem] underline underline-offset-2"
+              >
+                <FileText className="w-3 h-3 shrink-0" strokeWidth={1.4} />
+                {/* The server-provided filename, rendered as text (never HTML). */}
+                <span className="truncate">{attachment.fileName}</span>
+              </a>
+            ))}
+          </div>
+        )}
       </div>
       <span className="mt-1 px-1 text-[0.5rem] text-muted-grey">{formatTime(message.createdAtUtc)}</span>
     </div>

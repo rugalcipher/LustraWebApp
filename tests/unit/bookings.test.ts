@@ -159,10 +159,10 @@ describe("notification targets", () => {
   }
 
   it("derives the destination from the type and related entity", () => {
-    // Booking notifications reach the assigned TALENT only, so they resolve into the
-    // talent portal. The client never receives one and has no booking route at all.
-    expect(notificationTarget(notification({ type: "BookingConfirmed" }))).toBe("/talent-bookings/b1");
-    expect(notificationTarget(notification({ type: "BookingReminder" }))).toBe("/talent-bookings/b1");
+    // The notification centre is the CLIENT surface. A client is now told when a visible
+    // appointment is scheduled, so a booking notification opens their own appointment detail.
+    expect(notificationTarget(notification({ type: "BookingConfirmed" }))).toBe("/app/appointments/b1");
+    expect(notificationTarget(notification({ type: "BookingReminder" }))).toBe("/app/appointments/b1");
     expect(notificationTarget(notification({ type: "MessageReceived" }))).toBe("/app/messages/b1");
 
     // The withdrawn lifecycle resolves nowhere rather than to a route that 404s.
@@ -176,7 +176,7 @@ describe("notification targets", () => {
     const target = notificationTarget(
       notification({ type: "BookingConfirmed", linkUrl: "https://evil.test/steal" })
     );
-    expect(target).toBe("/talent-bookings/b1");
+    expect(target).toBe("/app/appointments/b1");
   });
 
   it("refuses an off-site linkUrl outright", () => {

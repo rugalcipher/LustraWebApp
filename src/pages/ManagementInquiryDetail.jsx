@@ -228,10 +228,22 @@ export default function ManagementInquiryDetail() {
                 className="flex items-center justify-between gap-2 mt-3 p-3 rounded-sm border border-rose-gold/25 hover:border-rose-gold/50 transition"
               >
                 <span className="inline-flex items-center gap-2 text-[0.6rem] tracking-luxe uppercase text-rose-gold/90">
-                  <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.3} /> Conversation
+                  <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.3} /> Inquiry conversation
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-grey" strokeWidth={1.2} />
               </Link>
+
+              {inquiry.bookingConversationId && (
+                <Link
+                  to={`/management-conversations/${inquiry.bookingConversationId}`}
+                  className="flex items-center justify-between gap-2 mt-2 p-3 rounded-sm border border-rose-gold/40 bg-rose-gold/10 hover:bg-rose-gold/20 transition"
+                >
+                  <span className="inline-flex items-center gap-2 text-[0.6rem] tracking-luxe uppercase text-rose-gold">
+                    <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.3} /> Booking conversation
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-grey" strokeWidth={1.2} />
+                </Link>
+              )}
 
               <form onSubmit={submitStatus} className="mt-4 space-y-2">
                 <label className="block">

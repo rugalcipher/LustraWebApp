@@ -391,12 +391,21 @@ export default function ManagementAppointmentDetail() {
               </button>
             )}
 
+            {appointment.bookingConversationId && (
+              <Link
+                to={`/management-conversations/${appointment.bookingConversationId}`}
+                className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-rose-gold/40 bg-rose-gold/10 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/20"
+              >
+                <MessagesSquare className="w-3.5 h-3.5" aria-hidden="true" /> Booking conversation
+              </Link>
+            )}
+
             {appointment.conversationId && (
               <Link
                 to={`/management-conversations/${appointment.conversationId}`}
                 className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-sm border border-white/12 font-body text-meta tracking-luxe uppercase text-soft-ivory/85 hover:border-rose-gold/40"
               >
-                <MessagesSquare className="w-3.5 h-3.5" aria-hidden="true" /> Open conversation
+                <MessagesSquare className="w-3.5 h-3.5" aria-hidden="true" /> Inquiry conversation
               </Link>
             )}
 

@@ -60,6 +60,10 @@ export interface ManagementInquiryDetailDto extends ManagementInquiryListItemDto
   additionalRequirements: string | null;
   history: { fromStatus: string | null; toStatus: string; reason: string | null; createdAtUtc: string }[];
   internalNotes: { id: string; authorUserId: string; note: string; createdAtUtc: string }[];
+  /** The booking created from this inquiry, if it has converted. */
+  bookingId: string | null;
+  /** The booking conversation (client ↔ talent ↔ management) for that booking, if any. */
+  bookingConversationId: string | null;
 }
 
 export function listInquiries(

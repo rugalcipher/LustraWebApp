@@ -86,7 +86,10 @@ export function notificationTarget(notification: NotificationDto): string | null
       case "BookingConfirmed":
       case "BookingReminder":
       case "BookingCancelled":
-        return `/talent-bookings/${id}`;
+        // The notification centre is the CLIENT surface. A client is now told when a visible
+        // appointment is scheduled, so a booking notification opens their own appointment
+        // detail — never a talent route they cannot reach.
+        return `/app/appointments/${id}`;
       case "MessageReceived":
         return `/app/messages/${id}`;
       case "ProposalReceived":
