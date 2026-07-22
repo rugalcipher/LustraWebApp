@@ -55,6 +55,15 @@ export interface MessageDto {
   id: string;
   conversationId: string;
   senderUserId: string | null;
+  /** Sender's display name (null for system). Display name only — never a legal name. */
+  senderDisplayName?: string | null;
+  /** Sender's role in this conversation: Client, Talent or Management. */
+  senderRole?: string | null;
+  /** The represented talent's user id, for a management proxy message. */
+  onBehalfOfUserId?: string | null;
+  onBehalfOfDisplayName?: string | null;
+  /** Ready-to-render attribution, e.g. "Management on behalf of {talent}". */
+  displayAttribution?: string | null;
   messageType:
     | "Text"
     | "System"

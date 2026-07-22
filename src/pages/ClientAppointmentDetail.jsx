@@ -226,16 +226,28 @@ export default function ClientAppointmentDetail() {
       )}
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-heading text-lg text-ivory">Need to change something?</h2>
+        <h2 className="font-heading text-lg text-ivory">Messages</h2>
         <p className="font-body text-body text-soft-ivory/75">
-          Everything is arranged through Lustra. Message us and we will take care of it.
+          {appointment.bookingConversationId
+            ? `Coordinate this appointment with ${appointment.talent.displayName} and Lustra in the booking conversation, or message Management about anything else.`
+            : "Everything is arranged through Lustra. Message us and we will take care of it."}
         </p>
-        <Link
-          to={conversationLink}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-sm border border-rose-gold/50 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/10"
-        >
-          <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" /> Message Management
-        </Link>
+        <div className="flex flex-wrap gap-2.5">
+          {appointment.bookingConversationId && (
+            <Link
+              to={`/app/messages/${appointment.bookingConversationId}`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-rose-gold/15 border border-rose-gold/50 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/25"
+            >
+              <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" /> Message about this appointment
+            </Link>
+          )}
+          <Link
+            to={conversationLink}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-sm border border-white/15 font-body text-meta tracking-luxe uppercase text-soft-ivory/80 hover:border-rose-gold/40 hover:text-ivory"
+          >
+            <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" /> Message Management
+          </Link>
+        </div>
       </Card>
 
       {query.isFetching && (

@@ -283,6 +283,13 @@ function MessageBubble({ message, userId }) {
 
   return (
     <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+      {/* Who sent it, from the server: a talent's or management's display name, or
+          "Management on behalf of {talent}" for a proxy message. Never a legal name. */}
+      {!mine && message.displayAttribution && (
+        <span className="mb-0.5 px-1 text-[0.5rem] tracking-wide-luxe uppercase text-muted-grey">
+          {message.displayAttribution}
+        </span>
+      )}
       <div
         className={cn(
           "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm font-body leading-relaxed whitespace-pre-line",

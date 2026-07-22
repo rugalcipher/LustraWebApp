@@ -92,7 +92,10 @@ export interface ClientAppointmentDto {
   completedAtUtc: string | null;
   cancelledAtUtc: string | null;
   talent: ClientAppointmentTalentDto;
+  /** The pre-booking client↔management thread. */
   conversationId: string | null;
+  /** The booking conversation (client ↔ talent ↔ management) for this appointment, if any. */
+  bookingConversationId: string | null;
 }
 
 /**
