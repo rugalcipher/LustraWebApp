@@ -51,6 +51,27 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /*
+   * Stop iOS Safari zooming when a form field is focused.
+   *
+   * Mobile Safari zooms into any text-entry control whose font-size is below 16px, and then
+   * does not zoom back out — the whole page is left magnified and shifted. Our design tokens
+   * put body text around 13px on a phone, so every input tripped it. The correct fix is NOT
+   * to disable zoom in the viewport tag (that breaks accessibility); it is to make the
+   * controls themselves at least 16px on small screens. Desktop keeps the finer scale.
+   *
+   * Applied once here to every text-entry control, so it covers the talent application, the
+   * continuation flow, the authentication pages and any form added later — no per-field class
+   * to remember.
+   */
+  @media (max-width: 767.98px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
   body {
     background-color: hsl(var(--noir));
     color: hsl(var(--ivory));

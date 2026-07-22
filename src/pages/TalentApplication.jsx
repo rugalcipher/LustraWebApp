@@ -8,6 +8,7 @@ import * as applications from "@/services/talentApplicationService";
 import { APPLICATION_ERROR_CODES } from "@/services/talentApplicationService";
 import { saveSession, loadSession, clearSession } from "@/features/talentApplication/session";
 import PhotographManager, { finalizedPhotos } from "@/features/talentApplication/PhotographManager";
+import { useWizardStepScroll } from "@/features/talentApplication/useWizardStepScroll";
 import {
   CURRENCIES,
   EMPTY_DETAILS,
@@ -71,6 +72,7 @@ function Field({ label, error, children, hint, required, htmlFor }) {
 
 export default function TalentApplication() {
   const [step, setStep] = useState(0);
+  const stepAnchorRef = useWizardStepScroll(step);
   const [form, setForm] = useState(EMPTY_DETAILS);
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState("");
@@ -252,7 +254,17 @@ export default function TalentApplication() {
       footerNote="Private by Design"
     >
       <div className="max-w-xl">
-        <p className="font-body text-body text-soft-ivory/75">
+        {/* Focus + scroll target for step changes. scroll-mt clears the fixed header and the
+            safe-area inset so the heading is not hidden beneath them after scrolling. */}
+        <h2
+          ref={stepAnchorRef}
+          tabIndex={-1}
+          className="scroll-mt-24 safe-top font-heading text-xl text-ivory outline-none"
+        >
+          Step {step + 1} of {SECTIONS.length}: {SECTIONS[step]}
+        </h2>
+
+        <p className="font-body text-body text-soft-ivory/75 mt-2">
           Lustra represents a carefully selected roster of professional adult talent. Submit
           your details and photographs for private review by our Management team.
         </p>
