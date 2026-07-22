@@ -11,9 +11,9 @@ import {
   useConversationClientSummary,
   useManagementConversation,
 } from "@/features/management/hooks";
-import { useCreateAppointment } from "@/features/appointments/hooks";
+import { useCreateAppointment, useClientAddressesForBooking } from "@/features/appointments/hooks";
 import AddressAutocomplete from "@/components/address/AddressAutocomplete";
-import { EMPTY_ADDRESS_INPUT, isAddressEmpty, toAddressInput } from "@/domain/address";
+import { EMPTY_ADDRESS_INPUT, isAddressProvided, toAddressInput, formatAddressLine } from "@/domain/address";
 
 /**
  * CREATE APPOINTMENT — management records an engagement it has already arranged.
@@ -71,10 +71,13 @@ export default function CreateAppointment() {
   // The structured, Google-verified confidential address. Optional: when left empty the
   // appointment keeps only the free-text location fields, exactly as before.
   const [addressForm, setAddressForm] = useState(EMPTY_ADDRESS_INPUT);
+  // "" = new inline address; otherwise a saved-address id to snapshot server-side.
+  const [savedAddressId, setSavedAddressId] = useState("");
 
   const set = (field) => (event) => setForm((f) => ({ ...f, [field]: event.target.value }));
 
   const clientUserId = clientSummary.data?.userId ?? null;
+  const savedAddresses = useClientAddressesForBooking(clientUserId);
   const talentProfileId = conversation.data?.talentProfileId ?? null;
   const talentName = conversation.data?.talentDisplayName ?? null;
 
@@ -117,9 +120,12 @@ export default function CreateAppointment() {
           additionalCosts: null,
           currencyCode: form.currencyCode || "ZAR",
           talentAvailabilityConfirmed: true,
-          // A verified structured address, when one was chosen. The backend snapshots it onto
-          // the appointment; it never creates a client saved address.
-          addressSnapshot: isAddressEmpty(addressForm) ? null : toAddressInput(addressForm),
+          // A chosen saved address wins: the backend copies it onto the appointment and records
+          // it as the source, without mutating the client's saved address. Otherwise an inline
+          // verified address is snapshotted (and no saved address is created).
+          clientAddressId: savedAddressId || null,
+          addressSnapshot:
+            savedAddressId || !isAddressProvided(addressForm) ? null : toAddressInput(addressForm),
         },
       });
 
@@ -355,12 +361,42 @@ export default function CreateAppointment() {
                 <p className="text-[0.55rem] tracking-wide-luxe uppercase text-muted-grey mb-2">
                   Verified address (optional)
                 </p>
-                <AddressAutocomplete
-                  value={addressForm}
-                  onChange={setAddressForm}
-                  label="Search the appointment address"
-                  idPrefix="appt-addr"
-                />
+
+                {/* Choose one of the client's saved addresses, or enter a new one inline. */}
+                {(savedAddresses.data?.length ?? 0) > 0 && (
+                  <div className="mb-3">
+                    <label className={labelCls} htmlFor="savedAddress">
+                      Client's saved address
+                    </label>
+                    <select
+                      id="savedAddress"
+                      value={savedAddressId}
+                      onChange={(e) => setSavedAddressId(e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="" className="bg-noir">
+                        Enter a new address…
+                      </option>
+                      {savedAddresses.data.map((a) => (
+                        <option key={a.id} value={a.id} className="bg-noir">
+                          {a.label} — {formatAddressLine(a.address) || "address"}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-[0.55rem] text-muted-grey">
+                      Choosing one snapshots its details onto this appointment. It is never changed.
+                    </p>
+                  </div>
+                )}
+
+                {!savedAddressId && (
+                  <AddressAutocomplete
+                    value={addressForm}
+                    onChange={setAddressForm}
+                    label="Search the appointment address"
+                    idPrefix="appt-addr"
+                  />
+                )}
                 <p className="mt-1.5 inline-flex items-center gap-1.5 text-[0.55rem] text-muted-grey">
                   <Lock className="w-2.5 h-2.5" strokeWidth={1.3} />
                   Snapshotted onto this appointment. Choosing one here does not save it to the client.

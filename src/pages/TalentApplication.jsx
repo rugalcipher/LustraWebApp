@@ -12,6 +12,7 @@ import { useWizardStepScroll } from "@/features/talentApplication/useWizardStepS
 import PasswordField from "@/components/auth/PasswordField";
 import { usePasswordPolicy } from "@/features/auth/passwordPolicy";
 import { usePrincipal } from "@/auth/PrincipalContext";
+import AddressAutocomplete from "@/components/address/AddressAutocomplete";
 import {
   CURRENCIES,
   EMPTY_DETAILS,
@@ -400,9 +401,24 @@ export default function TalentApplication() {
               <Field label="Date of birth" required error={errors.dateOfBirth} htmlFor="dateOfBirth">
                 <input id="dateOfBirth" type="date" className={inputCls} value={form.dateOfBirth} onChange={set("dateOfBirth")} />
               </Field>
-              <Field label="City" htmlFor="cityFreeText">
+              <Field label="City" htmlFor="cityFreeText" hint="Shown publicly as your area.">
                 <input id="cityFreeText" className={inputCls} value={form.cityFreeText} onChange={set("cityFreeText")} />
               </Field>
+            </div>
+
+            <div className="rounded-lg border border-white/[0.06] p-4 space-y-2">
+              <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+                Private base address (optional)
+              </p>
+              <p className="font-body text-[0.7rem] text-muted-grey/80">
+                For Lustra's use only — never shown publicly. You can add or change it later.
+              </p>
+              <AddressAutocomplete
+                value={form.baseAddress}
+                onChange={(next) => setForm((prev) => ({ ...prev, baseAddress: next }))}
+                idPrefix="apply-base-addr"
+                label="Search your address"
+              />
             </div>
 
             <label className="flex items-start gap-2.5 cursor-pointer">

@@ -12,6 +12,8 @@
  * full object built by `toDetails`.
  */
 
+import { EMPTY_ADDRESS_INPUT, isAddressProvided, toAddressInput } from "@/domain/address";
+
 export const CURRENCIES = ["ZAR", "USD", "EUR", "GBP", "AED"];
 
 export const EMPTY_DETAILS = {
@@ -32,6 +34,8 @@ export const EMPTY_DETAILS = {
   currencyCode: "ZAR",
   publishOnApproval: true,
   consentToContact: false,
+  // The applicant's optional PRIVATE base/working address. Never shown publicly.
+  baseAddress: { ...EMPTY_ADDRESS_INPUT },
 };
 
 /** Age today from an ISO date. The server re-checks this at submission. */
@@ -107,5 +111,8 @@ export function toDetails(form) {
     currencyCode: form.requestedHourlyRate ? form.currencyCode : null,
     publishOnApproval: form.publishOnApproval,
     consentToContact: form.consentToContact,
+    // Optional private base address — sent only when the applicant provided a real locator.
+    baseAddress:
+      form.baseAddress && isAddressProvided(form.baseAddress) ? toAddressInput(form.baseAddress) : null,
   };
 }

@@ -67,6 +67,8 @@ export interface TalentProfileFields {
   eventAvailable: boolean;
   categoryIds?: string[] | null;
   rates?: TalentRateInput[] | null;
+  /** The talent's PRIVATE base/working address — staff-only, never public. */
+  baseAddress?: import("@/domain/address").StructuredAddressInput | null;
 }
 
 /** Mirrors `CreateTalentRequest`. */
@@ -262,6 +264,8 @@ export interface TalentAdminDetailDto {
   /** The photograph the server would fall back to as cover, in gallery order. */
   suggestedFallbackCoverMediaId: string | null;
   hasPublicationIssue: boolean;
+  /** The talent's PRIVATE base address — staff-only, never public. */
+  baseAddress: import("@/domain/address").StructuredAddress | null;
 }
 
 // ---- roster ----------------------------------------------------------------

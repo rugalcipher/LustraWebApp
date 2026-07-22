@@ -46,6 +46,8 @@ export interface TalentApplicationDetails {
   currencyCode?: string | null;
   publishOnApproval: boolean;
   consentToContact: boolean;
+  /** The applicant's optional PRIVATE base/working address. Never shown publicly. */
+  baseAddress?: import("@/domain/address").StructuredAddressInput | null;
 }
 
 /** Mirrors `CreatedTalentApplicationDto`. `accessToken` is returned ONCE. */
@@ -197,6 +199,8 @@ export interface TalentApplicationDetailsDto {
   media: TalentApplicationMediaDto[];
   createdAtUtc: string;
   submittedAtUtc: string | null;
+  /** The applicant's private base address, for repopulating the form. */
+  baseAddress: import("@/domain/address").StructuredAddress | null;
 }
 
 /**

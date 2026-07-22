@@ -94,6 +94,20 @@ export function toAddressInput(input: StructuredAddressInput): StructuredAddress
   };
 }
 
+/**
+ * True when the input carries a real locator — more than just a default country code. Use this
+ * for OPTIONAL address fields, so an untouched form (which defaults `countryCode` to "ZA") is
+ * treated as "not provided" and submitted as null rather than a country-only address.
+ */
+export function isAddressProvided(input: StructuredAddressInput): boolean {
+  const a = toAddressInput(input);
+  return Boolean(
+    a.googlePlaceId || a.formattedAddress || a.addressLine1 || a.suburb || a.city || a.province ||
+    a.postalCode || a.latitude != null || a.longitude != null || a.buildingName || a.unitNumber ||
+    a.accessInstructions
+  );
+}
+
 /** True when the input carries nothing at all. */
 export function isAddressEmpty(input: StructuredAddressInput): boolean {
   const a = toAddressInput(input);

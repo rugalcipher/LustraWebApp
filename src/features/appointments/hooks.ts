@@ -145,6 +145,16 @@ export function useCancelAppointment(conversationId?: string | null) {
   });
 }
 
+/** A client's saved addresses, for a booker to choose one to snapshot onto an appointment. */
+export function useClientAddressesForBooking(clientUserId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["management", "bookings", "client-addresses", clientUserId ?? ""],
+    queryFn: ({ signal }) => appointmentService.listClientAddressesForBooking(clientUserId!, signal),
+    enabled: Boolean(clientUserId),
+    staleTime: 30_000,
+  });
+}
+
 /** Updates or clears an appointment's structured address snapshot (management edit). */
 export function useUpdateAppointmentAddress(conversationId?: string | null) {
   const invalidate = useAppointmentInvalidation();

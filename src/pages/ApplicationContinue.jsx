@@ -7,6 +7,8 @@ import { PUBLIC_IMAGES } from "@/components/lustra/public/publicImages";
 import * as applications from "@/services/talentApplicationService";
 import { saveSession, loadSession, clearSession, scrubTokenFromUrl } from "@/features/talentApplication/session";
 import PhotographManager, { finalizedPhotos } from "@/features/talentApplication/PhotographManager";
+import AddressAutocomplete from "@/components/address/AddressAutocomplete";
+import { EMPTY_ADDRESS_INPUT } from "@/domain/address";
 import {
   CURRENCIES,
   EMPTY_DETAILS,
@@ -152,6 +154,9 @@ export default function ApplicationContinue() {
             result.requestedHourlyRate != null ? String(result.requestedHourlyRate) : "",
           currencyCode: result.currencyCode ?? "ZAR",
           publishOnApproval: result.publishOnApproval ?? true,
+          // Prefill the private base address so a correction doesn't clear it (the PUT
+          // replaces the whole record). Falls back to an empty address input.
+          baseAddress: result.baseAddress ? { ...result.baseAddress } : { ...EMPTY_ADDRESS_INPUT },
           // Both were given when the application was first submitted. The server
           // still revalidates them on the update.
           isAdultDeclared: true,
@@ -379,10 +384,26 @@ export default function ApplicationContinue() {
                   <Field label="Date of birth" required error={errors.dateOfBirth} htmlFor="dateOfBirth">
                     <input id="dateOfBirth" type="date" className={inputCls} value={form.dateOfBirth} onChange={set("dateOfBirth")} />
                   </Field>
-                  <Field label="City" htmlFor="cityFreeText">
+                  <Field label="City" htmlFor="cityFreeText" hint="Shown publicly as your area.">
                     <input id="cityFreeText" className={inputCls} value={form.cityFreeText} onChange={set("cityFreeText")} />
                   </Field>
                 </div>
+
+                <div className="rounded-lg border border-white/[0.06] p-4 space-y-2">
+                  <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+                    Private base address (optional)
+                  </p>
+                  <p className="font-body text-[0.7rem] text-muted-grey/80">
+                    For Lustra's use only — never shown publicly.
+                  </p>
+                  <AddressAutocomplete
+                    value={form.baseAddress}
+                    onChange={(next) => setForm((prev) => ({ ...prev, baseAddress: next }))}
+                    idPrefix="continue-base-addr"
+                    label="Search your address"
+                  />
+                </div>
+
                 <Field label="Display / stage name" required error={errors.requestedDisplayName} htmlFor="requestedDisplayName">
                   <input id="requestedDisplayName" className={inputCls} value={form.requestedDisplayName} onChange={set("requestedDisplayName")} />
                 </Field>

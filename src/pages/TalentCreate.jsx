@@ -9,6 +9,8 @@ import { isApiError, toUserMessage } from "@/api/problemDetails";
 import { useCreateTalent } from "@/features/talentAdmin/hooks";
 import { TALENT_LOGIN_MODES, TALENT_ADMIN_ERROR_CODES } from "@/services/talentAdminService";
 import { useTaxonomyAdmin } from "@/features/admin/hooks";
+import AddressAutocomplete from "@/components/address/AddressAutocomplete";
+import { EMPTY_ADDRESS_INPUT, isAddressProvided, toAddressInput } from "@/domain/address";
 
 /**
  * Add a talent directly, without waiting for a public application.
@@ -61,6 +63,7 @@ const EMPTY = {
   eventAvailable: false,
   categoryIds: [],
   rates: [],
+  baseAddress: { ...EMPTY_ADDRESS_INPUT },
   loginMode: TALENT_LOGIN_MODES.invitation,
   publishImmediately: false,
   isFeatured: false,
@@ -202,6 +205,7 @@ export default function TalentCreate() {
         eventAvailable: form.eventAvailable,
         categoryIds: form.categoryIds.length ? form.categoryIds : null,
         rates: form.rates.length ? form.rates : null,
+        baseAddress: isAddressProvided(form.baseAddress) ? toAddressInput(form.baseAddress) : null,
       },
       loginMode: form.loginMode,
       publishImmediately: form.publishImmediately,
@@ -428,6 +432,22 @@ export default function TalentCreate() {
             <Field label="Other link" htmlFor="additionalSocialUrl">
               <input id="additionalSocialUrl" className={inputCls} placeholder="https://…" value={form.additionalSocialUrl} onChange={set("additionalSocialUrl")} />
             </Field>
+
+            <div className="rounded-lg border border-white/[0.06] p-4 space-y-2">
+              <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+                Private base address (optional)
+              </p>
+              <p className="font-body text-[0.7rem] text-muted-grey/80">
+                Staff-only — never shown publicly. The public profile shows only city/region.
+              </p>
+              <AddressAutocomplete
+                value={form.baseAddress}
+                onChange={(next) => setForm((prev) => ({ ...prev, baseAddress: next }))}
+                idPrefix="admin-base-addr"
+                label="Search the address"
+              />
+            </div>
+
             <div className="flex gap-4">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-rose-gold" checked={form.travelAvailable} onChange={set("travelAvailable")} />

@@ -1,6 +1,7 @@
 import { api } from "@/api/client";
 import type { PagedResult } from "@/services/discoveryService";
 import type { StructuredAddress, StructuredAddressInput } from "@/domain/address";
+import type { ClientAddressDto } from "@/services/clientAddressService";
 
 /**
  * Internal appointments — Lustra's operational schedule.
@@ -190,6 +191,18 @@ export function listAppointments(
 
 export function getAppointment(bookingId: string, signal?: AbortSignal): Promise<AppointmentDto> {
   return api.get<AppointmentDto>(`/management/bookings/${bookingId}`, { signal });
+}
+
+/**
+ * Lists a client's saved addresses so a booker can snapshot one onto an appointment (by passing
+ * its id as `clientAddressId`). Read-only and gated by `Bookings.Manage`; it never mutates the
+ * client's saved addresses.
+ */
+export function listClientAddressesForBooking(
+  clientUserId: string,
+  signal?: AbortSignal
+): Promise<ClientAddressDto[]> {
+  return api.get<ClientAddressDto[]>(`/management/bookings/clients/${clientUserId}/addresses`, { signal });
 }
 
 export function listCalendar(
