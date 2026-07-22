@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { toUserMessage } from "@/api/problemDetails";
 import ConfirmAction from "@/features/talentApplication/ConfirmAction";
 import MediaManager from "@/features/talentAdmin/MediaManager";
+import TalentEditForm from "@/features/talentAdmin/TalentEditForm";
+import { formatAddressLine } from "@/domain/address";
 import {
   useTalentRecord, useTalentAdminPermissions, useArchiveTalent, useRestoreTalent,
   useIssueTalentInvitation, useSetTalentTemporaryPassword, useTalentArchiveImpact,
@@ -107,6 +109,7 @@ export default function TalentRecord() {
   const { canManage, canCreate, canModerateMedia } = useTalentAdminPermissions();
 
   const [tab, setTab] = useState(TABS[0]);
+  const [editing, setEditing] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [actionError, setActionError] = useState("");
   const [secret, setSecret] = useState(null);
@@ -502,37 +505,67 @@ export default function TalentRecord() {
 
       {tab === "Public profile" && (
         <Card className="p-5 space-y-3">
-          <h2 className="font-heading text-lg text-ivory">Public profile</h2>
-          <Rows
-            entries={[
-              ["Display name", talent.displayName],
-              ["Headline", talent.headline],
-              ["Location", talent.cityName],
-              ["Age shown publicly", talent.isAgePublic ? "Yes" : "No"],
-              ["Instagram", talent.instagramUrl],
-              ["Other link", talent.additionalSocialUrl],
-              ["Categories", talent.categoryIds.length ? `${talent.categoryIds.length}` : "None"],
-            ]}
-          />
-          {talent.shortBiography && (
-            <div>
-              <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
-                Short biography
-              </p>
-              <p className="font-body text-body text-soft-ivory/85 mt-1 whitespace-pre-line">
-                {talent.shortBiography}
-              </p>
-            </div>
-          )}
-          {talent.fullBiography && (
-            <div>
-              <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
-                Full biography
-              </p>
-              <p className="font-body text-body text-soft-ivory/85 mt-1 whitespace-pre-line">
-                {talent.fullBiography}
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-heading text-lg text-ivory">
+              {editing ? "Edit talent" : "Public profile"}
+            </h2>
+            {canManage && !editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm border border-rose-gold/50 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/10"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+
+          {editing ? (
+            <TalentEditForm profileId={id} talent={talent} onDone={() => setEditing(false)} />
+          ) : (
+            <>
+              <Rows
+                entries={[
+                  ["Display name", talent.displayName],
+                  ["Headline", talent.headline],
+                  ["Location", talent.cityName],
+                  ["Age shown publicly", talent.isAgePublic ? "Yes" : "No"],
+                  ["Instagram", talent.instagramUrl],
+                  ["Other link", talent.additionalSocialUrl],
+                  ["Categories", talent.categoryIds.length ? `${talent.categoryIds.length}` : "None"],
+                ]}
+              />
+              {talent.shortBiography && (
+                <div>
+                  <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+                    Short biography
+                  </p>
+                  <p className="font-body text-body text-soft-ivory/85 mt-1 whitespace-pre-line">
+                    {talent.shortBiography}
+                  </p>
+                </div>
+              )}
+              {talent.fullBiography && (
+                <div>
+                  <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+                    Full biography
+                  </p>
+                  <p className="font-body text-body text-soft-ivory/85 mt-1 whitespace-pre-line">
+                    {talent.fullBiography}
+                  </p>
+                </div>
+              )}
+
+              {/* Private base address — staff-only, never rendered on a public/client page. */}
+              <div className="pt-3 border-t border-white/[0.06]">
+                <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+                  Private base address (staff only)
+                </p>
+                <p className="font-body text-body text-soft-ivory/85 mt-1 break-words">
+                  {formatAddressLine(talent.baseAddress) || "Not set"}
+                </p>
+              </div>
+            </>
           )}
         </Card>
       )}
