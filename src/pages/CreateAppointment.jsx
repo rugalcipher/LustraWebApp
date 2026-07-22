@@ -12,6 +12,8 @@ import {
   useManagementConversation,
 } from "@/features/management/hooks";
 import { useCreateAppointment } from "@/features/appointments/hooks";
+import AddressAutocomplete from "@/components/address/AddressAutocomplete";
+import { EMPTY_ADDRESS_INPUT, isAddressEmpty, toAddressInput } from "@/domain/address";
 
 /**
  * CREATE APPOINTMENT — management records an engagement it has already arranged.
@@ -66,6 +68,9 @@ export default function CreateAppointment() {
     currencyCode: "ZAR",
   });
   const [talentConfirmed, setTalentConfirmed] = useState(false);
+  // The structured, Google-verified confidential address. Optional: when left empty the
+  // appointment keeps only the free-text location fields, exactly as before.
+  const [addressForm, setAddressForm] = useState(EMPTY_ADDRESS_INPUT);
 
   const set = (field) => (event) => setForm((f) => ({ ...f, [field]: event.target.value }));
 
@@ -112,6 +117,9 @@ export default function CreateAppointment() {
           additionalCosts: null,
           currencyCode: form.currencyCode || "ZAR",
           talentAvailabilityConfirmed: true,
+          // A verified structured address, when one was chosen. The backend snapshots it onto
+          // the appointment; it never creates a client saved address.
+          addressSnapshot: isAddressEmpty(addressForm) ? null : toAddressInput(addressForm),
         },
       });
 
@@ -340,6 +348,22 @@ export default function CreateAppointment() {
                 <p className="mt-1.5 inline-flex items-center gap-1.5 text-[0.55rem] text-muted-grey">
                   <Lock className="w-2.5 h-2.5" strokeWidth={1.3} />
                   Management and the assigned talent only.
+                </p>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                <p className="text-[0.55rem] tracking-wide-luxe uppercase text-muted-grey mb-2">
+                  Verified address (optional)
+                </p>
+                <AddressAutocomplete
+                  value={addressForm}
+                  onChange={setAddressForm}
+                  label="Search the appointment address"
+                  idPrefix="appt-addr"
+                />
+                <p className="mt-1.5 inline-flex items-center gap-1.5 text-[0.55rem] text-muted-grey">
+                  <Lock className="w-2.5 h-2.5" strokeWidth={1.3} />
+                  Snapshotted onto this appointment. Choosing one here does not save it to the client.
                 </p>
               </div>
             </Card>

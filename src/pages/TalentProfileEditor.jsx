@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Loader2, Send, History } from "lucide-react";
+import { Loader2, Send, History, Lock } from "lucide-react";
 import InternalHeader from "@/components/lustra/InternalHeader";
 import { Card, Eyebrow } from "@/components/lustra/Primitives";
 import LustraButton from "@/components/lustra/Button";
@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
 import { toUserMessage } from "@/api/problemDetails";
 import { formatRate } from "@/domain/talent";
+import AddressAutocomplete from "@/components/address/AddressAutocomplete";
+import { EMPTY_ADDRESS_INPUT, toAddressInput, validateAddress } from "@/domain/address";
 import {
   presentProfileStatus, canSubmitDraft, AVAILABILITY_STATUSES,
   RATE_UNITS, presentRateUnit,
@@ -14,6 +16,7 @@ import {
 import {
   useMyDraft, useMyTalentProfile, useUpdateDraft, useSubmitDraft,
   useMyVersions, useMyRates, useSaveRate, useDeleteRate,
+  useMyBaseAddress, useUpdateMyBaseAddress,
 } from "@/features/talent/hooks";
 
 /**
@@ -287,6 +290,8 @@ export default function TalentProfileEditor() {
 
         <RateCard />
 
+        <BaseAddressCard />
+
         <Card className="p-4">
           <button
             onClick={() => setShowVersions((v) => !v)}
@@ -299,6 +304,67 @@ export default function TalentProfileEditor() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/**
+ * The talent's PRIVATE base/working address.
+ *
+ * This is never shown publicly — only its coarse suburb/city/province is ever projected, and
+ * only where the product decides to. The exact street, unit, coordinates and Google place id
+ * stay with Lustra. It saves independently of the draft (it is operational data, not part of
+ * the reviewed public profile), so there is no submit-for-review step.
+ */
+function BaseAddressCard() {
+  const { data: address, isPending } = useMyBaseAddress();
+  const save = useUpdateMyBaseAddress();
+  const [form, setForm] = useState(EMPTY_ADDRESS_INPUT);
+  const [errors, setErrors] = useState({});
+  const [seeded, setSeeded] = useState(false);
+
+  // Seed once from the server value; a null base address seeds the empty form.
+  useEffect(() => {
+    if (seeded || isPending) return;
+    setForm(address ? { ...address } : EMPTY_ADDRESS_INPUT);
+    setSeeded(true);
+  }, [address, isPending, seeded]);
+
+  const onSave = async () => {
+    const validation = validateAddress(form, { required: false });
+    setErrors(validation);
+    if (Object.keys(validation).length > 0) return;
+    try {
+      await save.mutateAsync(toAddressInput(form));
+      toast({ title: "Base address saved", description: "This stays private to Lustra." });
+    } catch (err) {
+      toast({ title: "Couldn't save", description: toUserMessage(err), variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Lock className="w-3.5 h-3.5 text-rose-gold/70" strokeWidth={1.4} aria-hidden="true" />
+        <Eyebrow>Private base address</Eyebrow>
+      </div>
+      <p className="font-body text-[0.6rem] text-muted-grey leading-relaxed">
+        Where you are based, for Lustra's use only. Clients never see your street address or exact
+        location — only a broad area, and only if the product shows it. Leave it blank to keep it unset.
+      </p>
+
+      {isPending ? (
+        <div className="py-6 flex justify-center">
+          <Loader2 className="w-4 h-4 text-rose-gold animate-spin" strokeWidth={1.4} />
+        </div>
+      ) : (
+        <>
+          <AddressAutocomplete value={form} onChange={setForm} errors={errors} idPrefix="base-addr" label="Search your address" />
+          <LustraButton type="button" onClick={onSave} disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save base address"}
+          </LustraButton>
+        </>
+      )}
+    </Card>
   );
 }
 

@@ -96,6 +96,30 @@ export function useSubmitDraft() {
   });
 }
 
+// ---- private base address --------------------------------------------------
+
+/** The talent's private base/working address — owner only, never public. */
+export function useMyBaseAddress() {
+  const enabled = useTalentEnabled();
+  return useQuery({
+    queryKey: queryKeys.talentPortal.baseAddress(),
+    queryFn: ({ signal }) => profileService.getMyBaseAddress(signal),
+    enabled,
+    staleTime: PORTAL_STALE_TIME,
+  });
+}
+
+export function useUpdateMyBaseAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: import("@/domain/address").StructuredAddressInput) =>
+      profileService.updateMyBaseAddress(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.talentPortal.baseAddress() });
+    },
+  });
+}
+
 // ---- tags ------------------------------------------------------------------
 
 export function useMyTags() {

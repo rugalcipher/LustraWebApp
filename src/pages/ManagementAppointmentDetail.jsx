@@ -13,8 +13,11 @@ import TalentPicker from "@/features/talentAdmin/TalentPicker";
 import {
   useAppointment, useAppointmentTransition, useCancelAppointment, useRescheduleAppointment,
   useSetAppointmentClientVisibility, useReassignAppointmentTalent, useAddAppointmentNote,
+  useUpdateAppointmentAddress,
 } from "@/features/appointments/hooks";
 import { presentAppointmentStatus, appointmentTone, allowedActions } from "@/services/appointmentService";
+import AddressAutocomplete from "@/components/address/AddressAutocomplete";
+import { EMPTY_ADDRESS_INPUT, isAddressEmpty, toAddressInput, formatAddressLine } from "@/domain/address";
 
 /**
  * One appointment, for Management.
@@ -55,6 +58,80 @@ function Rows({ entries }) {
           </div>
         ))}
     </dl>
+  );
+}
+
+/**
+ * The appointment's structured address snapshot — display, edit and clear.
+ *
+ * Editing here is a deliberate management change to THIS appointment's snapshot. It never
+ * touches any client saved address the snapshot was copied from, and it clears the snapshot's
+ * source link — exactly the backend's `PUT .../address` contract. Exact coordinates in the
+ * snapshot are staff/assigned-talent only and never reach the client's view.
+ */
+function AddressSnapshotEditor({ appointment, conversationId }) {
+  const snapshot = appointment.addressSnapshot;
+  const update = useUpdateAppointmentAddress(conversationId);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(EMPTY_ADDRESS_INPUT);
+
+  const startEdit = () => {
+    setForm(snapshot ? { ...snapshot } : EMPTY_ADDRESS_INPUT);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    try {
+      await update.mutateAsync({
+        bookingId: appointment.id,
+        address: isAddressEmpty(form) ? null : toAddressInput(form),
+      });
+      setEditing(false);
+      toast({ title: "Address updated" });
+    } catch (err) {
+      toast({ title: "Couldn't update the address", description: toUserMessage(err), variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="pt-2 border-t border-white/[0.06]">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">Structured address</p>
+        {!editing && (
+          <button
+            onClick={startEdit}
+            className="font-body text-meta tracking-luxe uppercase text-rose-gold/80 hover:text-rose-gold"
+          >
+            {snapshot ? "Edit" : "Add"}
+          </button>
+        )}
+      </div>
+
+      {!editing ? (
+        <p className="font-body text-helper text-soft-ivory/85 mt-1 break-words">
+          {formatAddressLine(snapshot) || "Not set"}
+        </p>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <AddressAutocomplete value={form} onChange={setForm} idPrefix="mgmt-appt-addr" label="Search the address" />
+          <div className="flex gap-2">
+            <button
+              onClick={save}
+              disabled={update.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-rose-gold/15 border border-rose-gold/50 font-body text-meta tracking-luxe uppercase text-rose-gold hover:bg-rose-gold/25 disabled:opacity-50"
+            >
+              {update.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Save address
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="px-4 py-2 rounded-sm border border-white/15 font-body text-meta tracking-luxe uppercase text-soft-ivory/80 hover:text-ivory"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -244,6 +321,8 @@ export default function ManagementAppointmentDetail() {
                 ["Talent instructions", appointment.talentInstructions],
               ]}
             />
+
+            <AddressSnapshotEditor appointment={appointment} conversationId={appointment.conversationId} />
 
             {appointment.internalNotes?.length > 0 && (
               <ul className="space-y-2 pt-1">

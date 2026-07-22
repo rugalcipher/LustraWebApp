@@ -1,5 +1,6 @@
 import { api } from "@/api/client";
 import type { PagedResult } from "@/services/discoveryService";
+import type { StructuredAddress, StructuredAddressInput } from "@/domain/address";
 
 /**
  * Internal appointments — Lustra's operational schedule.
@@ -44,6 +45,12 @@ export interface AppointmentDto {
   clientVisibleNotes: string | null;
   /** The talent's operational brief. Distinct from notes written for the client. */
   talentInstructions: string | null;
+  /**
+   * The appointment's structured address snapshot, captured at booking time. Independent of
+   * any client saved address it was copied from — editing or deleting that source never
+   * changes this. Exact coordinates here are management/assigned-talent only.
+   */
+  addressSnapshot: StructuredAddress | null;
   assignedManagementUserId: string | null;
   createdAtUtc: string;
   /** The pre-booking inquiry thread. */
@@ -133,6 +140,17 @@ export interface CreateAppointmentInput {
    * about, and concealment should be a deliberate act rather than a default.
    */
   isVisibleToClient?: boolean;
+  /**
+   * A saved address of the booked client to snapshot into the appointment. When set, the
+   * backend copies that address's values and records it as the source; it takes precedence
+   * over `addressSnapshot`. It never mutates the client's saved address.
+   */
+  clientAddressId?: string | null;
+  /**
+   * An inline structured address to snapshot, when not choosing a saved one. Ignored if
+   * `clientAddressId` is supplied. Does NOT create a client saved address.
+   */
+  addressSnapshot?: StructuredAddressInput | null;
 }
 
 /**
@@ -206,6 +224,19 @@ export function rescheduleAppointment(
 
 export function cancelAppointment(bookingId: string, reason: string): Promise<void> {
   return api.post<void>(`/management/bookings/${bookingId}/cancel`, { reason });
+}
+
+/**
+ * Updates (or clears) an appointment's structured address snapshot.
+ *
+ * This is a deliberate management edit of the snapshot itself — it does not touch any client
+ * saved address and clears the snapshot's source link. Passing `null` clears the address.
+ */
+export function updateAppointmentAddress(
+  bookingId: string,
+  address: StructuredAddressInput | null
+): Promise<void> {
+  return api.put<void>(`/management/bookings/${bookingId}/address`, address);
 }
 
 export function startAppointment(bookingId: string): Promise<void> {

@@ -70,6 +70,8 @@ export const queryKeys = {
     versions: () => ["talent-portal", "profile", "versions"] as const,
     tags: () => ["talent-portal", "profile", "tags"] as const,
     rates: () => ["talent-portal", "profile", "rates"] as const,
+    /** The talent's PRIVATE base/working address — owner only. */
+    baseAddress: () => ["talent-portal", "profile", "base-address"] as const,
     /** The talent's OWN media, including unapproved and rejected items. */
     media: () => ["talent-portal", "media"] as const,
     availability: () => ["talent-portal", "availability"] as const,

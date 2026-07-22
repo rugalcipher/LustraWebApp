@@ -145,6 +145,22 @@ export function useCancelAppointment(conversationId?: string | null) {
   });
 }
 
+/** Updates or clears an appointment's structured address snapshot (management edit). */
+export function useUpdateAppointmentAddress(conversationId?: string | null) {
+  const invalidate = useAppointmentInvalidation();
+  return useMutation({
+    mutationFn: ({
+      bookingId,
+      address,
+    }: {
+      bookingId: string;
+      address: import("@/domain/address").StructuredAddressInput | null;
+    }) => appointmentService.updateAppointmentAddress(bookingId, address),
+    retry: false,
+    onSuccess: (_r, { bookingId }) => invalidate(bookingId, conversationId),
+  });
+}
+
 /** Start, complete or mark a no-show. */
 export function useAppointmentTransition(conversationId?: string | null) {
   const invalidate = useAppointmentInvalidation();

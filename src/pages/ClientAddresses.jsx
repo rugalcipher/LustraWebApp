@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Eyebrow } from "@/components/lustra/Primitives";
 import { toast } from "@/components/ui/use-toast";
 import { toUserMessage } from "@/api/problemDetails";
-import AddressFields from "@/components/address/AddressFields";
+import AddressAutocomplete from "@/components/address/AddressAutocomplete";
 import {
   EMPTY_ADDRESS_INPUT, toAddressInput, validateAddress, formatAddressLine,
 } from "@/domain/address";
@@ -14,8 +14,9 @@ import {
 } from "@/features/clientAddresses/hooks";
 
 /**
- * The client's saved addresses. Manual structured entry for now — the next pass adds Google
- * Places selection on top of the same fields. Exact coordinates stay private to the client.
+ * The client's saved addresses. Google Places selection fills the structured fields and marks
+ * an address verified; manual entry still works when the search finds nothing or is unavailable.
+ * Exact coordinates stay private to the client.
  */
 export default function ClientAddresses() {
   const { data: addresses, isPending, isError, error } = useClientAddresses();
@@ -110,7 +111,7 @@ export default function ClientAddresses() {
             {errors.label && <p className="font-body text-meta text-error" role="alert">{errors.label}</p>}
           </div>
 
-          <AddressFields value={form} onChange={(field, val) => setForm((p) => ({ ...p, [field]: val }))} errors={errors} />
+          <AddressAutocomplete value={form} onChange={setForm} errors={errors} label="Address" />
 
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" className="w-4 h-4 accent-rose-gold" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
