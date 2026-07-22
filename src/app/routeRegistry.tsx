@@ -43,6 +43,7 @@ const TalentAppointments = React.lazy(() => import("@/pages/TalentAppointments")
 const TalentAvailability = React.lazy(() => import("@/pages/TalentAvailability"));
 const TalentMessages = React.lazy(() => import("@/pages/TalentMessages"));
 const TalentConversation = React.lazy(() => import("@/pages/TalentConversation"));
+const TalentPreview = React.lazy(() => import("@/pages/TalentPreview"));
 const ManagementDashboard = React.lazy(() => import("@/pages/ManagementDashboard"));
 const InquiryPipeline = React.lazy(() => import("@/pages/InquiryPipeline"));
 const ManagementInquiryDetail = React.lazy(() => import("@/pages/ManagementInquiryDetail"));
@@ -98,6 +99,12 @@ export interface NavMeta {
   order: number;
   /** Optional heading the item is grouped under in the sidebar (e.g. "People"). */
   section?: string;
+  /**
+   * Marks a primary destination. The talent mobile bottom bar shows only the (four) primary
+   * items; everything else moves to the side drawer. Shells that don't split primary/secondary
+   * ignore this.
+   */
+  primary?: boolean;
 }
 
 export interface RouteDef {
@@ -195,16 +202,22 @@ export const ROUTES: RouteDef[] = [
   { path: "/app/profile", element: <Profile />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Profile", icon: "User", order: 5 } },
 
   // ---- Talent portal ----
-  { path: "/talent-portal", element: <TalentPortal />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Dashboard", icon: "LayoutDashboard", order: 1 } },
-  { path: "/talent-profile", element: <TalentProfileEditor />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Profile", icon: "User", order: 2 } },
-  { path: "/talent-media", element: <TalentMedia />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Media", icon: "Image", order: 3 } },
-  { path: "/talent-appointments", element: <TalentAppointments />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Appointments", icon: "CalendarCheck", order: 4 } },
+  //
+  // The mobile bottom bar shows exactly the four PRIMARY items — Preview, Appointments,
+  // Messages, Profile — with Preview first and the talent's default landing (see roles.ts).
+  // Everything else is a real route in the side drawer, not removed.
+  { path: "/talent-preview", element: <TalentPreview />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Preview", icon: "Eye", order: 1, primary: true } },
+  { path: "/talent-appointments", element: <TalentAppointments />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Appointments", icon: "CalendarCheck", order: 2, primary: true } },
   // A talent's booking conversations (client ↔ talent ↔ management). Participant-gated on the
   // server: a talent only ever sees threads for bookings assigned to them.
-  { path: "/talent-messages", element: <TalentMessages />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Messages", icon: "MessageSquare", order: 8 } },
+  { path: "/talent-messages", element: <TalentMessages />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Messages", icon: "MessageSquare", order: 3, primary: true } },
   { path: "/talent-messages/:id", element: <TalentConversation />, access: "protected", roles: ["talent", ...STAFF], shell: "internal" },
-  { path: "/talent-availability", element: <TalentAvailability />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Availability", icon: "CalendarClock", order: 5 } },
-  { path: "/talent-reviews", element: <TalentReviews />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Reviews", icon: "Star", order: 6 } },
+  { path: "/talent-profile", element: <TalentProfileEditor />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Profile", icon: "User", order: 4, primary: true } },
+  // Secondary talent tools — the side drawer.
+  { path: "/talent-portal", element: <TalentPortal />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Dashboard", icon: "LayoutDashboard", order: 10 } },
+  { path: "/talent-media", element: <TalentMedia />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Media", icon: "Image", order: 11 } },
+  { path: "/talent-availability", element: <TalentAvailability />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Availability", icon: "CalendarClock", order: 12 } },
+  { path: "/talent-reviews", element: <TalentReviews />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Reviews", icon: "Star", order: 13 } },
   { path: "/talent-bookings/:id", element: <TalentBookingDetail />, access: "protected", roles: ["talent", ...STAFF], shell: "internal" },
 
   // ---- Management console ----
@@ -282,8 +295,8 @@ export const ROUTES: RouteDef[] = [
   ] },
 
   // ---- Shared internal (shell selected by principal) ----
-  { path: "/agency-calendar", element: <AgencyCalendar />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Calendar", icon: "Calendar", order: 7 } },
-  { path: "/settings", element: <AccountSettings />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Settings", icon: "Settings", order: 9 } },
+  { path: "/agency-calendar", element: <AgencyCalendar />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Calendar", icon: "Calendar", order: 14 } },
+  { path: "/settings", element: <AccountSettings />, access: "protected", roles: ["talent", ...STAFF], shell: "internal", nav: { group: "talent", label: "Account & security", icon: "Settings", order: 15 } },
 ];
 
 // ---- Derived selectors (single source of truth for the rest of the app) ----
@@ -319,6 +332,8 @@ export interface NavItem {
   label: string;
   icon: string;
   section?: string;
+  /** True for a primary destination (talent bottom bar); see {@link NavMeta.primary}. */
+  primary?: boolean;
 }
 
 /**
@@ -342,9 +357,10 @@ export function navForGroup(
         label: meta.label,
         icon: meta.icon,
         section: meta.section,
+        primary: meta.primary,
         order: meta.order ?? 0,
       }))
   )
     .sort((a, b) => a.order - b.order)
-    .map(({ to, label, icon, section }) => ({ to, label, icon, section }));
+    .map(({ to, label, icon, section, primary }) => ({ to, label, icon, section, primary }));
 }

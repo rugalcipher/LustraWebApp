@@ -75,7 +75,7 @@ describe("role-aware home", () => {
     ["superadmin", "/admin"],
     ["admin", "/admin"],
     ["management", "/management-dashboard"],
-    ["talent", "/talent-portal"],
+    ["talent", "/talent-preview"],
     ["client", "/app/discover"],
   ] as const)("sends %s to %s", async (role, expected) => {
     authenticated = true;
@@ -105,7 +105,7 @@ describe("role-aware home", () => {
 describe("multi-role precedence matches post-login routing", () => {
   it.each([
     [["management", "admin"], "/admin"],
-    [["client", "talent"], "/talent-portal"],
+    [["client", "talent"], "/talent-preview"],
     [["talent", "management"], "/management-dashboard"],
     [["client", "superadmin"], "/admin"],
     [["client", "talent", "management", "admin", "superadmin"], "/admin"],

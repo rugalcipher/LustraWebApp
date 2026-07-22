@@ -46,7 +46,7 @@ export const ROLE_LABELS: Record<Role | Guest, string> = {
 export const ROLE_HOME: Record<Role | Guest, string> = {
   [GUEST]: "/",
   client: "/app/discover",
-  talent: "/talent-portal",
+  talent: "/talent-preview",
   management: "/management-dashboard",
   admin: "/admin",
   superadmin: "/admin",

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { ROUTES } from "@/app/routeRegistry";
+import { ROUTES, navForGroup } from "@/app/routeRegistry";
+import { ROLE_HOME } from "@/domain/roles";
 import * as service from "@/services/talentConversationService";
 import { isOwnTalentMessage } from "@/services/talentConversationService";
 
@@ -85,6 +86,32 @@ describe("talent messaging routes", () => {
     const list = ROUTES.find((r) => r.path === "/talent-messages");
     const nav = Array.isArray(list?.nav) ? list?.nav : list?.nav ? [list.nav] : [];
     expect(nav.some((n) => n.group === "talent" && n.label === "Messages")).toBe(true);
+  });
+});
+
+describe("talent bottom navigation", () => {
+  const nav = navForGroup("talent");
+  const primary = nav.filter((n) => n.primary);
+
+  it("has exactly four primary items in the locked order", () => {
+    expect(primary.map((n) => n.label)).toEqual(["Preview", "Appointments", "Messages", "Profile"]);
+  });
+
+  it("makes Preview the default talent destination", () => {
+    expect(ROLE_HOME.talent).toBe("/talent-preview");
+    expect(primary[0].to).toBe("/talent-preview");
+  });
+
+  it("keeps secondary tools as real routes for the drawer, not removed", () => {
+    const secondary = nav.filter((n) => !n.primary).map((n) => n.to);
+    // Every secondary destination still resolves to a registered route.
+    for (const to of secondary) {
+      expect(ROUTES.map((r) => r.path)).toContain(to);
+    }
+    // Media, availability, dashboard and account remain reachable.
+    expect(secondary).toEqual(
+      expect.arrayContaining(["/talent-media", "/talent-availability", "/talent-portal", "/settings"])
+    );
   });
 });
 
