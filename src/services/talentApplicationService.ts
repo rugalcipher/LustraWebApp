@@ -288,6 +288,14 @@ export function submitApplication(
   );
 }
 
+/**
+ * The count of applications awaiting a management decision, for the navigation attention pill.
+ * A number, never the rows — the server counts. Gated by TalentApplications.View.
+ */
+export function getTalentApplicationAttentionCount(signal?: AbortSignal): Promise<{ count: number }> {
+  return api.get<{ count: number }>(`${MANAGEMENT}/attention-count`, { signal });
+}
+
 export function withdrawApplication(id: string, token: string): Promise<TalentApplicationStatusDto> {
   return api.post<TalentApplicationStatusDto>(
     `${PUBLIC}/${id}/withdraw`,

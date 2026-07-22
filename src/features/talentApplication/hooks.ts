@@ -49,6 +49,22 @@ export function useTalentApplications(filters: TalentApplicationSearch = {}) {
   });
 }
 
+/**
+ * The count of applications awaiting a management decision, for the navigation attention pill.
+ * Gated on the view permission, and refreshed by every review mutation (they invalidate the
+ * `["management","talent-applications"]` prefix this key lives under).
+ */
+export function useTalentApplicationAttentionCount() {
+  const { canView } = useTalentApplicationPermissions();
+  return useQuery({
+    queryKey: ["management", "talent-applications", "attention-count"],
+    queryFn: ({ signal }) => service.getTalentApplicationAttentionCount(signal),
+    enabled: canView,
+    staleTime: 30_000,
+    select: (data: { count: number }) => data.count,
+  });
+}
+
 export function useTalentApplication(id: string | undefined) {
   const { canView } = useTalentApplicationPermissions();
   return useQuery({

@@ -11,6 +11,10 @@ import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import RouteFallback from "@/components/RouteFallback";
 import { useHomeLink } from "@/auth/useHomeLink";
 import AuthenticatedErrorBoundary from "@/components/AuthenticatedErrorBoundary";
+import { useTalentApplicationAttentionCount } from "@/features/talentApplication/hooks";
+
+/** The nav route the Talent Applications attention pill attaches to (shared by Admin + Management). */
+const TALENT_APPLICATIONS_PATH = "/admin/talent-applications";
 
 const ICONS = {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
@@ -61,6 +65,22 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
     location.pathname === to || (to !== "/admin" && location.pathname.startsWith(to + "/"));
   const activeItem = nav.find((n) => isActive(n.to));
 
+  // The Talent Applications attention pill. Only fetched when the item is actually in this
+  // workspace's nav (i.e. the user holds TalentApplications.View — the hook re-checks too).
+  const showApplicationsPill = nav.some((n) => n.to === TALENT_APPLICATIONS_PATH);
+  const { data: applicationsAwaiting = 0 } = useTalentApplicationAttentionCount();
+  const badgeFor = (to) => {
+    if (to !== TALENT_APPLICATIONS_PATH || !showApplicationsPill || !applicationsAwaiting) return null;
+    return (
+      <span
+        aria-label={`${applicationsAwaiting} awaiting review`}
+        className="shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-rose-gold text-noir text-meta font-body flex items-center justify-center tabular-nums"
+      >
+        {applicationsAwaiting > 99 ? "99+" : applicationsAwaiting}
+      </span>
+    );
+  };
+
   const SidebarBody = (
     <>
       <div className="px-5 h-16 flex items-center border-b border-white/[0.06]">
@@ -79,7 +99,9 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
         {toSections(nav).map((section) => (
           <div key={section.title ?? "_"} className={section.title ? "pt-4" : undefined}>
             {section.title && (
-              <p className="px-3 pb-1.5 font-body text-meta tracking-luxe uppercase text-muted-grey/70">
+              // A restrained, secondary group label — small and uppercase, but without the
+              // extreme tracking the clickable items used to shout with.
+              <p className="px-3 pb-1.5 font-body text-meta tracking-wide uppercase text-muted-grey/60">
                 {section.title}
               </p>
             )}
@@ -98,7 +120,9 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
                   )}
                 >
                   <Icon className="w-4 h-4 shrink-0" strokeWidth={1.2} />
-                  <span className="tracking-wide-luxe text-nav uppercase">{label}</span>
+                  {/* Readable title case — no forced uppercase, no luxe tracking. */}
+                  <span className="flex-1 truncate">{label}</span>
+                  {badgeFor?.(to)}
                 </Link>
               );
             })}
@@ -108,7 +132,7 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
       <div className="px-4 py-3 border-t border-white/[0.06]">
         <button
           onClick={() => navigate("/")}
-          className="w-full flex items-center gap-2 text-left text-nav tracking-luxe uppercase text-muted-grey hover:text-rose-gold transition font-body"
+          className="w-full flex items-center gap-2 text-left text-sm text-muted-grey hover:text-rose-gold transition font-body"
         >
           <LogOut className="w-3.5 h-3.5" strokeWidth={1.3} /> Exit to site
         </button>
