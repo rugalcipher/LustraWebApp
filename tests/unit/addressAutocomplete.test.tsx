@@ -80,7 +80,10 @@ describe("AddressAutocomplete", () => {
   it("uses a ≥16px input token on the search field (no shrinking text class)", () => {
     render(<Host />);
     const input = screen.getByRole("combobox");
-    expect(input.className).toContain("text-body");
+    // text-base is a fixed 16px; text-body is the fluid token that floors near 13px and makes
+    // iOS Safari auto-zoom, so it must NOT be used on an interactive input.
+    expect(input.className).toContain("text-base");
+    expect(input.className).not.toContain("text-body");
     expect(input.className).not.toMatch(/text-(xs|sm)\b/);
   });
 

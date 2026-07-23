@@ -124,8 +124,10 @@ describe("four images uploaded at once", () => {
     for (const id of ["a", "b", "c", "d"]) gate.release(id);
 
     await waitFor(() => expect(screen.getByText("4/8 uploaded")).toBeInTheDocument());
+    // Each uploaded photo is shown as a thumbnail whose alt text is its filename (the panel is a
+    // visual grid now, not a list of filenames).
     for (const name of ["a.png", "b.png", "c.png", "d.png"]) {
-      expect(screen.getByText(name)).toBeInTheDocument();
+      expect(screen.getByAltText(name)).toBeInTheDocument();
     }
   });
 
