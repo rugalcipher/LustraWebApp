@@ -252,6 +252,7 @@ export const queryKeys = {
     heroSlides: (placement?: string) => ["admin", "cms", "hero-slides", placement ?? null] as const,
     settings: () => ["admin", "settings"] as const,
     featureFlags: () => ["admin", "feature-flags"] as const,
+    talentGrades: () => ["admin", "talent-grades"] as const,
     auditLogs: (filters?: Filters) => ["admin", "audit-logs", filters ?? null] as const,
     placements: (filters?: Filters) => ["admin", "placements", filters ?? null] as const,
   },

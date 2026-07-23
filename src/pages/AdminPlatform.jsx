@@ -13,6 +13,7 @@ import {
   useFeatureFlags,
   useUpdateFeatureFlag,
 } from "@/features/admin/hooks";
+import TalentGradesSection from "@/features/admin/TalentGradesSection";
 
 /**
  * Admin → Platform. Real taxonomies, settings and feature flags.
@@ -66,6 +67,7 @@ export default function AdminPlatform() {
         <TaxonomyEditor type={activeType} />
       </Card>
 
+      <TalentGradesSection />
       <SettingsSection />
       <FeatureFlagsSection />
     </div>
