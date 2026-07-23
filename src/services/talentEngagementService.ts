@@ -4,9 +4,10 @@ import { api } from "@/api/client";
  * The talent's own appointments and reviews — `/api/v1/talent/bookings*`, `/talent/reviews*`.
  *
  * The talent's view is OPERATIONAL: exactly what they need in order to attend, including
- * the private address they must travel to, and nothing else. No client identity, no
- * money, no settlement state, no internal notes, and none of the notes written for the
- * client. The API withholds all of it — do not reintroduce any of it here.
+ * the private address they must travel to, and their OWN payout — never the client rate,
+ * the booking total or the management margin. No client identity, no settlement state, no
+ * internal notes, and none of the notes written for the client. The API withholds all of
+ * it — do not reintroduce any of it here.
  */
 
 /** Mirrors the backend `TalentBookingDto`. */
@@ -28,6 +29,15 @@ export interface TalentBookingDto {
   privateLocationDetails: string | null;
   /** The talent's operational brief: where to report, what to bring, who to ask for. */
   talentInstructions: string | null;
+  /**
+   * The talent's OWN agreed payout, minor units — their fee and never the client rate,
+   * booking total or margin. Null when the booking carries no priced snapshot.
+   */
+  talentHourlyPayoutMinor: number | null;
+  /** The talent's total agreed payout for the booking, minor units. */
+  talentTotalPayoutMinor: number | null;
+  /** Currency of the payout amounts. */
+  payoutCurrency: string | null;
 }
 
 /**

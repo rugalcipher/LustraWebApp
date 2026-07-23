@@ -16,6 +16,7 @@ import {
   useUpdateAppointmentAddress,
 } from "@/features/appointments/hooks";
 import { presentAppointmentStatus, appointmentTone, allowedActions } from "@/services/appointmentService";
+import { formatMinor } from "@/services/talentGradeService";
 import AddressAutocomplete from "@/components/address/AddressAutocomplete";
 import { EMPTY_ADDRESS_INPUT, isAddressEmpty, toAddressInput, formatAddressLine } from "@/domain/address";
 
@@ -58,6 +59,56 @@ function Rows({ entries }) {
           </div>
         ))}
     </dl>
+  );
+}
+
+/**
+ * The management-only financial breakdown for a priced booking.
+ *
+ * Shows the full picture — client rate and total, talent payout, and the gross margin
+ * between them — that only management may see. The client's and talent's own views each
+ * carry a single slice of this and never the margin, enforced by separate server-side
+ * projections; this card is the one place all three figures sit together.
+ */
+function FinancialsCard({ financials: f }) {
+  const currency = f.currencyCode;
+  return (
+    <Card className="p-5 space-y-3 border-rose-gold/20">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-heading text-lg text-ivory">Financials</h2>
+        {f.pricingOverridden && (
+          <span className="font-body text-meta tracking-luxe uppercase px-2 py-0.5 rounded-full border border-warning/40 text-warning">
+            Overridden
+          </span>
+        )}
+      </div>
+      <p className="font-body text-meta tracking-wide-luxe uppercase text-rose-gold/90">
+        Management only — the client sees the total, the talent sees the payout
+      </p>
+      <Rows
+        entries={[
+          ["Client rate / hr", formatMinor(f.clientHourlyRateMinor, currency)],
+          ["Client total", formatMinor(f.clientTotalMinor, currency)],
+          ["Talent payout / hr", formatMinor(f.talentHourlyPayoutMinor, currency)],
+          ["Talent total payout", formatMinor(f.talentTotalPayoutMinor, currency)],
+          ["Pricing", f.gradeName ? `${f.pricingMode} · ${f.gradeName}` : f.pricingMode],
+        ]}
+      />
+      <div className="flex items-baseline justify-between gap-4 pt-2 border-t border-white/10">
+        <span className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+          Gross margin
+        </span>
+        <span className="font-heading text-lg text-success whitespace-nowrap">
+          {formatMinor(f.grossMarginMinor, currency)}
+        </span>
+      </div>
+      {f.pricingOverridden && f.pricingOverrideReason && (
+        <p className="font-body text-helper text-soft-ivory/70 leading-relaxed">
+          <span className="text-muted-grey">Override reason: </span>
+          {f.pricingOverrideReason}
+        </p>
+      )}
+    </Card>
   );
 }
 
@@ -371,6 +422,16 @@ export default function ManagementAppointmentDetail() {
               </button>
             </form>
           </Card>
+
+          {/*
+            The full financial breakdown — MANAGEMENT ONLY. This shape is served on the
+            management booking DTO alone; the client's and talent's views each carry only
+            their own slice and never the margin. The immutable snapshot was captured when the
+            booking was priced, so a later grade change does not move these figures.
+          */}
+          {appointment.financials && (
+            <FinancialsCard financials={appointment.financials} />
+          )}
 
           {appointment.clientVisibleNotes && (
             <Card className="p-5 space-y-2">

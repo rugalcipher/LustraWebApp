@@ -26,6 +26,7 @@ import * as managementService from "@/services/managementService";
 import { isOwnMessage } from "@/services/conversationService";
 import { presentAppointmentStatus } from "@/services/appointmentService";
 import { formatBookingDate, formatBookingTime } from "@/services/bookingService";
+import { formatMinor } from "@/services/talentGradeService";
 import {
   useManagementConversation,
   useConversationClientSummary,
@@ -34,6 +35,7 @@ import {
   useAddConversationNote,
   useAssignConversation,
 } from "@/features/management/hooks";
+import { useCommercialTerms } from "@/features/talentAdmin/commercialHooks";
 import { useLiveThread } from "@/features/conversations/hooks";
 import { useManagementStaff } from "@/features/admin/hooks";
 
@@ -51,7 +53,7 @@ export default function ManagementConversation() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { principal } = usePrincipal();
+  const { principal, hasPermission } = usePrincipal();
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
   const endRef = useRef(null);
@@ -346,6 +348,16 @@ export default function ManagementConversation() {
           <ClientSummaryCard query={clientSummary} />
 
           <TalentContextCard conversation={conversation} />
+
+          {/*
+            The commercial terms behind this thread — STAFF ONLY, gated on
+            TalentCommercialTerms.View both here and in the hook. A viewer without the
+            permission never renders the card; nothing partial leaks. The client and talent
+            threads carry none of this.
+          */}
+          {hasPermission("TalentCommercialTerms.View") && conversation.data?.talentProfileId && (
+            <CommercialsCard talentProfileId={conversation.data.talentProfileId} />
+          )}
 
           <OwnerCard
             conversation={conversation}
@@ -670,6 +682,63 @@ function AppointmentCard({ query, conversationId, hasTalent }) {
         <p className="mt-2 font-body text-[0.55rem] text-warning">
           Needs a selected talent on the conversation.
         </p>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * The commercial terms behind the conversation — STAFF ONLY.
+ *
+ * Shows the client rate, the talent payout and the margin management is working with. The
+ * client and talent see none of this; it is gated on TalentCommercialTerms.View at the call
+ * site and again in the hook. When the talent is unpriced it shows a "pricing required"
+ * nudge rather than blank figures, pointing staff at the talent record to configure terms.
+ */
+function CommercialsCard({ talentProfileId }) {
+  const query = useCommercialTerms(talentProfileId);
+  const terms = query.data;
+
+  return (
+    <Card className="p-4">
+      <Eyebrow>Commercials</Eyebrow>
+      <p className="mt-1.5 inline-flex items-center gap-1.5 text-[0.55rem] text-muted-grey">
+        <Lock className="w-2.5 h-2.5" strokeWidth={1.3} />
+        Staff only — never shown to the client or the talent.
+      </p>
+
+      {query.isPending ? (
+        <p className="mt-3 font-body text-xs text-muted-grey">Loading…</p>
+      ) : !terms || !terms.isConfigured ? (
+        <div className="mt-3">
+          <p className="font-body text-xs text-warning leading-relaxed">
+            Pricing required — this talent has no commercial terms configured.
+          </p>
+          <Link
+            to={`/talent/${talentProfileId}`}
+            className="mt-2 inline-flex items-center gap-1.5 text-[0.6rem] tracking-luxe uppercase text-rose-gold hover:underline"
+          >
+            Configure on the talent record
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-1.5">
+          <div className="flex justify-between gap-3">
+            <span className="font-body text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">Client / hr</span>
+            <span className="font-body text-xs text-soft-ivory/90">{formatMinor(terms.clientHourlyRateMinor, terms.currency)}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="font-body text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">Talent / hr</span>
+            <span className="font-body text-xs text-soft-ivory/90">{formatMinor(terms.talentHourlyPayoutMinor, terms.currency)}</span>
+          </div>
+          <div className="flex justify-between gap-3 pt-1.5 border-t border-white/10">
+            <span className="font-body text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">Margin / hr</span>
+            <span className="font-body text-xs text-success">{formatMinor(terms.grossMarginMinor, terms.currency)}</span>
+          </div>
+          <p className="pt-1 font-body text-[0.55rem] text-muted-grey">
+            {terms.gradeName ? `${terms.pricingMode} · ${terms.gradeName}` : terms.pricingMode}
+          </p>
+        </div>
       )}
     </Card>
   );

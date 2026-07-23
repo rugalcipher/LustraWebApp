@@ -39,8 +39,10 @@ describe("talent applications attention pill", () => {
   });
 
   it("hides at zero and caps the display at 99+", () => {
-    expect(shell).toContain("!applicationsAwaiting) return null");
-    expect(shell).toContain('applicationsAwaiting > 99 ? "99+"');
+    // The applications and unread pills share one <Pill>. Zero hides it (the badge guard
+    // requires a truthy count), and the shared component caps every count at 99+.
+    expect(shell).toContain("showApplicationsPill && applicationsAwaiting");
+    expect(shell).toContain('count > 99 ? "99+" : count');
   });
 
   it("attaches to the Talent Applications route shared by admin and management", () => {

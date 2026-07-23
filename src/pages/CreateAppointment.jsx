@@ -12,6 +12,8 @@ import {
   useManagementConversation,
 } from "@/features/management/hooks";
 import { useCreateAppointment, useClientAddressesForBooking } from "@/features/appointments/hooks";
+import { useCommercialTerms } from "@/features/talentAdmin/commercialHooks";
+import { formatMinor } from "@/services/talentGradeService";
 import AddressAutocomplete from "@/components/address/AddressAutocomplete";
 import { EMPTY_ADDRESS_INPUT, isAddressProvided, toAddressInput, formatAddressLine } from "@/domain/address";
 
@@ -66,6 +68,11 @@ export default function CreateAppointment() {
     clientVisibleNotes: "",
     agreedAmount: "",
     currencyCode: "ZAR",
+    // Optional per-booking rate overrides, entered as MAJOR currency and converted to minor
+    // units on submit. Setting either makes the reason required and affects only this booking.
+    clientHourlyRateOverride: "",
+    talentHourlyPayoutOverride: "",
+    pricingOverrideReason: "",
   });
   const [talentConfirmed, setTalentConfirmed] = useState(false);
   // The structured, Google-verified confidential address. Optional: when left empty the
@@ -81,6 +88,40 @@ export default function CreateAppointment() {
   const talentProfileId = conversation.data?.talentProfileId ?? null;
   const talentName = conversation.data?.talentDisplayName ?? null;
 
+  // The talent's configured commercial terms, so staff see the rate a booking will use before
+  // they create it. Gated server-side and in the hook on TalentCommercialTerms.View — a viewer
+  // without it simply gets no preview, never a partial figure.
+  const commercialTerms = useCommercialTerms(talentProfileId ?? undefined);
+  const terms = commercialTerms.data ?? null;
+
+  const durationMinutes = form.durationMinutes ? Number(form.durationMinutes) : 0;
+  // Overrides are typed in MAJOR currency; convert to minor units, treating blank/invalid as
+  // "no override". An override wins over the talent's default terms, for this booking only.
+  const toOverrideMinor = (major) => {
+    const trimmed = String(major).trim();
+    if (trimmed === "") return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? Math.round(n * 100) : null;
+  };
+  const totalMinorFor = (hourlyMinor) =>
+    hourlyMinor != null && durationMinutes > 0 ? Math.round((hourlyMinor * durationMinutes) / 60) : null;
+
+  const clientOverrideMinor = toOverrideMinor(form.clientHourlyRateOverride);
+  const talentOverrideMinor = toOverrideMinor(form.talentHourlyPayoutOverride);
+  const hasOverride = clientOverrideMinor != null || talentOverrideMinor != null;
+  const overrideNeedsReason = hasOverride && !form.pricingOverrideReason.trim();
+
+  // Effective hourly figures for the live preview — an override replaces the default.
+  const previewCurrency = terms?.currency ?? "ZAR";
+  const effClientHourlyMinor = clientOverrideMinor ?? terms?.clientHourlyRateMinor ?? null;
+  const effTalentHourlyMinor = talentOverrideMinor ?? terms?.talentHourlyPayoutMinor ?? null;
+  const previewClientTotalMinor = totalMinorFor(effClientHourlyMinor);
+  const previewTalentTotalMinor = totalMinorFor(effTalentHourlyMinor);
+  const previewMarginMinor =
+    previewClientTotalMinor != null && previewTalentTotalMinor != null
+      ? previewClientTotalMinor - previewTalentTotalMinor
+      : null;
+
   const ready = Boolean(clientUserId && talentProfileId);
 
   const canSubmit = useMemo(
@@ -89,8 +130,9 @@ export default function CreateAppointment() {
       Boolean(form.engagementCategoryId) &&
       Boolean(form.confirmedDate) &&
       talentConfirmed &&
+      !overrideNeedsReason &&
       !create.isPending,
-    [ready, form.engagementCategoryId, form.confirmedDate, talentConfirmed, create.isPending]
+    [ready, form.engagementCategoryId, form.confirmedDate, talentConfirmed, overrideNeedsReason, create.isPending]
   );
 
   const submit = async (event) => {
@@ -119,6 +161,11 @@ export default function CreateAppointment() {
           agreedAmount: form.agreedAmount ? Number(form.agreedAmount) : null,
           additionalCosts: null,
           currencyCode: form.currencyCode || "ZAR",
+          // Per-booking overrides (minor units). A reason is required whenever either is set;
+          // it affects only this booking, never the talent's default terms.
+          clientHourlyRateOverrideMinor: clientOverrideMinor,
+          talentHourlyPayoutOverrideMinor: talentOverrideMinor,
+          pricingOverrideReason: hasOverride ? form.pricingOverrideReason.trim() || null : null,
           talentAvailabilityConfirmed: true,
           // A chosen saved address wins: the backend copies it onto the appointment and records
           // it as the source, without mutating the client's saved address. Otherwise an inline
@@ -512,6 +559,90 @@ export default function CreateAppointment() {
                 Recorded for internal reference only. No money moves through Lustra, and the
                 talent does not see this figure.
               </p>
+
+              {/*
+                The priced snapshot the booking will actually carry — computed from the talent's
+                commercial terms (or the override below) and the duration. Management only; the
+                client will see just the total, the talent just their payout.
+              */}
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="font-body text-[0.55rem] tracking-wide-luxe uppercase text-rose-gold/90">
+                  Booking price {hasOverride ? "(overridden)" : "(from talent terms)"}
+                </p>
+                {terms?.isConfigured || hasOverride ? (
+                  <dl className="mt-2 space-y-1.5">
+                    <PreviewRow label="Client / hr" value={formatMinor(effClientHourlyMinor, previewCurrency)} />
+                    <PreviewRow
+                      label={`Client total${durationMinutes > 0 ? "" : " (set duration)"}`}
+                      value={formatMinor(previewClientTotalMinor, previewCurrency)}
+                    />
+                    <PreviewRow label="Talent / hr" value={formatMinor(effTalentHourlyMinor, previewCurrency)} />
+                    <PreviewRow label="Talent total" value={formatMinor(previewTalentTotalMinor, previewCurrency)} />
+                    <div className="flex justify-between gap-3 pt-1.5 border-t border-white/10">
+                      <dt className="font-body text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">Margin</dt>
+                      <dd className="font-body text-[0.7rem] text-success">
+                        {formatMinor(previewMarginMinor, previewCurrency)}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="mt-2 font-body text-[0.6rem] text-warning leading-relaxed">
+                    This talent has no commercial terms configured. The booking will be created
+                    unpriced unless you set an override below.
+                  </p>
+                )}
+              </div>
+
+              {/* Per-booking override — sticks to this booking only, needs a reason. */}
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
+                <p className={labelCls}>Override rates (optional, per hour)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelCls} htmlFor="clientOverride">Client / hr</label>
+                    <input
+                      id="clientOverride"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.clientHourlyRateOverride}
+                      onChange={set("clientHourlyRateOverride")}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor="talentOverride">Talent / hr</label>
+                    <input
+                      id="talentOverride"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.talentHourlyPayoutOverride}
+                      onChange={set("talentHourlyPayoutOverride")}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+                {hasOverride && (
+                  <div>
+                    <label className={labelCls} htmlFor="overrideReason">
+                      Reason (required)
+                    </label>
+                    <input
+                      id="overrideReason"
+                      value={form.pricingOverrideReason}
+                      onChange={set("pricingOverrideReason")}
+                      placeholder="Why this booking departs from the standard rate"
+                      className={inputCls}
+                    />
+                    {overrideNeedsReason && (
+                      <p className="mt-1 inline-flex items-start gap-1.5 text-[0.6rem] text-warning">
+                        <ShieldAlert className="w-3 h-3 mt-0.5 shrink-0" strokeWidth={1.4} />
+                        A reason is required to override the rate.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </Card>
 
             <button
@@ -536,6 +667,15 @@ export default function CreateAppointment() {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function PreviewRow({ label, value }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="font-body text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">{label}</dt>
+      <dd className="font-body text-[0.7rem] text-soft-ivory/85">{value}</dd>
     </div>
   );
 }

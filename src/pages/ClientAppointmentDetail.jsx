@@ -7,6 +7,7 @@ import { Card, Skeleton } from "@/components/lustra/Primitives";
 import { cn } from "@/lib/utils";
 import { isApiError, toUserMessage } from "@/api/problemDetails";
 import { useClientAppointment } from "@/features/clientAppointments/hooks";
+import { formatMinor } from "@/services/talentGradeService";
 import { formatAddressLine } from "@/domain/address";
 import {
   formatAppointmentDate, formatAppointmentTime, formatDuration, formatLocation,
@@ -200,6 +201,27 @@ export default function ClientAppointmentDetail() {
         <Row icon={Clock} label="Engagement" value={appointment.engagementCategory} />
         {appointment.venueType && <Row icon={MapPin} label="Venue type" value={appointment.venueType} />}
       </Card>
+
+      {/*
+        The client's OWN booking total — their commercial figure and no one else's. The talent
+        payout and the management margin never reach this page: the DTO does not carry them, so
+        there is nothing here to leak. Shown only when the booking was priced.
+      */}
+      {appointment.bookingTotalMinor != null && (
+        <Card className="p-5 flex items-baseline justify-between gap-4">
+          <div>
+            <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">
+              Booking total
+            </p>
+            <p className="font-body text-caption text-soft-ivory/60 mt-1">
+              The agreed total for this appointment.
+            </p>
+          </div>
+          <p className="font-heading text-xl text-ivory whitespace-nowrap">
+            {formatMinor(appointment.bookingTotalMinor, appointment.bookingCurrency)}
+          </p>
+        </Card>
+      )}
 
       {/* Written by management knowing the client reads it. The only free text here. */}
       {appointment.clientVisibleNotes && (

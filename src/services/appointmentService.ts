@@ -62,6 +62,33 @@ export interface AppointmentDto {
   isVisibleToClient: boolean;
   history: { fromStatus: string | null; toStatus: string; reason: string | null; createdAtUtc: string }[];
   internalNotes: { id: string; authorUserId: string; note: string; createdAtUtc: string }[];
+  /**
+   * The full financial breakdown — MANAGEMENT ONLY. The backend returns this on the
+   * management booking DTO alone; the client and talent DTOs each carry only their own slice
+   * and never this shape. Null when the booking was never priced.
+   */
+  financials: BookingFinancialsDto | null;
+}
+
+/**
+ * The full booking financial breakdown — MANAGEMENT ONLY. Mirrors the backend
+ * `BookingFinancialsDto`. A client never sees the payout or the margin; a talent never sees
+ * the client rate or total. This type must never be spread into a client- or talent-facing
+ * DTO. All money is minor units.
+ */
+export interface BookingFinancialsDto {
+  pricingMode: string;
+  gradeId: string | null;
+  gradeName: string | null;
+  currencyCode: string;
+  clientHourlyRateMinor: number;
+  clientTotalMinor: number;
+  talentHourlyPayoutMinor: number;
+  talentTotalPayoutMinor: number;
+  grossMarginMinor: number;
+  pricingOverridden: boolean;
+  pricingOverrideReason: string | null;
+  pricedAtUtc: string;
 }
 
 /** Mirrors `BookingListItemDto`. */
@@ -152,6 +179,14 @@ export interface CreateAppointmentInput {
    * `clientAddressId` is supplied. Does NOT create a client saved address.
    */
   addressSnapshot?: StructuredAddressInput | null;
+  /**
+   * Optional per-booking rate overrides, minor units. When either is set the booking's
+   * financial snapshot is marked overridden and `pricingOverrideReason` becomes required.
+   * The override affects only THIS booking — never the talent's default commercial terms.
+   */
+  clientHourlyRateOverrideMinor?: number | null;
+  talentHourlyPayoutOverrideMinor?: number | null;
+  pricingOverrideReason?: string | null;
 }
 
 /**

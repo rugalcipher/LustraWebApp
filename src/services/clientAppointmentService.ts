@@ -67,11 +67,12 @@ export interface ClientAppointmentListItemDto {
 /**
  * Mirrors `ClientAppointmentDto` — the privacy boundary.
  *
- * Absent by design, and not to be added: agreed amounts, additional costs and
- * settlement state; `privateLocationDetails` (the talent's reporting address);
- * `talentInstructions` and internal notes; `inquiryId`,
- * `assignedManagementUserId` and `acceptedProposalId`. Only `clientVisibleNotes`
- * is free text, and it is written knowing the client reads it.
+ * The client sees their OWN booking total (`bookingTotalMinor`) and nothing more of the
+ * commercial picture: never the talent payout, never the management margin. Still absent by
+ * design, and not to be added: additional costs and settlement state;
+ * `privateLocationDetails` (the talent's reporting address); `talentInstructions` and
+ * internal notes; `inquiryId`, `assignedManagementUserId` and `acceptedProposalId`. Only
+ * `clientVisibleNotes` is free text, and it is written knowing the client reads it.
  */
 export interface ClientAppointmentDto {
   id: string;
@@ -98,6 +99,14 @@ export interface ClientAppointmentDto {
   bookingConversationId: string | null;
   /** The appointment's structured address snapshot (only present on a visible appointment). */
   addressSnapshot: import("@/domain/address").StructuredAddress | null;
+  /**
+   * The client's own agreed booking total, minor units — their own commercial figure and
+   * never the talent payout or management margin. Null when the booking carries no priced
+   * snapshot.
+   */
+  bookingTotalMinor: number | null;
+  /** Currency of {@link bookingTotalMinor}. */
+  bookingCurrency: string | null;
 }
 
 /**

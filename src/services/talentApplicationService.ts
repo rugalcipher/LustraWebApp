@@ -398,6 +398,13 @@ export interface ApproveTalentApplicationRequest {
   /** Omit/null copies every photograph; an explicit empty list copies none. */
   mediaIdsToCopy?: string[] | null;
   changeSummary?: string | null;
+  /**
+   * Commercial terms to apply to the new talent ATOMICALLY on approval — the effective client
+   * rate becomes their public starting price. Omit/null leaves the talent Unconfigured
+   * ("pricing required"), to be set later on the talent record. Mirrors the backend
+   * `SetCommercialTermsRequest`.
+   */
+  commercialTerms?: import("@/services/commercialTermsService").SetCommercialTermsInput | null;
 }
 
 /** Mirrors `TalentApplicationApprovalDto`. */

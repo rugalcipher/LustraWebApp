@@ -18,6 +18,8 @@ import {
 import StatusPill, { statusLabel } from "@/features/talentApplication/StatusPill";
 import PrivatePhoto from "@/features/talentApplication/PrivatePhoto";
 import ConfirmAction from "@/features/talentApplication/ConfirmAction";
+import { useTalentGrades } from "@/features/admin/gradeHooks";
+import { formatMinor } from "@/services/talentGradeService";
 
 /**
  * One talent application, in full, for Management review.
@@ -55,6 +57,48 @@ const rowsFor = (application) => [
   ],
 ];
 
+/**
+ * The commercial-grade selector shown when approving an application.
+ *
+ * The reviewer prices the new talent on approval, or leaves them Unconfigured to price later.
+ * Only the client rate is shown here — the payout follows the grade default and is a staff
+ * concern configured on the talent record, not decided in this modal. When no grade is chosen
+ * the talent is created "pricing required".
+ */
+function PricingSelector({ grades, value, onChange }) {
+  const active = (grades ?? []).filter((g) => g.isActive);
+  const chosen = active.find((g) => g.id === value) ?? null;
+
+  return (
+    <div className="space-y-1.5 rounded-sm border border-white/10 bg-card-black/40 p-3">
+      <label
+        htmlFor="approval-grade"
+        className="block font-body text-meta tracking-wide-luxe uppercase text-muted-grey"
+      >
+        Pricing grade
+      </label>
+      <select
+        id="approval-grade"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-card-black/60 border border-white/10 rounded-sm px-3 py-2.5 font-body text-body text-ivory focus:outline-none focus:border-rose-gold/50"
+      >
+        <option value="">Set later — leave pricing required</option>
+        {active.map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.name} — {formatMinor(g.clientHourlyRateMinor, g.currencyCode)}/hr
+          </option>
+        ))}
+      </select>
+      <p className="font-body text-meta text-muted-grey">
+        {chosen
+          ? `The talent's public starting rate becomes ${formatMinor(chosen.clientHourlyRateMinor, chosen.currencyCode)}/hr. The payout follows the grade default.`
+          : "No grade chosen — the talent is created with pricing required, to be set on their record."}
+      </p>
+    </div>
+  );
+}
+
 function Timestamps({ application }) {
   const entries = [
     ["Created", application.createdAtUtc],
@@ -87,6 +131,13 @@ export default function TalentApplicationReview() {
   const [note, setNote] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [approval, setApproval] = useState(null);
+  // The grade to price the new talent at on approval. "" = leave Unconfigured ("pricing
+  // required"), to be set later on the talent record. Custom pricing is configured there too.
+  const [approvalGradeId, setApprovalGradeId] = useState("");
+
+  // Active grades to offer on approval, gated on TalentGrades.View — a reviewer without it
+  // simply gets no options and approves the talent Unconfigured.
+  const grades = useTalentGrades(false);
 
   const addNote = useAddApplicationNote(id);
   const markUnderReview = useMarkUnderReview(id);
@@ -110,6 +161,7 @@ export default function TalentApplicationReview() {
   const close = () => {
     setDialog(null);
     setActionError("");
+    setApprovalGradeId("");
   };
 
   const run = async (promise) => {
@@ -140,6 +192,12 @@ export default function TalentApplicationReview() {
               // would re-ask a question that was answered on this screen.
               mediaIdsToCopy: null,
               changeSummary: reason || null,
+              // Price the talent atomically on approval when a grade was chosen; the effective
+              // client rate becomes their public starting price. Left null, the talent is
+              // Unconfigured and shows "pricing required" until set on the talent record.
+              commercialTerms: approvalGradeId
+                ? { pricingMode: "GradeLinked", gradeId: approvalGradeId, usePayoutGradeDefault: true }
+                : null,
             },
             idempotencyKey,
           })
@@ -522,7 +580,9 @@ export default function TalentApplicationReview() {
         onCancel={close}
         busy={busy}
         error={actionError}
-      />
+      >
+        <PricingSelector grades={grades.data} value={approvalGradeId} onChange={setApprovalGradeId} />
+      </ConfirmAction>
 
       <ConfirmAction
         open={dialog === "approveAndPublish"}
@@ -540,6 +600,7 @@ export default function TalentApplicationReview() {
             ? "The applicant asked to be published."
             : "Note that the applicant did NOT ask to be published automatically."}
         </p>
+        <PricingSelector grades={grades.data} value={approvalGradeId} onChange={setApprovalGradeId} />
       </ConfirmAction>
 
       {lightbox && (

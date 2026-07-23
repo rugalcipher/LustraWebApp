@@ -1,12 +1,13 @@
 import React from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Lock, Wallet } from "lucide-react";
 import InternalHeader from "@/components/lustra/InternalHeader";
 import { Card, Eyebrow } from "@/components/lustra/Primitives";
 import { cn } from "@/lib/utils";
 import { toUserMessage, isApiError } from "@/api/problemDetails";
 
 import { presentBookingStatus, formatBookingDate, formatBookingTime } from "@/services/bookingService";
+import { formatMinor } from "@/services/talentGradeService";
 import { useMyTalentBooking } from "@/features/talent/hooks";
 
 /**
@@ -105,10 +106,33 @@ export default function TalentBookingDetail() {
             )}
             <Row label="Time zone" value={booking.timeZone} />
           </div>
-          {/* No fee is shown. The agreed amount is the client's arrangement with Lustra,
-              not the talent's fee, and settlement is discussed privately — so the API
-              does not send it here. Do not add a money row back. */}
         </Card>
+
+        {/*
+          The talent's OWN payout — their agreed fee and theirs alone. The client rate, the
+          booking total and the management margin are never sent to this surface, so there is
+          nothing here to leak. Shown only when the booking was priced; settlement itself is
+          still arranged privately.
+        */}
+        {booking.talentTotalPayoutMinor != null && (
+          <Card className="p-5">
+            <div className="flex items-baseline justify-between gap-4">
+              <Eyebrow>Your payout</Eyebrow>
+              <span className="font-heading text-xl text-ivory whitespace-nowrap">
+                {formatMinor(booking.talentTotalPayoutMinor, booking.payoutCurrency)}
+              </span>
+            </div>
+            {booking.talentHourlyPayoutMinor != null && (
+              <p className="font-body text-[0.65rem] text-muted-grey mt-2 leading-relaxed">
+                <span className="inline-flex items-center gap-1.5">
+                  <Wallet className="w-3 h-3" strokeWidth={1.3} />
+                  {formatMinor(booking.talentHourlyPayoutMinor, booking.payoutCurrency)} per hour
+                </span>
+                {" · your fee for this appointment. Settlement is arranged with Lustra."}
+              </p>
+            )}
+          </Card>
+        )}
 
         <Card className="p-5">
           <Eyebrow>Location</Eyebrow>
