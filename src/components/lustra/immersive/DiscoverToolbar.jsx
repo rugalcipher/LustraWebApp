@@ -1,6 +1,7 @@
 import React from "react";
 import { Search, SlidersHorizontal, X, LayoutGrid, Maximize } from "lucide-react";
 import { cn } from "@/lib/utils";
+import DiscoveryLocation from "@/features/discovery/DiscoveryLocation";
 
 /**
  * Sort options. `value` is the canonical token shared with the discovery store and
@@ -47,6 +48,8 @@ export default function DiscoverToolbar({
             className="w-full bg-card-black/80 border border-white/[0.08] rounded-full pl-9 pr-3 py-2 text-xs font-body text-ivory placeholder:text-muted-grey/50 focus:outline-none focus:border-rose-gold/40 transition"
           />
         </div>
+        {/* One compact location control (Near me / area / Choose location). */}
+        <DiscoveryLocation />
         <button
           onClick={onOpenFilters}
           className="relative px-3 border border-white/[0.08] rounded-full text-soft-ivory hover:border-rose-gold/40 transition"

@@ -5,7 +5,7 @@ import { Eyebrow } from "@/components/lustra/Primitives";
 import { StarDivider } from "@/lib/lustra/Brand";
 import TalentCard from "@/components/lustra/TalentCard";
 import DiscoveryGate from "@/components/lustra/immersive/DiscoveryGate";
-import LocationPicker from "@/components/lustra/immersive/LocationPicker";
+import DiscoveryLocation from "@/features/discovery/DiscoveryLocation";
 import { useSavedTalent } from "@/layouts/AppShell";
 import { useDiscoverySearch, useCities } from "@/features/discovery/hooks";
 import { useDiscoveryUiStore } from "@/stores/discoveryUiStore";
@@ -93,7 +93,7 @@ export default function BrowseTalent() {
             </div>
 
             <div className="mb-8">
-              <LocationPicker compact />
+              <DiscoveryLocation variant="panel" />
             </div>
 
             {search.isLoading ? (

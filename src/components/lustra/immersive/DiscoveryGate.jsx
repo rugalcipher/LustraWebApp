@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Lock, MapPin, Sparkles } from "lucide-react";
 import Monogram from "@/lib/lustra/Monogram";
-import LocationPicker from "@/components/lustra/immersive/LocationPicker";
+import DiscoveryLocation from "@/features/discovery/DiscoveryLocation";
 import { useAuthStore } from "@/stores/authStore";
 
 /**
@@ -59,7 +59,7 @@ export default function DiscoveryGate({ gate }) {
 
       {gate === "location-required" ? (
         <div className="mt-8 w-full max-w-xs">
-          <LocationPicker />
+          <DiscoveryLocation variant="panel" />
         </div>
       ) : (
         <div className="mt-8 flex flex-col gap-3 w-full max-w-xs">
