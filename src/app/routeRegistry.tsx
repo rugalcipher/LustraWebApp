@@ -5,7 +5,8 @@ import type { Role } from "@/domain/roles";
 // Pages (default exports from the existing .jsx pages)
 import Landing from "@/pages/Landing";
 import BrowseTalent from "@/pages/BrowseTalent";
-import TalentProfile from "@/pages/TalentProfile";
+import TalentTeaser from "@/pages/TalentTeaser";
+import TalentDetail from "@/pages/TalentDetail";
 import RequestAccess from "@/pages/RequestAccess";
 import TalentApplication from "@/pages/TalentApplication";
 import ApplicationContinue from "@/pages/ApplicationContinue";
@@ -143,7 +144,7 @@ export const ROUTES: RouteDef[] = [
   // MUST precede "/talent/:id": otherwise React Router matches "activate" as a
   // talent id and every invitation link renders a broken profile page.
   { path: "/talent/activate", element: <TalentActivate />, access: "public", shell: "public" },
-  { path: "/talent/:id", element: <TalentProfile />, access: "public", shell: "public" },
+  { path: "/talent/:id", element: <TalentTeaser />, access: "public", shell: "public" },
   { path: "/request-access", element: <RequestAccess />, access: "public", shell: "public" },
   { path: "/for-talent", element: <TalentApplication />, access: "public", shell: "public" },
   // Target of the backend's changes-requested email. Public and deliberately
@@ -181,7 +182,7 @@ export const ROUTES: RouteDef[] = [
   // been withdrawn from routing; their code and endpoints remain but are legacy/deferred
   // and must not be reintroduced without a product decision.
   { path: "/app/discover", element: <Discover />, access: "protected", roles: CLIENT_AND_UP, shell: "client", index: true, nav: { group: "client", label: "Discover", icon: "Compass", order: 1 } },
-  { path: "/app/talent/:id", element: <TalentProfile />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
+  { path: "/app/talent/:id", element: <TalentDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/saved", element: <Saved />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Saved", icon: "Heart", order: 2 } },
   { path: "/app/collections/:id", element: <CollectionDetail />, access: "protected", roles: CLIENT_AND_UP, shell: "client" },
   { path: "/app/messages", element: <Messages />, access: "protected", roles: CLIENT_AND_UP, shell: "client", nav: { group: "client", label: "Messages", icon: "MessageSquare", order: 3 } },
