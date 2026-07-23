@@ -67,7 +67,7 @@ describe("TalentGallery", () => {
   it("is controlled when given index + onIndexChange", () => {
     const seen: number[] = [];
     render(
-      <TalentGallery images={THREE} index={1} onIndexChange={(i) => seen.push(i)} ariaLabel="Aria photographs" />
+      <TalentGallery images={THREE} index={1} onIndexChange={(i: number) => seen.push(i)} ariaLabel="Aria photographs" />
     );
     expect(activeAlt()).toMatch(/2 of 3/);
     fireEvent.click(screen.getAllByRole("button", { name: "Next photo" })[0]);
