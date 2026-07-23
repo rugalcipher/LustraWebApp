@@ -11,6 +11,9 @@ import { LustraHorizontalLogo } from "@/components/lustra/BrandLogo";
 import { useHomeLink } from "@/auth/useHomeLink";
 import AuthenticatedErrorBoundary from "@/components/AuthenticatedErrorBoundary";
 import RouteFallback from "@/components/RouteFallback";
+import { useLiveConversationList } from "@/features/conversations/hooks";
+
+const TALENT_CONVERSATION_KEYS = [["talent", "conversations"]];
 
 const ICONS = {
   LayoutDashboard, CalendarClock, Calendar, Settings, Circle, User, Image, Star, CalendarCheck,
@@ -27,6 +30,8 @@ export default function TalentShell() {
   const homeLink = useHomeLink();
   const { user } = useRole();
   const location = useLocation();
+  // Keep the talent conversation list + Messages badge live app-wide over the shared connection.
+  useLiveConversationList(TALENT_CONVERSATION_KEYS);
   const nav = navForGroup("talent");
   const primary = nav.filter((item) => item.primary);
   const secondary = nav.filter((item) => !item.primary);

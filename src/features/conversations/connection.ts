@@ -24,6 +24,14 @@ export type ChatEventMap = {
   TypingIndicator: (payload: { conversationId: string; userId: string }) => void;
   ReadReceipt: (payload: { conversationId: string; userId: string; readAtUtc: string }) => void;
   ConversationUpdated: (payload: { conversationId: string }) => void;
+  /**
+   * This user's access to a conversation changed: `granted` false means the server has already
+   * removed them from the group (a reassigned talent, a client a booking was hidden from) and
+   * they must drop the thread; true means they may (re)join and refresh.
+   */
+  ConversationAccessChanged: (payload: { conversationId: string; granted: boolean }) => void;
+  /** A conversation this user participates in was created — refresh the list. */
+  ConversationCreated: (payload: { conversationId: string }) => void;
 };
 
 export type ChatEventName = keyof ChatEventMap;
@@ -35,6 +43,8 @@ const HUB_EVENTS: ChatEventName[] = [
   "TypingIndicator",
   "ReadReceipt",
   "ConversationUpdated",
+  "ConversationAccessChanged",
+  "ConversationCreated",
 ];
 
 /** Resolve the hub URL from configuration; falls back to the API origin. */
@@ -66,6 +76,8 @@ const listeners: { [K in ChatEventName]: Set<ChatEventMap[K]> } = {
   TypingIndicator: new Set(),
   ReadReceipt: new Set(),
   ConversationUpdated: new Set(),
+  ConversationAccessChanged: new Set(),
+  ConversationCreated: new Set(),
 };
 
 const statusListeners = new Set<(status: ConnectionStatus) => void>();

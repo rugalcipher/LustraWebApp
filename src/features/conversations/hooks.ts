@@ -218,11 +218,23 @@ export function useLiveConversation(conversationId: string | undefined): {
       queryClient.invalidateQueries({ queryKey: queryKeys.conversations.mine() });
     });
 
+    // This user's access to THIS thread changed. On revoke the server has already dropped them
+    // from the group; refetching the detail/messages then 404s and the thread shows unavailable.
+    // On grant, refetching brings it back. Either way the list is refreshed.
+    const offAccess = onChatEvent("ConversationAccessChanged", (payload) => {
+      if (payload.conversationId !== conversationId) return;
+      if (!payload.granted) void leaveConversation(conversationId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations.detail(conversationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations.messages(conversationId, 1) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations.mine() });
+    });
+
     return () => {
       offMessage();
       offTyping();
       offRead();
       offUpdated();
+      offAccess();
     };
   }, [conversationId, queryClient, principal.userId]);
 
@@ -266,10 +278,106 @@ export function useConversationListLiveUpdates(): void {
     const offUpdated = onChatEvent("ConversationUpdated", () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.conversations.mine() });
     });
+    // A newly-created (e.g. booking) conversation, or an access change, updates the list + badge.
+    const offCreated = onChatEvent("ConversationCreated", () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations.mine() });
+    });
+    const offAccess = onChatEvent("ConversationAccessChanged", () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations.mine() });
+    });
 
     return () => {
       off();
       offUpdated();
+      offCreated();
+      offAccess();
     };
   }, [queryClient, principal.isAuthenticated]);
+}
+
+/**
+ * Role-agnostic live wiring for ONE open thread. The talent and management surfaces keep their
+ * own React Query keys, so instead of the client-specific merge this joins the SignalR group and
+ * REST-refetches the caller's keys on any relevant event — refetch is authoritative, so a sent
+ * message never duplicates. On an access revocation the server has already removed this
+ * connection from the group; the refetch then 404s and the thread shows unavailable.
+ *
+ * `invalidateKeys` must be stable (wrap in useMemo) so the subscription is not torn down each
+ * render.
+ */
+export function useLiveThread(
+  conversationId: string | undefined,
+  invalidateKeys: readonly unknown[][]
+): ConnectionStatus {
+  const queryClient = useQueryClient();
+  const { principal } = usePrincipal();
+  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+
+  useEffect(() => onConnectionStatus(setStatus), []);
+
+  useEffect(() => {
+    if (!conversationId || !principal.isAuthenticated) return;
+    let cancelled = false;
+    ensureConnected()
+      .then(() => {
+        if (!cancelled) return joinConversation(conversationId);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      void leaveConversation(conversationId);
+    };
+  }, [conversationId, principal.isAuthenticated]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    const invalidateAll = () =>
+      invalidateKeys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }));
+
+    const offMessage = onChatEvent("ReceiveMessage", (message) => {
+      if (message.conversationId === conversationId) invalidateAll();
+    });
+    const offUpdated = onChatEvent("ConversationUpdated", (payload) => {
+      if (payload.conversationId === conversationId) invalidateAll();
+    });
+    const offAccess = onChatEvent("ConversationAccessChanged", (payload) => {
+      if (payload.conversationId !== conversationId) return;
+      if (!payload.granted) void leaveConversation(conversationId);
+      invalidateAll();
+    });
+
+    return () => {
+      offMessage();
+      offUpdated();
+      offAccess();
+    };
+  }, [conversationId, queryClient, invalidateKeys]);
+
+  return status;
+}
+
+/**
+ * Role-agnostic live wiring for a conversation LIST / unread badge. Refetches the caller's list
+ * keys on any new message, new conversation or access change, so talent and management inboxes
+ * update without a reload. Mounted once per surface.
+ */
+export function useLiveConversationList(listKeys: readonly unknown[][]): void {
+  const queryClient = useQueryClient();
+  const { principal } = usePrincipal();
+
+  useEffect(() => {
+    if (!principal.isAuthenticated) return;
+    ensureConnected().catch(() => undefined);
+
+    const invalidateAll = () =>
+      listKeys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }));
+
+    const offs = [
+      onChatEvent("ReceiveMessage", invalidateAll),
+      onChatEvent("ConversationUpdated", invalidateAll),
+      onChatEvent("ConversationCreated", invalidateAll),
+      onChatEvent("ConversationAccessChanged", invalidateAll),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [queryClient, principal.isAuthenticated, listKeys]);
 }

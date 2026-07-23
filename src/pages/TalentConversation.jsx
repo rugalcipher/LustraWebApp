@@ -17,13 +17,15 @@ import {
   isOwnTalentMessage,
   listTalentConversations,
 } from "@/services/talentConversationService";
+import { useLiveThread } from "@/features/conversations/hooks";
 
 /**
  * One booking conversation, from the talent's side.
  *
- * REST-only and refresh-driven, matching the management surface — it never claims to be
- * live. The talent is a participant only because they are assigned to this booking; the
- * server enforces that on every call, so a changed id in the URL yields not-found.
+ * Live over the shared SignalR connection: incoming client/management messages refetch this
+ * thread, and losing access (a reassignment) drops it. The talent is a participant only because
+ * they are assigned to this booking; the server enforces that on every call and on the hub join,
+ * so a changed id in the URL — or a revoked assignment — yields not-found.
  */
 export default function TalentConversation() {
   const { id } = useParams();
@@ -36,6 +38,13 @@ export default function TalentConversation() {
   const [file, setFile] = useState(null);
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Live: refetch this thread + the talent list on any message/access event for it.
+  const liveKeys = useMemo(
+    () => [["talent", "conversations", id, "messages"], ["talent", "conversations"]],
+    [id]
+  );
+  useLiveThread(id, liveKeys);
 
   const messagesQuery = useQuery({
     queryKey: ["talent", "conversations", id, "messages", limit],

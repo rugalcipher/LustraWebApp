@@ -12,6 +12,9 @@ import RouteFallback from "@/components/RouteFallback";
 import { useHomeLink } from "@/auth/useHomeLink";
 import AuthenticatedErrorBoundary from "@/components/AuthenticatedErrorBoundary";
 import { useTalentApplicationAttentionCount } from "@/features/talentApplication/hooks";
+import { useLiveConversationList } from "@/features/conversations/hooks";
+
+const MANAGEMENT_CONVERSATION_KEYS = [["management", "conversations"]];
 
 /** The nav route the Talent Applications attention pill attaches to (shared by Admin + Management). */
 const TALENT_APPLICATIONS_PATH = "/admin/talent-applications";
@@ -60,6 +63,8 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
   const location = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Keep the management conversation inbox + unread counters live over the shared connection.
+  useLiveConversationList(MANAGEMENT_CONVERSATION_KEYS);
 
   const isActive = (to) =>
     location.pathname === to || (to !== "/admin" && location.pathname.startsWith(to + "/"));

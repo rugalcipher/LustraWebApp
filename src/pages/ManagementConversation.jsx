@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,6 +34,7 @@ import {
   useAddConversationNote,
   useAssignConversation,
 } from "@/features/management/hooks";
+import { useLiveThread } from "@/features/conversations/hooks";
 import { useManagementStaff } from "@/features/admin/hooks";
 
 /**
@@ -62,6 +63,17 @@ export default function ManagementConversation() {
   const addNote = useAddConversationNote(id);
   const assign = useAssignConversation(id);
   const staff = useManagementStaff();
+
+  // Live: refetch this thread + the inbox when a client/talent message or access change arrives.
+  const liveKeys = useMemo(
+    () => [
+      queryKeys.management.conversationMessages(id ?? "", 1),
+      queryKeys.management.conversation(id ?? ""),
+      ["management", "conversations"],
+    ],
+    [id]
+  );
+  useLiveThread(id, liveKeys);
 
   const messagesQuery = useQuery({
     queryKey: queryKeys.management.conversationMessages(id ?? "", 1),
