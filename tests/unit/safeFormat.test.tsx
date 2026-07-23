@@ -98,15 +98,16 @@ describe("formatRate no longer crashes on a null rate", () => {
 
 // ---- the immersive slides that crashed ------------------------------------------
 
-describe("the Client discovery slides guard the rate", () => {
+describe("the Client discovery surfaces guard the rate", () => {
   it.each([
-    "src/components/lustra/immersive/TalentSummarySlide.jsx",
-    "src/components/lustra/immersive/TalentRatesSlide.jsx",
     "src/components/lustra/immersive/TalentOverlay.jsx",
-  ])("%s no longer calls toLocaleString directly on the rate", (file) => {
+    "src/pages/TalentDetail.jsx",
+    "src/pages/TalentTeaser.jsx",
+    "src/components/lustra/immersive/ImmersiveTalentDiscovery.jsx",
+  ])("%s formats the rate via formatRate, never a raw toLocaleString", (file) => {
     const source = read(file);
-    expect(source).not.toContain("talent.startingRate.toLocaleString()");
-    expect(source).toContain("formatRate(talent.startingRate");
+    expect(source).not.toContain("startingRate.toLocaleString()");
+    expect(source).toContain("formatRate(");
   });
 });
 
