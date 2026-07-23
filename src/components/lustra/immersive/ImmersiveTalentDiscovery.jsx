@@ -1,35 +1,35 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronUp, ChevronDown, Undo2, Clock, X } from "lucide-react";
+import { MapPin, Heart, Undo2, Clock, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import TalentCard from "@/components/lustra/TalentCard";
 import { useSavedTalent } from "@/layouts/AppShell";
 import DiscoveryGate from "@/components/lustra/immersive/DiscoveryGate";
 import { useMessageAction } from "@/features/conversations/useMessageAction";
-import {
-  useDiscoverState,
-  usePrefersReducedMotion,
-  SLIDE_TITLES,
-} from "./useDiscoverState";
+import { useDiscoverState, usePrefersReducedMotion } from "./useDiscoverState";
 import DiscoverToolbar from "./DiscoverToolbar";
-import TalentStory from "./TalentStory";
+import TalentGallery from "@/features/discovery/TalentGallery";
+import { formatDistanceBand } from "@/features/discovery/NearbyLocation";
+import { formatRate } from "@/domain/talent";
+import { AvailabilityPill } from "@/components/lustra/Primitives";
 import TalentActionBar from "./TalentActionBar";
-import TalentNavigationControls from "./TalentNavigationControls";
 import TalentFilterSheet from "./TalentFilterSheet";
 import DiscoverSkeleton from "./DiscoverSkeleton";
 import DiscoverEmptyState from "./DiscoverEmptyState";
 
-const SWIPE_THRESHOLD = 60;
-const DIRECTION_LOCK_THRESHOLD = 10;
-
 /**
- * The full immersive discovery experience — one talent at a time, with a
- * swipeable seven-slide profile story, persistent action bar, search /
- * filter / sort toolbar, and an optional Browse-All grid. Horizontal
- * gestures change talent; profile slides change via progress taps, subtle
- * up/down controls, or keyboard.
+ * The immersive discovery experience — one talent at a time, MEDIA-FIRST.
+ *
+ * Each talent is a gallery of their real approved images (cover first); horizontal
+ * tap/swipe/arrow changes the IMAGE only. Talent-to-talent navigation is explicit through the
+ * bottom controls (Previous / View profile / Message / Next) — the two gestures are deliberately
+ * never the same. A compact overlay carries only the launch-critical summary; everything else
+ * lives on the full detail page.
  */
 export default function ImmersiveTalentDiscovery() {
   const { isSaved, toggle } = useSavedTalent();
+  const navigate = useNavigate();
   const message = useMessageAction();
   const state = useDiscoverState();
   const reduced = usePrefersReducedMotion();
@@ -69,48 +69,10 @@ export default function ImmersiveTalentDiscovery() {
   const [showFilters, setShowFilters] = useState(false);
   const [undoVisible, setUndoVisible] = useState(false);
   const [recentOpen, setRecentOpen] = useState(false);
-  const stageRef = useRef(null);
-  const touchRef = useRef({ startX: 0, startY: 0, locked: null });
   const undoTimer = useRef(null);
 
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < results.length - 1;
-  const prevTalent = hasPrev ? results[currentIndex - 1] : null;
-  const nextTalent = hasNext ? results[currentIndex + 1] : null;
-
-  // --- Horizontal swipe (talent navigation) ---
-  // touch-action: pan-y lets the browser handle vertical scrolling while
-  // we capture horizontal gestures for talent changes.
-  const onTouchStart = useCallback((e) => {
-    const t = e.touches[0];
-    touchRef.current = { startX: t.clientX, startY: t.clientY, locked: null };
-  }, []);
-
-  const onTouchMove = useCallback((e) => {
-    const t = e.touches[0];
-    const dx = t.clientX - touchRef.current.startX;
-    const dy = t.clientY - touchRef.current.startY;
-    if (!touchRef.current.locked) {
-      if (Math.abs(dx) > DIRECTION_LOCK_THRESHOLD || Math.abs(dy) > DIRECTION_LOCK_THRESHOLD) {
-        touchRef.current.locked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-      }
-    }
-  }, []);
-
-  const onTouchEnd = useCallback(
-    (e) => {
-      if (touchRef.current.locked !== "x") return;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - touchRef.current.startX;
-      if (dx < -SWIPE_THRESHOLD && hasNext) {
-        goNextTalent();
-        showUndoToast();
-      } else if (dx > SWIPE_THRESHOLD && hasPrev) {
-        goPrevTalent();
-      }
-    },
-    [goNextTalent, goPrevTalent, hasNext, hasPrev]
-  );
 
   const showUndoToast = useCallback(() => {
     setUndoVisible(true);
@@ -118,30 +80,25 @@ export default function ImmersiveTalentDiscovery() {
     undoTimer.current = setTimeout(() => setUndoVisible(false), 4000);
   }, []);
 
-  // --- Keyboard navigation ---
+  const nextTalentWithToast = useCallback(() => {
+    goNextTalent();
+    showUndoToast();
+  }, [goNextTalent, showUndoToast]);
+
+  // --- Keyboard: arrows change the IMAGE (talent changes only via the bottom controls, so one
+  // gesture never does both). ---
   useEffect(() => {
     const onKey = (e) => {
       if (mode !== "immersive" || !current) return;
-      // Don't intercept when typing in an input
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      if (e.key === "ArrowLeft" && hasPrev) goPrevTalent();
-      else if (e.key === "ArrowRight" && hasNext) {
-        goNextTalent();
-        showUndoToast();
-      } else if (e.key === "ArrowUp" || e.key === "PageUp") {
-        e.preventDefault();
-        goPrevSlide();
-      } else if (e.key === "ArrowDown" || e.key === "PageDown") {
-        e.preventDefault();
-        goNextSlide();
-      }
+      if (e.key === "ArrowLeft") { e.preventDefault(); goPrevSlide(); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); goNextSlide(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mode, current, hasPrev, hasNext, goNextTalent, goPrevTalent, goNextSlide, goPrevSlide, showUndoToast]);
+  }, [mode, current, goNextSlide, goPrevSlide]);
 
-  // Guests get their intent (talent + discovery position + slide) parked and are
-  // returned here after signing in.
+  // Guests get their intent parked and are returned here after signing in.
   const handleMessage = useCallback(() => {
     if (current) message(current);
   }, [current, message]);
@@ -149,6 +106,11 @@ export default function ImmersiveTalentDiscovery() {
   const handleToggleSave = useCallback(() => {
     if (current) toggle(current);
   }, [current, toggle]);
+
+  // Open the full authenticated detail, telling it to return to discovery on Back.
+  const handleViewProfile = useCallback(() => {
+    if (current) navigate(`/app/talent/${encodeURIComponent(current.slug)}`, { state: { from: "/app/discover" } });
+  }, [current, navigate]);
 
   const currentFilterLabel = [filters.city, filters.category, filters.travel === "yes" ? "Travels" : ""]
     .filter(Boolean)
@@ -290,15 +252,9 @@ export default function ImmersiveTalentDiscovery() {
         </div>
       )}
 
-      {/* Stage */}
-      <div
-        ref={stageRef}
-        className="flex-1 relative overflow-hidden"
-        style={{ touchAction: "pan-y" }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
+      {/* Stage — media-first. Talent-to-talent is the bottom controls only; horizontal gestures
+          here change the IMAGE (handled inside TalentGallery). */}
+      <div className="flex-1 relative overflow-hidden">
         {!loaded ? (
           <DiscoverSkeleton />
         ) : results.length === 0 ? (
@@ -309,39 +265,7 @@ export default function ImmersiveTalentDiscovery() {
           />
         ) : current ? (
           <>
-            <TalentNavigationControls
-              prevTalent={prevTalent}
-              nextTalent={nextTalent}
-              onPrev={goPrevTalent}
-              onNext={() => {
-                goNextTalent();
-                showUndoToast();
-              }}
-              hasPrev={hasPrev}
-              hasNext={hasNext}
-            />
-
-            {/* Subtle up/down slide controls */}
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1.5">
-              <button
-                onClick={goPrevSlide}
-                disabled={slideIndex === 0}
-                className="w-7 h-7 rounded-full bg-noir/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-soft-ivory/60 hover:border-rose-gold/50 hover:text-rose-gold transition disabled:opacity-0 disabled:pointer-events-none"
-                aria-label="Previous slide"
-              >
-                <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.4} />
-              </button>
-              <button
-                onClick={goNextSlide}
-                disabled={slideIndex === totalSlides - 1}
-                className="w-7 h-7 rounded-full bg-noir/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-soft-ivory/60 hover:border-rose-gold/50 hover:text-rose-gold transition disabled:opacity-0 disabled:pointer-events-none"
-                aria-label="Next slide"
-              >
-                <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.4} />
-              </button>
-            </div>
-
-            {/* Talent transition */}
+            {/* Talent transition wraps the gallery, keyed by talent id. */}
             <AnimatePresence custom={direction} initial={false}>
               <motion.div
                 key={current.id}
@@ -352,17 +276,59 @@ export default function ImmersiveTalentDiscovery() {
                 transition={{ duration: reduced ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }}
                 className="absolute inset-0"
               >
-                <TalentStory
-                  talent={currentStory}
-                  slideIndex={slideIndex}
-                  totalSlides={totalSlides}
-                  slideTitles={SLIDE_TITLES}
-                  onSlideJump={goToSlide}
-                  saved={isSaved(current.talentProfileId)}
-                  onToggleSave={handleToggleSave}
-                  onMessage={handleMessage}
-                  reduced={reduced}
-                />
+                <TalentGallery
+                  images={currentStory?.galleryImages?.length ? currentStory.galleryImages : current.coverImage ? [current.coverImage] : []}
+                  index={slideIndex}
+                  onIndexChange={goToSlide}
+                  headerOffset="4rem"
+                  indicatorPosition="top"
+                  className="absolute inset-0"
+                  ariaLabel={`${current.name} photographs`}
+                >
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-noir via-transparent to-noir/30" />
+
+                  {/* Top save — the discovery save lives here, not duplicated at the bottom. */}
+                  <button
+                    onClick={handleToggleSave}
+                    aria-label={isSaved(current.talentProfileId) ? "Remove from saved" : "Save talent"}
+                    className="absolute top-3 right-3 z-30 w-11 h-11 rounded-full bg-noir/50 backdrop-blur border border-white/10 flex items-center justify-center"
+                  >
+                    <Heart
+                      className={cn("w-4 h-4", isSaved(current.talentProfileId) ? "fill-rose-gold text-rose-gold" : "text-ivory")}
+                      strokeWidth={1.4}
+                    />
+                  </button>
+
+                  {/* Compact launch summary — never covers the image with long copy. */}
+                  <button
+                    onClick={handleViewProfile}
+                    className="absolute inset-x-0 bottom-0 z-20 text-left px-5 pb-4 pt-10"
+                    aria-label={`View ${current.name}'s full profile`}
+                  >
+                    <h2 className="font-heading font-light text-3xl text-ivory leading-none">
+                      {current.name}
+                      {current.age ? <span className="text-soft-ivory/50 text-xl">, {current.age}</span> : null}
+                    </h2>
+                    <div className="flex items-center gap-2.5 mt-2 flex-wrap">
+                      {current.city && (
+                        <span className="inline-flex items-center gap-1 text-[0.6rem] text-soft-ivory/80 font-body">
+                          <MapPin className="w-3 h-3" strokeWidth={1.2} /> {current.city}
+                        </span>
+                      )}
+                      {formatDistanceBand(current.distanceKm) && (
+                        <span className="text-[0.55rem] tracking-wide-luxe uppercase text-rose-gold/90 font-body">
+                          {formatDistanceBand(current.distanceKm)}
+                        </span>
+                      )}
+                      <AvailabilityPill status={current.availability} />
+                      {current.startingRate != null && (
+                        <span className="text-[0.6rem] font-body text-light-rose-gold">
+                          From {formatRate(current.startingRate, current.startingRateCurrency)}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                </TalentGallery>
               </motion.div>
             </AnimatePresence>
 
@@ -374,24 +340,16 @@ export default function ImmersiveTalentDiscovery() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
                   transition={{ duration: reduced ? 0 : 0.3 }}
-                  className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2.5 rounded-full bg-elevated-black/95 border border-rose-gold/25 backdrop-blur-md shadow-xl"
+                  className="absolute bottom-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2.5 rounded-full bg-elevated-black/95 border border-rose-gold/25 backdrop-blur-md shadow-xl"
                 >
-                  <span className="text-[0.6rem] tracking-wide-luxe uppercase text-soft-ivory/70">
-                    Skipped
-                  </span>
+                  <span className="text-[0.6rem] tracking-wide-luxe uppercase text-soft-ivory/70">Skipped</span>
                   <button
-                    onClick={() => {
-                      undoSkip();
-                      setUndoVisible(false);
-                    }}
+                    onClick={() => { undoSkip(); setUndoVisible(false); }}
                     className="inline-flex items-center gap-1 text-[0.6rem] tracking-luxe uppercase text-rose-gold hover:text-light-rose-gold transition"
                   >
                     <Undo2 className="w-3 h-3" strokeWidth={1.4} /> Undo
                   </button>
-                  <button
-                    onClick={() => setUndoVisible(false)}
-                    className="text-muted-grey hover:text-ivory"
-                  >
+                  <button onClick={() => setUndoVisible(false)} className="text-muted-grey hover:text-ivory">
                     <X className="w-3 h-3" strokeWidth={1.2} />
                   </button>
                 </motion.div>
@@ -402,27 +360,20 @@ export default function ImmersiveTalentDiscovery() {
 
         {/* Screen-reader announcement */}
         <div aria-live="polite" className="sr-only">
-          {current
-            ? `Viewing ${current.name}, ${current.city}. Slide ${slideIndex + 1} of ${totalSlides}: ${SLIDE_TITLES[slideIndex]}`
-            : ""}
+          {current ? `Viewing ${current.name}, ${current.city}. Photo ${slideIndex + 1} of ${totalSlides}.` : ""}
         </div>
       </div>
 
-      {/* Persistent action bar — above bottom navigation */}
+      {/* Persistent action bar — Previous / View profile / Message / Next. */}
       {current && (
         <div className="shrink-0 py-2.5 px-3 mb-[calc(52px_+_env(safe-area-inset-bottom))]">
           <TalentActionBar
-            saved={isSaved(current.talentProfileId)}
-            onToggleSave={handleToggleSave}
+            onViewProfile={handleViewProfile}
             onMessage={handleMessage}
             onPrev={goPrevTalent}
-            onNext={() => {
-              goNextTalent();
-              showUndoToast();
-            }}
+            onNext={nextTalentWithToast}
             hasPrev={hasPrev}
             hasNext={hasNext}
-            reduced={reduced}
           />
         </div>
       )}

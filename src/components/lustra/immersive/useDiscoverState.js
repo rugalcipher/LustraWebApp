@@ -7,17 +7,8 @@ import {
   useTalentProfile,
 } from "@/features/discovery/hooks";
 
-export const TOTAL_SLIDES = 7;
-
-export const SLIDE_TITLES = [
-  "Introduction",
-  "About",
-  "Gallery",
-  "Experiences & Rates",
-  "Availability",
-  "Reviews & Reputation",
-  "Profile Summary",
-];
+// The immersive experience is media-first: one slide per approved image, so the slide count is
+// the current talent's gallery size (never a fixed number of manufactured information slides).
 
 /**
  * Centralised discover-session state, backed by the real API.
@@ -114,17 +105,20 @@ export function useDiscoverState() {
     [currentIndex, results.length, setCurrentIndex, setSlideIndex]
   );
 
+  // Slides are the current talent's approved images; the count comes from the fetched profile.
+  const imageCount = Math.max(1, currentStory?.galleryImages?.length ?? 1);
+
   const goNextSlide = useCallback(
-    () => setSlideIndex(Math.min(slideIndex + 1, TOTAL_SLIDES - 1)),
-    [slideIndex, setSlideIndex]
+    () => setSlideIndex(Math.min(slideIndex + 1, imageCount - 1)),
+    [slideIndex, imageCount, setSlideIndex]
   );
   const goPrevSlide = useCallback(
     () => setSlideIndex(Math.max(slideIndex - 1, 0)),
     [slideIndex, setSlideIndex]
   );
   const goToSlide = useCallback(
-    (i) => setSlideIndex(Math.max(0, Math.min(i, TOTAL_SLIDES - 1))),
-    [setSlideIndex]
+    (i) => setSlideIndex(Math.max(0, Math.min(i, imageCount - 1))),
+    [imageCount, setSlideIndex]
   );
 
   const resetFilters = useCallback(() => {
@@ -189,7 +183,7 @@ export function useDiscoverState() {
     skipped: skippedIds,
     recentlyViewed: recentlyViewedIds,
     activeFilterCount: countActiveFilters(appliedFilters),
-    totalSlides: TOTAL_SLIDES,
+    totalSlides: imageCount,
     filterOptions,
 
     setQuery: setQueryText,

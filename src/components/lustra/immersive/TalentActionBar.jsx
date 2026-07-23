@@ -1,24 +1,15 @@
 import React from "react";
-import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { Sparkle } from "@/lib/lustra/Brand";
 
 /**
- * Persistent floating action bar — Previous talent, Save, Message (central,
- * rose-gold, strongest), Next talent. Sits above the client bottom
- * navigation.
+ * Persistent floating action bar for immersive discovery: Previous talent, View full profile,
+ * Message (central, rose-gold, strongest), Next talent. Sits above the client bottom navigation.
+ *
+ * The save/heart lives at the top of discovery, so it is NOT duplicated here; the bottom heart is
+ * replaced by a View-full-profile control that opens the complete authenticated detail page.
  */
-export default function TalentActionBar({
-  saved,
-  onToggleSave,
-  onMessage,
-  onPrev,
-  onNext,
-  hasPrev,
-  hasNext,
-  reduced,
-}) {
+export default function TalentActionBar({ onViewProfile, onMessage, onPrev, onNext, hasPrev, hasNext }) {
   return (
     <div className="flex items-center justify-center gap-3 sm:gap-4">
       {/* Previous talent */}
@@ -31,23 +22,13 @@ export default function TalentActionBar({
         <ChevronLeft className="w-4 h-4" strokeWidth={1.4} />
       </button>
 
-      {/* Save */}
+      {/* View full profile */}
       <button
-        onClick={onToggleSave}
-        aria-label={saved ? "Remove from saved" : "Save talent"}
-        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-white/15 bg-noir/60 backdrop-blur-md flex items-center justify-center transition hover:border-rose-gold/50"
+        onClick={onViewProfile}
+        aria-label="View full profile"
+        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-white/15 bg-noir/60 backdrop-blur-md flex items-center justify-center text-soft-ivory hover:border-rose-gold/50 hover:text-rose-gold transition"
       >
-        <motion.span
-          key={saved ? "saved" : "unsaved"}
-          initial={{ scale: reduced ? 1 : 0.7 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: reduced ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <Heart
-            className={cn("w-4 h-4", saved ? "fill-rose-gold text-rose-gold" : "text-soft-ivory")}
-            strokeWidth={1.4}
-          />
-        </motion.span>
+        <Eye className="w-4 h-4" strokeWidth={1.4} />
       </button>
 
       {/* Message — central, strongest: this is the primary Lustra action */}

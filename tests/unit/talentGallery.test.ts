@@ -139,8 +139,8 @@ describe("the immersive story consumes the full profile, not the card", () => {
     expect(source).toContain("currentStory");
   });
 
-  it("passes currentStory — not the card — to the story component", () => {
+  it("feeds the media-first gallery the fetched profile's approved images, not the card cover", () => {
     const source = read("src/components/lustra/immersive/ImmersiveTalentDiscovery.jsx");
-    expect(source).toContain("talent={currentStory}");
+    expect(source).toContain("currentStory.galleryImages");
   });
 });
