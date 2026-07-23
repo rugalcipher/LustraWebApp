@@ -25,6 +25,19 @@ function normalise(images) {
     .filter((img) => Boolean(img.url));
 }
 
+/**
+ * @param {{
+ *   images: Array<string | { id?: string | null; url: string }>,
+ *   index?: number,
+ *   onIndexChange?: (i: number) => void,
+ *   headerOffset?: string,
+ *   className?: string,
+ *   imageClassName?: string,
+ *   indicatorPosition?: "top" | "bottom",
+ *   children?: import("react").ReactNode,
+ *   ariaLabel?: string,
+ * }} props
+ */
 export default function TalentGallery({
   images,
   index: controlledIndex,
