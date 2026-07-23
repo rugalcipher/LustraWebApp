@@ -236,7 +236,7 @@ export default function AddressAutocomplete({
               onKeyDown={onKeyDown}
               onFocus={() => suggestions.length > 0 && setOpen(true)}
               placeholder={placeholder}
-              className="w-full bg-deep-black/60 border border-white/10 rounded-sm pl-10 pr-10 py-2.5 font-body text-body text-ivory placeholder:text-muted-grey/70 focus:outline-none focus:border-rose-gold/50"
+              className="w-full bg-deep-black/60 border border-white/10 rounded-sm pl-10 pr-10 py-2.5 font-body text-base text-ivory placeholder:text-muted-grey/70 focus:outline-none focus:border-rose-gold/50"
             />
             {(search || verified) && (
               <button

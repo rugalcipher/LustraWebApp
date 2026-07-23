@@ -77,9 +77,10 @@ export function validateAbout(form) {
 export function validateProfile(form) {
   const next = {};
   if (!form.requestedDisplayName.trim()) next.requestedDisplayName = "Required";
-  if (!form.shortBiography.trim()) next.shortBiography = "Required";
-  else if (form.shortBiography.trim().length < 40)
-    next.shortBiography = "Tell us a little more — at least 40 characters";
+  // Short biography is OPTIONAL. If given, keep a light floor so a one-word entry reads as
+  // deliberate; an empty biography is accepted and submitted as null.
+  if (form.shortBiography.trim() && form.shortBiography.trim().length < 40)
+    next.shortBiography = "Tell us a little more — at least 40 characters, or leave it blank";
   if (form.requestedHourlyRate && Number.isNaN(Number(form.requestedHourlyRate)))
     next.requestedHourlyRate = "Enter a number";
   if (form.instagram && /\s/.test(form.instagram.trim()))
@@ -106,7 +107,7 @@ export function toDetails(form) {
     cityFreeText: blankToNull(form.cityFreeText),
     dateOfBirth: form.dateOfBirth,
     isAdultDeclared: form.isAdultDeclared,
-    shortBiography: form.shortBiography.trim(),
+    shortBiography: blankToNull(form.shortBiography),
     requestedHourlyRate: form.requestedHourlyRate ? Number(form.requestedHourlyRate) : null,
     currencyCode: form.requestedHourlyRate ? form.currencyCode : null,
     publishOnApproval: form.publishOnApproval,

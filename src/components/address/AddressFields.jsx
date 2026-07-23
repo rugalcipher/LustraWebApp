@@ -23,8 +23,9 @@ import React from "react";
  *   variant?: "full" | "details",
  * }} props
  */
+// text-base (16px) prevents iOS Safari auto-zoom on focus.
 const inputClass =
-  "w-full bg-deep-black/60 border border-white/10 rounded-sm px-3 py-2.5 font-body text-body " +
+  "w-full bg-deep-black/60 border border-white/10 rounded-sm px-3 py-2.5 font-body text-base " +
   "text-ivory placeholder:text-muted-grey/70 focus:outline-none focus:border-rose-gold/50";
 
 function Row({ children }) {

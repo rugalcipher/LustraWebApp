@@ -40,8 +40,9 @@ import { toUserMessage, isApiError } from "@/api/problemDetails";
  * does not hold, and are never fetched here.
  */
 
+// text-base (16px) so iOS Safari never auto-zooms a focused control.
 const inputCls =
-  "w-full bg-deep-black/60 border border-white/10 rounded-sm px-3 py-2.5 font-body text-body " +
+  "w-full bg-deep-black/60 border border-white/10 rounded-sm px-3 py-2.5 font-body text-base " +
   "text-ivory placeholder:text-muted-grey/70 focus:outline-none focus:border-rose-gold/50";
 
 function Field({ label, error, children, hint, required, htmlFor }) {
@@ -407,7 +408,7 @@ export default function ApplicationContinue() {
                 <Field label="Display / stage name" required error={errors.requestedDisplayName} htmlFor="requestedDisplayName">
                   <input id="requestedDisplayName" className={inputCls} value={form.requestedDisplayName} onChange={set("requestedDisplayName")} />
                 </Field>
-                <Field label="Short biography" required error={errors.shortBiography} htmlFor="shortBiography">
+                <Field label="Short biography" error={errors.shortBiography} htmlFor="shortBiography">
                   <textarea id="shortBiography" rows={5} className={inputCls} value={form.shortBiography} onChange={set("shortBiography")} />
                 </Field>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
