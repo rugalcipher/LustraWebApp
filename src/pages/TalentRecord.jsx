@@ -10,6 +10,7 @@ import { toUserMessage } from "@/api/problemDetails";
 import ConfirmAction from "@/features/talentApplication/ConfirmAction";
 import MediaManager from "@/features/talentAdmin/MediaManager";
 import TalentEditForm from "@/features/talentAdmin/TalentEditForm";
+import CommercialTermsPanel from "@/features/talentAdmin/CommercialTermsPanel";
 import { formatAddressLine } from "@/domain/address";
 import {
   useTalentRecord, useTalentAdminPermissions, useArchiveTalent, useRestoreTalent,
@@ -41,6 +42,7 @@ const TABS = [
   "Public profile",
   "Media",
   "Rates",
+  "Commercial terms",
   "Account & login",
 ];
 
@@ -617,6 +619,8 @@ export default function TalentRecord() {
           )}
         </Card>
       )}
+
+      {tab === "Commercial terms" && <CommercialTermsPanel profileId={id} />}
 
       {tab === "Account & login" && (
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_20rem] gap-5">
