@@ -1,5 +1,5 @@
-import React, { useRef, useState } from "react";
-import { Upload, Star, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Upload, Star, Trash2, AlertTriangle, Loader2, ImageIcon } from "lucide-react";
 import * as applications from "@/services/talentApplicationService";
 import {
   uploadFailureMessage, removalFailureMessage, correlationIdOf,
@@ -85,7 +85,18 @@ export default function PhotographManager({
   // disabled button can still be activated programmatically, and three
   // simultaneous DELETEs for one id is what the UAT logs showed.
   const [removing, setRemoving] = useState(() => new Set());
+  // mediaId → local object URL, so the applicant can SEE each photo (and which is the cover)
+  // rather than reading filenames. Application media has no server preview URL, so these local
+  // previews are the source of the thumbnails for the current session.
+  const [previews, setPreviews] = useState({});
+  const previewsRef = useRef(previews);
+  previewsRef.current = previews;
   const fileInput = useRef(null);
+
+  // Revoke every object URL on unmount so the browser reclaims the memory.
+  useEffect(() => () => {
+    Object.values(previewsRef.current).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
   const finalized = finalizedPhotos(media);
   const unusable = unusablePhotos(media);
   const report = (error) => onError?.(removalFailureMessage(error));
@@ -163,7 +174,10 @@ export default function PhotographManager({
       return;
     }
 
-    setUploads((u) => ({ ...u, [clientId]: { name: file.name, progress: 0 } }));
+    // A local preview so the applicant sees the image immediately, kept until the media id is
+    // known (then re-keyed to it) and revoked if the upload fails.
+    const objectUrl = URL.createObjectURL(file);
+    setUploads((u) => ({ ...u, [clientId]: { name: file.name, progress: 0, previewUrl: objectUrl } }));
     try {
       const ticket = await applications.requestUpload(session.applicationId, session.token, {
         contentType: file.type,
@@ -194,12 +208,16 @@ export default function PhotographManager({
       // FUNCTIONAL merge — sees the latest state, so parallel completions accumulate
       // instead of overwriting one another.
       onMediaChange((prev) => [...(prev ?? []).filter((m) => m.id !== confirmed.id), confirmed]);
+      // Re-key the local preview to the confirmed media id so the thumbnail persists.
+      setPreviews((p) => ({ ...p, [confirmed.id]: objectUrl }));
       setUploads((u) => {
         const rest = { ...u };
         delete rest[clientId];
         return rest;
       });
     } catch (error) {
+      // The bytes never became a photograph — reclaim the preview.
+      URL.revokeObjectURL(objectUrl);
       setUploads((u) => ({
         ...u,
         [clientId]: { name: file.name, error: uploadFailureMessage(error), retryable: true },
@@ -218,6 +236,11 @@ export default function PhotographManager({
       // Functional, so a removal that overlaps an in-flight upload's merge does not
       // resurrect a row from a stale snapshot.
       onMediaChange((prev) => (prev ?? []).filter((m) => m.id !== mediaId));
+      setPreviews((p) => {
+        if (p[mediaId]) URL.revokeObjectURL(p[mediaId]);
+        const { [mediaId]: _removed, ...rest } = p;
+        return rest;
+      });
     } catch (error) {
       const correlationId = correlationIdOf(error);
       onError?.(
@@ -299,73 +322,93 @@ export default function PhotographManager({
       </div>
 
       {Object.entries(uploads).map(([id, u]) => (
-        <div key={id} className="rounded-sm border border-white/10 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-body text-body text-soft-ivory/80 truncate">{u.name}</span>
-            {u.error ? (
-              <span className="font-body text-meta text-error">{u.error}</span>
-            ) : (
-              <span className="font-body text-meta text-muted-grey tabular-nums">
-                {Math.round((u.progress ?? 0) * 100)}%
-              </span>
+        <div key={id} className="flex items-center gap-3 rounded-sm border border-white/10 p-3">
+          {u.previewUrl && (
+            <img src={u.previewUrl} alt="" className="h-12 w-9 shrink-0 rounded-sm object-cover" decoding="async" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-body text-body text-soft-ivory/80 truncate">{u.name}</span>
+              {u.error ? (
+                <span className="font-body text-meta text-error">{u.error}</span>
+              ) : (
+                <span className="font-body text-meta text-muted-grey tabular-nums">
+                  {Math.round((u.progress ?? 0) * 100)}%
+                </span>
+              )}
+            </div>
+            {!u.error && (
+              <div className="mt-2 h-0.5 bg-ivory/10">
+                <div
+                  className="h-full bg-rose-gold origin-left"
+                  style={{ transform: `scaleX(${u.progress ?? 0})` }}
+                />
+              </div>
             )}
           </div>
-          {!u.error && (
-            <div className="mt-2 h-0.5 bg-ivory/10">
-              <div
-                className="h-full bg-rose-gold origin-left"
-                style={{ transform: `scaleX(${u.progress ?? 0})` }}
-              />
-            </div>
-          )}
         </div>
       ))}
 
       {finalized.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
           {finalized.map((m, index) => (
-            <li key={m.id} className="flex items-center gap-3 rounded-sm border border-white/10 p-2.5">
-              <span className="font-body text-meta text-muted-grey tabular-nums w-5">{index + 1}</span>
-              <span className="flex-1 min-w-0 font-body text-body text-soft-ivory/85 truncate">
-                {m.originalFileName}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCover(m.id)}
-                aria-label={`Set ${m.originalFileName} as cover`}
-                className={m.isCover ? "text-rose-gold" : "text-muted-grey hover:text-rose-gold"}
-              >
-                <Star className="w-4 h-4" fill={m.isCover ? "currentColor" : "none"} strokeWidth={1.4} />
-              </button>
-              <button
-                type="button"
-                onClick={() => move(index, -1)}
-                aria-label={`Move ${m.originalFileName} up`}
-                className="text-muted-grey hover:text-rose-gold"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => move(index, 1)}
-                aria-label={`Move ${m.originalFileName} down`}
-                className="text-muted-grey hover:text-rose-gold"
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() => removePhoto(m.id)}
-                disabled={removing.has(m.id) || disabled}
-                aria-label={`Remove ${m.originalFileName}`}
-                className="text-muted-grey hover:text-error disabled:opacity-40 disabled:pointer-events-none"
-              >
-                {removing.has(m.id) ? (
-                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.4} aria-hidden="true" />
-                ) : (
-                  <Trash2 className="w-4 h-4" strokeWidth={1.4} aria-hidden="true" />
-                )}
-              </button>
+            <li
+              key={m.id}
+              className={`group relative aspect-[3/4] overflow-hidden rounded-md border ${
+                m.isCover ? "border-rose-gold" : "border-white/10"
+              }`}
+            >
+              {previews[m.id] ? (
+                <img
+                  src={previews[m.id]}
+                  alt={m.originalFileName}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  decoding="async"
+                />
+              ) : (
+                // A resumed session has no local file for a previously-uploaded photo; show a
+                // labelled placeholder rather than a broken image.
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-deep-black/60 p-2 text-center">
+                  <ImageIcon className="w-5 h-5 text-muted-grey" strokeWidth={1.3} aria-hidden="true" />
+                  <span className="font-body text-[0.55rem] text-muted-grey truncate w-full">{m.originalFileName}</span>
+                </div>
+              )}
+
+              {m.isCover && (
+                <span className="absolute top-1.5 left-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-rose-gold px-2 py-0.5 font-body text-[0.5rem] tracking-luxe uppercase text-noir">
+                  <Star className="w-2.5 h-2.5" fill="currentColor" strokeWidth={0} /> Cover
+                </span>
+              )}
+
+              {/* Controls overlay */}
+              <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-1 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCover(m.id)}
+                  aria-label={`Set ${m.originalFileName} as cover`}
+                  title="Set as cover"
+                  className={m.isCover ? "text-rose-gold" : "text-white/80 hover:text-rose-gold"}
+                >
+                  <Star className="w-4 h-4" fill={m.isCover ? "currentColor" : "none"} strokeWidth={1.4} />
+                </button>
+                <span className="flex items-center">
+                  <button type="button" onClick={() => move(index, -1)} aria-label={`Move ${m.originalFileName} earlier`} className="text-white/70 hover:text-rose-gold px-0.5">←</button>
+                  <button type="button" onClick={() => move(index, 1)} aria-label={`Move ${m.originalFileName} later`} className="text-white/70 hover:text-rose-gold px-0.5">→</button>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removePhoto(m.id)}
+                  disabled={removing.has(m.id) || disabled}
+                  aria-label={`Remove ${m.originalFileName}`}
+                  className="text-white/80 hover:text-error disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  {removing.has(m.id) ? (
+                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.4} aria-hidden="true" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" strokeWidth={1.4} aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </li>
           ))}
         </ul>
