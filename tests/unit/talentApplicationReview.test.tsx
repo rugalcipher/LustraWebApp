@@ -8,6 +8,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ROUTES, navForGroup, requiredPermissionsFor, navMetas } from "@/app/routeRegistry";
 import * as service from "@/services/talentApplicationService";
+import * as gradeService from "@/services/talentGradeService";
 import { statusLabel, QUEUE_STATUS_FILTERS } from "@/features/talentApplication/StatusPill";
 import TalentApplicationsQueue from "@/pages/TalentApplicationsQueue";
 import TalentApplicationReview from "@/pages/TalentApplicationReview";
@@ -498,5 +499,95 @@ describe("application review", () => {
     const source = read("src/features/talentApplication/hooks.ts");
     expect(source).toContain("The server remains the authorization boundary");
     expect(source).toContain("TalentApplications.Approve");
+  });
+});
+
+// ---- approval pricing (grade-linked and custom) ---------------------------
+
+describe("approval prices the talent atomically", () => {
+  const grade = {
+    id: "gr-1",
+    name: "Gold",
+    rank: 10,
+    currencyCode: "ZAR",
+    clientHourlyRateMinor: 200_000,
+    defaultTalentSharePercent: 50,
+    defaultTalentPayoutMinor: 100_000,
+    isActive: true,
+    assignedTalentCount: 0,
+    createdAtUtc: "2026-01-01T00:00:00Z",
+    updatedAtUtc: null,
+  };
+
+  beforeEach(() => {
+    permissions = [
+      "TalentApplications.View", "TalentApplications.Review", "TalentApplications.Approve",
+      "TalentGrades.View",
+    ];
+    vi.spyOn(service, "getApplication").mockResolvedValue(detail() as never);
+    vi.spyOn(gradeService, "listGrades").mockResolvedValue([grade] as never);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const openApprove = async (user: ReturnType<typeof userEvent.setup>) => {
+    wrap(<TalentApplicationReview />, "/admin/talent-applications/app-1");
+    await screen.findByText("Ada Lovelace");
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    return screen.findByRole("dialog", { name: "Approve application" });
+  };
+
+  it("defaults to unconfigured — approving sends no commercial terms", async () => {
+    const spy = vi.spyOn(service, "approveApplication").mockResolvedValue({ applicationId: "app-1" } as never);
+    const user = userEvent.setup();
+    const dialog = await openApprove(user);
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(spy.mock.calls[0][1].commercialTerms).toBeNull();
+  });
+
+  it("saves grade-linked terms with the default payout", async () => {
+    const spy = vi.spyOn(service, "approveApplication").mockResolvedValue({ applicationId: "app-1" } as never);
+    const user = userEvent.setup();
+    const dialog = await openApprove(user);
+    await user.click(within(dialog).getByRole("button", { name: "Grade-linked" }));
+    await user.selectOptions(within(dialog).getByLabelText("Grade"), "gr-1");
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(spy.mock.calls[0][1].commercialTerms).toEqual({
+      pricingMode: "GradeLinked",
+      gradeId: "gr-1",
+      usePayoutGradeDefault: true,
+    });
+  });
+
+  it("saves custom terms with both rates converted to minor units", async () => {
+    const spy = vi.spyOn(service, "approveApplication").mockResolvedValue({ applicationId: "app-1" } as never);
+    const user = userEvent.setup();
+    const dialog = await openApprove(user);
+    await user.click(within(dialog).getByRole("button", { name: "Custom" }));
+    await user.type(within(dialog).getByLabelText("Custom client rate per hour"), "2500");
+    await user.type(within(dialog).getByLabelText("Custom talent payout per hour"), "1200");
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(spy.mock.calls[0][1].commercialTerms).toEqual({
+      pricingMode: "Custom",
+      customClientHourlyRateMinor: 250_000,
+      talentHourlyPayoutMinor: 120_000,
+      currencyCode: "ZAR",
+    });
+  });
+
+  it("blocks approval when the custom payout exceeds the client rate", async () => {
+    const spy = vi.spyOn(service, "approveApplication").mockResolvedValue({ applicationId: "app-1" } as never);
+    const user = userEvent.setup();
+    const dialog = await openApprove(user);
+    await user.click(within(dialog).getByRole("button", { name: "Custom" }));
+    await user.type(within(dialog).getByLabelText("Custom client rate per hour"), "1000");
+    await user.type(within(dialog).getByLabelText("Custom talent payout per hour"), "2000");
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    // The mutation is never called; the reviewer sees the validation message instead (shown
+    // both inline in the selector and on the dialog).
+    expect(within(dialog).getAllByText(/cannot exceed the client rate/i).length).toBeGreaterThan(0);
+    expect(spy).not.toHaveBeenCalled();
   });
 });

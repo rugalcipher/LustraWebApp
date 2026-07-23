@@ -57,44 +57,223 @@ const rowsFor = (application) => [
   ],
 ];
 
+// The currencies Lustra prices in — must match the backend allow-list.
+const SUPPORTED_CURRENCIES = ["ZAR", "USD", "EUR", "GBP", "AED"];
+
+// The pricing choice starts unconfigured; the reviewer picks grade-linked or custom.
+const EMPTY_PRICING = {
+  mode: "unconfigured",
+  gradeId: "",
+  usePayoutDefault: true,
+  payoutOverride: "", // major currency
+  customClient: "", // major currency
+  customPayout: "", // major currency
+  currency: "ZAR",
+};
+
+// Amounts are entered in MAJOR currency; convert to minor units, treating blank/invalid as null.
+function toMinorOrNull(major) {
+  const trimmed = String(major ?? "").trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+}
+
 /**
- * The commercial-grade selector shown when approving an application.
- *
- * The reviewer prices the new talent on approval, or leaves them Unconfigured to price later.
- * Only the client rate is shown here — the payout follows the grade default and is a staff
- * concern configured on the talent record, not decided in this modal. When no grade is chosen
- * the talent is created "pricing required".
+ * Turns the pricing choice into the backend `SetCommercialTermsRequest` (or null for
+ * unconfigured), applying the SAME validation the server enforces so the reviewer sees the
+ * problem before submitting. Returns `{ request, error }`.
+ */
+function commercialTermsFrom(pricing, grades) {
+  if (pricing.mode === "unconfigured") return { request: null, error: null };
+
+  if (pricing.mode === "gradeLinked") {
+    const grade = (grades ?? []).find((g) => g.id === pricing.gradeId);
+    if (!grade) return { request: null, error: "Choose a grade to price the talent." };
+    if (pricing.usePayoutDefault) {
+      return { request: { pricingMode: "GradeLinked", gradeId: grade.id, usePayoutGradeDefault: true }, error: null };
+    }
+    const payout = toMinorOrNull(pricing.payoutOverride);
+    if (payout === null) return { request: null, error: "Enter the talent payout, or use the grade default." };
+    if (payout < 0) return { request: null, error: "The talent payout cannot be negative." };
+    if (payout > grade.clientHourlyRateMinor) return { request: null, error: "The talent payout cannot exceed the client rate." };
+    return {
+      request: { pricingMode: "GradeLinked", gradeId: grade.id, usePayoutGradeDefault: false, talentHourlyPayoutMinor: payout },
+      error: null,
+    };
+  }
+
+  // Custom
+  const client = toMinorOrNull(pricing.customClient);
+  const payout = toMinorOrNull(pricing.customPayout);
+  if (client === null || payout === null) return { request: null, error: "Custom pricing needs both a client rate and a talent payout." };
+  if (!SUPPORTED_CURRENCIES.includes(pricing.currency)) return { request: null, error: "Choose a supported currency." };
+  if (client <= 0) return { request: null, error: "The client hourly rate must be greater than zero." };
+  if (payout < 0) return { request: null, error: "The talent payout cannot be negative." };
+  if (payout > client) return { request: null, error: "The talent payout cannot exceed the client rate." };
+  return {
+    request: {
+      pricingMode: "Custom",
+      customClientHourlyRateMinor: client,
+      talentHourlyPayoutMinor: payout,
+      currencyCode: pricing.currency,
+    },
+    error: null,
+  };
+}
+
+const pricingTabCls = (active) =>
+  `flex-1 px-2 py-1.5 rounded-sm font-body text-meta tracking-luxe uppercase transition ${
+    active ? "bg-rose-gold/15 text-rose-gold border border-rose-gold/40" : "text-muted-grey border border-white/10 hover:text-ivory"
+  }`;
+const pricingInputCls =
+  "w-full bg-card-black/60 border border-white/10 rounded-sm px-3 py-2 font-body text-body text-ivory focus:outline-none focus:border-rose-gold/50";
+
+/**
+ * Prices the new talent on approval — grade-linked or custom — or leaves them unconfigured to
+ * price later. Grade-linked follows the grade's default payout unless the reviewer overrides it;
+ * custom carries its own client rate and payout. A gross-margin preview and the same validation
+ * the server runs are shown inline. Client rate and margin are staff-only; this modal is behind
+ * the approval permission.
  */
 function PricingSelector({ grades, value, onChange }) {
   const active = (grades ?? []).filter((g) => g.isActive);
-  const chosen = active.find((g) => g.id === value) ?? null;
+  const set = (patch) => onChange({ ...value, ...patch });
+
+  const grade = active.find((g) => g.id === value.gradeId) ?? null;
+  const gradeMargin =
+    grade
+      ? grade.clientHourlyRateMinor -
+        (value.usePayoutDefault ? grade.defaultTalentPayoutMinor : toMinorOrNull(value.payoutOverride) ?? 0)
+      : null;
+  const customClientMinor = toMinorOrNull(value.customClient);
+  const customPayoutMinor = toMinorOrNull(value.customPayout);
+  const customMargin =
+    customClientMinor !== null && customPayoutMinor !== null ? customClientMinor - customPayoutMinor : null;
+
+  const { error } = commercialTermsFrom(value, grades);
 
   return (
-    <div className="space-y-1.5 rounded-sm border border-white/10 bg-card-black/40 p-3">
-      <label
-        htmlFor="approval-grade"
-        className="block font-body text-meta tracking-wide-luxe uppercase text-muted-grey"
-      >
-        Pricing grade
-      </label>
-      <select
-        id="approval-grade"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-card-black/60 border border-white/10 rounded-sm px-3 py-2.5 font-body text-body text-ivory focus:outline-none focus:border-rose-gold/50"
-      >
-        <option value="">Set later — leave pricing required</option>
-        {active.map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name} — {formatMinor(g.clientHourlyRateMinor, g.currencyCode)}/hr
-          </option>
-        ))}
-      </select>
-      <p className="font-body text-meta text-muted-grey">
-        {chosen
-          ? `The talent's public starting rate becomes ${formatMinor(chosen.clientHourlyRateMinor, chosen.currencyCode)}/hr. The payout follows the grade default.`
-          : "No grade chosen — the talent is created with pricing required, to be set on their record."}
-      </p>
+    <div className="space-y-2.5 rounded-sm border border-white/10 bg-card-black/40 p-3">
+      <p className="font-body text-meta tracking-wide-luxe uppercase text-muted-grey">Pricing</p>
+      <div className="flex gap-1.5">
+        <button type="button" className={pricingTabCls(value.mode === "gradeLinked")} onClick={() => set({ mode: "gradeLinked" })}>
+          Grade-linked
+        </button>
+        <button type="button" className={pricingTabCls(value.mode === "custom")} onClick={() => set({ mode: "custom" })}>
+          Custom
+        </button>
+        <button type="button" className={pricingTabCls(value.mode === "unconfigured")} onClick={() => set({ mode: "unconfigured" })}>
+          Set later
+        </button>
+      </div>
+
+      {value.mode === "gradeLinked" && (
+        <div className="space-y-2">
+          <select
+            aria-label="Grade"
+            value={value.gradeId}
+            onChange={(e) => set({ gradeId: e.target.value })}
+            className={pricingInputCls}
+          >
+            <option value="">Select a grade…</option>
+            {active.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name} — {formatMinor(g.clientHourlyRateMinor, g.currencyCode)}/hr
+              </option>
+            ))}
+          </select>
+          {grade && (
+            <>
+              <div className="flex justify-between font-body text-meta text-muted-grey">
+                <span>Client / hr</span>
+                <span className="text-soft-ivory/85">{formatMinor(grade.clientHourlyRateMinor, grade.currencyCode)}</span>
+              </div>
+              <div className="flex justify-between font-body text-meta text-muted-grey">
+                <span>Default payout / hr</span>
+                <span className="text-soft-ivory/85">{formatMinor(grade.defaultTalentPayoutMinor, grade.currencyCode)}</span>
+              </div>
+              <label className="flex items-center gap-2 font-body text-meta text-soft-ivory/85">
+                <input
+                  type="checkbox"
+                  checked={value.usePayoutDefault}
+                  onChange={(e) => set({ usePayoutDefault: e.target.checked })}
+                />
+                Use the grade default payout
+              </label>
+              {!value.usePayoutDefault && (
+                <input
+                  aria-label="Talent payout per hour"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Talent payout / hr"
+                  value={value.payoutOverride}
+                  onChange={(e) => set({ payoutOverride: e.target.value })}
+                  className={pricingInputCls}
+                />
+              )}
+              <div className="flex justify-between font-body text-meta pt-1 border-t border-white/10">
+                <span className="text-muted-grey">Gross margin / hr</span>
+                <span className="text-success">{formatMinor(gradeMargin, grade.currencyCode)}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {value.mode === "custom" && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              aria-label="Custom client rate per hour"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Client / hr"
+              value={value.customClient}
+              onChange={(e) => set({ customClient: e.target.value })}
+              className={pricingInputCls}
+            />
+            <input
+              aria-label="Custom talent payout per hour"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Talent / hr"
+              value={value.customPayout}
+              onChange={(e) => set({ customPayout: e.target.value })}
+              className={pricingInputCls}
+            />
+          </div>
+          <select
+            aria-label="Currency"
+            value={value.currency}
+            onChange={(e) => set({ currency: e.target.value })}
+            className={pricingInputCls}
+          >
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <div className="flex justify-between font-body text-meta pt-1 border-t border-white/10">
+            <span className="text-muted-grey">Gross margin / hr</span>
+            <span className="text-success">{formatMinor(customMargin, value.currency)}</span>
+          </div>
+        </div>
+      )}
+
+      {value.mode === "unconfigured" && (
+        <p className="font-body text-meta text-warning">
+          The talent is created with pricing required — set commercial terms on their record before booking.
+        </p>
+      )}
+
+      {error && value.mode !== "unconfigured" && (
+        <p className="font-body text-meta text-destructive">{error}</p>
+      )}
     </div>
   );
 }
@@ -131,12 +310,12 @@ export default function TalentApplicationReview() {
   const [note, setNote] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [approval, setApproval] = useState(null);
-  // The grade to price the new talent at on approval. "" = leave Unconfigured ("pricing
-  // required"), to be set later on the talent record. Custom pricing is configured there too.
-  const [approvalGradeId, setApprovalGradeId] = useState("");
+  // How to price the new talent on approval — grade-linked, custom, or left unconfigured to
+  // price later. Saved atomically with the approval.
+  const [pricing, setPricing] = useState(EMPTY_PRICING);
 
   // Active grades to offer on approval, gated on TalentGrades.View — a reviewer without it
-  // simply gets no options and approves the talent Unconfigured.
+  // simply gets no grade options and prices custom or leaves the talent unconfigured.
   const grades = useTalentGrades(false);
 
   const addNote = useAddApplicationNote(id);
@@ -161,7 +340,7 @@ export default function TalentApplicationReview() {
   const close = () => {
     setDialog(null);
     setActionError("");
-    setApprovalGradeId("");
+    setPricing(EMPTY_PRICING);
   };
 
   const run = async (promise) => {
@@ -180,6 +359,13 @@ export default function TalentApplicationReview() {
       else if (dialog === "changes") await run(requestChanges.mutateAsync(reason));
       else if (dialog === "reject") await run(reject.mutateAsync(reason));
       else if (dialog === "approve" || dialog === "approveAndPublish") {
+        // Price the talent atomically on approval. The same validation the server runs is applied
+        // here first, so a bad custom/grade combination is caught before the irreversible approve.
+        const { request: commercialTerms, error: pricingError } = commercialTermsFrom(pricing, grades.data);
+        if (pricingError) {
+          setActionError(pricingError);
+          return;
+        }
         const result = await run(
           approve.mutateAsync({
             request: {
@@ -192,12 +378,9 @@ export default function TalentApplicationReview() {
               // would re-ask a question that was answered on this screen.
               mediaIdsToCopy: null,
               changeSummary: reason || null,
-              // Price the talent atomically on approval when a grade was chosen; the effective
-              // client rate becomes their public starting price. Left null, the talent is
-              // Unconfigured and shows "pricing required" until set on the talent record.
-              commercialTerms: approvalGradeId
-                ? { pricingMode: "GradeLinked", gradeId: approvalGradeId, usePayoutGradeDefault: true }
-                : null,
+              // Grade-linked or custom terms, saved atomically; the effective client rate becomes
+              // the public starting price. Null leaves the talent Unconfigured ("pricing required").
+              commercialTerms,
             },
             idempotencyKey,
           })
@@ -581,7 +764,7 @@ export default function TalentApplicationReview() {
         busy={busy}
         error={actionError}
       >
-        <PricingSelector grades={grades.data} value={approvalGradeId} onChange={setApprovalGradeId} />
+        <PricingSelector grades={grades.data} value={pricing} onChange={setPricing} />
       </ConfirmAction>
 
       <ConfirmAction
@@ -600,7 +783,7 @@ export default function TalentApplicationReview() {
             ? "The applicant asked to be published."
             : "Note that the applicant did NOT ask to be published automatically."}
         </p>
-        <PricingSelector grades={grades.data} value={approvalGradeId} onChange={setApprovalGradeId} />
+        <PricingSelector grades={grades.data} value={pricing} onChange={setPricing} />
       </ConfirmAction>
 
       {lightbox && (
