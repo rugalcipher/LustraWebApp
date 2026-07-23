@@ -211,13 +211,26 @@ export function useAssignConversation(conversationId: string | undefined) {
   });
 }
 
+/**
+ * The management-visible unread roll-up for the sidebar pill — from a dedicated lightweight
+ * endpoint, so the badge never loads the whole conversation list. The query key is a child of
+ * ["management","conversations"], so the existing useLiveConversationList invalidation refreshes
+ * it live on every message / new inquiry / booking-conversation / read / access change.
+ */
+export function useManagementUnreadSummary() {
+  const enabled = usePermission("Conversations.View");
+  return useQuery({
+    queryKey: queryKeys.management.conversationsUnread(),
+    queryFn: ({ signal }) => managementService.getUnreadSummary(signal),
+    enabled,
+    staleTime: MANAGEMENT_STALE_TIME,
+  });
+}
+
 /** Total unread across management conversations, for the console badge. */
 export function useManagementUnreadCount(): number {
-  const { data } = useManagementConversations();
-  return useMemo(
-    () => (data?.items ?? []).reduce((total, c) => total + (c.unreadCount ?? 0), 0),
-    [data]
-  );
+  const { data } = useManagementUnreadSummary();
+  return data?.totalUnreadMessages ?? 0;
 }
 
 // ---- talent lifecycle ------------------------------------------------------

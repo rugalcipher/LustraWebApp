@@ -158,6 +158,7 @@ export const queryKeys = {
     inquiries: (filters?: Filters) => ["management", "inquiries", filters ?? null] as const,
     inquiry: (id: string) => ["management", "inquiries", "detail", id] as const,
     conversations: (filters?: Filters) => ["management", "conversations", filters ?? null] as const,
+    conversationsUnread: () => ["management", "conversations", "unread-summary"] as const,
     conversation: (id: string) => ["management", "conversations", "detail", id] as const,
     conversationMessages: (id: string, page: number) =>
       ["management", "conversations", id, "messages", page] as const,

@@ -12,12 +12,15 @@ import RouteFallback from "@/components/RouteFallback";
 import { useHomeLink } from "@/auth/useHomeLink";
 import AuthenticatedErrorBoundary from "@/components/AuthenticatedErrorBoundary";
 import { useTalentApplicationAttentionCount } from "@/features/talentApplication/hooks";
+import { useManagementUnreadSummary } from "@/features/management/hooks";
 import { useLiveConversationList } from "@/features/conversations/hooks";
 
 const MANAGEMENT_CONVERSATION_KEYS = [["management", "conversations"]];
 
 /** The nav route the Talent Applications attention pill attaches to (shared by Admin + Management). */
 const TALENT_APPLICATIONS_PATH = "/admin/talent-applications";
+/** The nav route the unread-messages pill attaches to (the Conversations inbox). */
+const CONVERSATIONS_PATH = "/management-conversations";
 
 const ICONS = {
   LayoutDashboard, CalendarClock, Calendar, Settings, Inbox, FileText,
@@ -74,16 +77,31 @@ export default function WorkspaceShell({ nav, workspaceLabel, accentClass = "tex
   // workspace's nav (i.e. the user holds TalentApplications.View — the hook re-checks too).
   const showApplicationsPill = nav.some((n) => n.to === TALENT_APPLICATIONS_PATH);
   const { data: applicationsAwaiting = 0 } = useTalentApplicationAttentionCount();
+
+  // The live unread-messages pill on the Conversations inbox item. The hook is permission-gated
+  // and refreshes over the shared SignalR connection (its key is a child of the invalidated
+  // ["management","conversations"] key). A failed count must never block the shell.
+  const showUnreadPill = nav.some((n) => n.to === CONVERSATIONS_PATH);
+  const { data: unread } = useManagementUnreadSummary();
+  const unreadCount = unread?.totalUnreadMessages ?? 0;
+
+  const Pill = ({ count, label }) => (
+    <span
+      aria-label={label}
+      className="shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-rose-gold text-noir text-meta font-body flex items-center justify-center tabular-nums"
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+
   const badgeFor = (to) => {
-    if (to !== TALENT_APPLICATIONS_PATH || !showApplicationsPill || !applicationsAwaiting) return null;
-    return (
-      <span
-        aria-label={`${applicationsAwaiting} awaiting review`}
-        className="shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-rose-gold text-noir text-meta font-body flex items-center justify-center tabular-nums"
-      >
-        {applicationsAwaiting > 99 ? "99+" : applicationsAwaiting}
-      </span>
-    );
+    if (to === TALENT_APPLICATIONS_PATH && showApplicationsPill && applicationsAwaiting) {
+      return <Pill count={applicationsAwaiting} label={`${applicationsAwaiting} awaiting review`} />;
+    }
+    if (to === CONVERSATIONS_PATH && showUnreadPill && unreadCount > 0) {
+      return <Pill count={unreadCount} label={`${unreadCount} unread messages`} />;
+    }
+    return null;
   };
 
   const SidebarBody = (

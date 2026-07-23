@@ -167,6 +167,19 @@ export function listConversations(
   });
 }
 
+/** Mirrors `ManagementUnreadSummaryDto` — a lightweight roll-up for the sidebar pill. */
+export interface ManagementUnreadSummary {
+  totalUnreadMessages: number;
+  unreadConversations: number;
+  unreadInquiryMessages: number;
+  unreadBookingMessages: number;
+}
+
+/** The lightweight unread roll-up for the internal sidebar pill (no full-list fetch). */
+export function getUnreadSummary(signal?: AbortSignal): Promise<ManagementUnreadSummary> {
+  return api.get<ManagementUnreadSummary>("/management/conversations/unread-summary", { signal });
+}
+
 export function getConversation(conversationId: string, signal?: AbortSignal) {
   return api.get<ManagementConversationDto>(`/management/conversations/${conversationId}`, { signal });
 }
