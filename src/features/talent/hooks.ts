@@ -400,6 +400,20 @@ export function useUpcomingTalentBookings() {
   return { upcoming, isPending, isError };
 }
 
+/**
+ * The talent's OWN agreed rate — their payout and currency only. Management controls the amount;
+ * the talent cannot edit it. Never carries the client rate, grade or margin.
+ */
+export function useMyAgreedRate() {
+  const enabled = useTalentEnabled();
+  return useQuery({
+    queryKey: queryKeys.talentPortal.agreedRate(),
+    queryFn: ({ signal }) => engagementService.getMyAgreedRate(signal),
+    enabled,
+    staleTime: PORTAL_STALE_TIME,
+  });
+}
+
 export function useMyTalentReviews() {
   const enabled = useTalentEnabled();
   return useQuery({

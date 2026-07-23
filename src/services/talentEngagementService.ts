@@ -79,6 +79,24 @@ export function getMyBooking(bookingId: string, signal?: AbortSignal): Promise<T
   return api.get<TalentBookingDto>(`/talent/bookings/${bookingId}`, { signal });
 }
 
+/**
+ * Mirrors the backend `TalentAgreedRateDto` — the talent's OWN agreed rate.
+ *
+ * Deliberately narrow: only the talent's payout per hour and its currency, whether it is
+ * configured, and when it was last set. It must NEVER gain the client rate, the grade, the
+ * grade share, the gross margin, another talent's rate or an override reason — all staff-only.
+ */
+export interface TalentAgreedRateDto {
+  isConfigured: boolean;
+  payoutHourlyMinor: number | null;
+  currency: string;
+  updatedAtUtc: string | null;
+}
+
+export function getMyAgreedRate(signal?: AbortSignal): Promise<TalentAgreedRateDto> {
+  return api.get<TalentAgreedRateDto>("/talent/profile/agreed-rate", { signal });
+}
+
 export function listMyReviews(signal?: AbortSignal): Promise<TalentReviewDto[]> {
   return api.get<TalentReviewDto[]>("/talent/reviews", { signal });
 }

@@ -16,8 +16,9 @@ import {
 import {
   useMyDraft, useMyTalentProfile, useUpdateDraft, useSubmitDraft,
   useMyVersions, useMyRates, useSaveRate, useDeleteRate,
-  useMyBaseAddress, useUpdateMyBaseAddress,
+  useMyBaseAddress, useUpdateMyBaseAddress, useMyAgreedRate,
 } from "@/features/talent/hooks";
+import { formatMinor } from "@/services/talentGradeService";
 
 /**
  * The talent's profile draft.
@@ -159,6 +160,8 @@ export default function TalentProfileEditor() {
             </div>
           )}
         </Card>
+
+        <MyAgreedRateCard />
 
         <form onSubmit={save} className="space-y-5">
           <Card className="p-5 space-y-4">
@@ -364,6 +367,51 @@ function BaseAddressCard() {
           </LustraButton>
         </>
       )}
+    </Card>
+  );
+}
+
+/**
+ * The talent's OWN agreed rate — read-only. Shows their agreed payout per hour and currency,
+ * nothing else. The client rate, the grade, the share and the margin are all staff-only and the
+ * DTO does not carry them, so there is nothing here to leak. Management controls the amount; the
+ * talent cannot edit it. The per-appointment payout and total appear on each appointment.
+ */
+function MyAgreedRateCard() {
+  const { data, isPending } = useMyAgreedRate();
+
+  return (
+    <Card className="p-5 space-y-3">
+      <Eyebrow>My agreed rate</Eyebrow>
+      {isPending ? (
+        <div className="py-4 flex justify-center">
+          <Loader2 className="w-4 h-4 text-rose-gold animate-spin" strokeWidth={1.4} />
+        </div>
+      ) : !data || !data.isConfigured ? (
+        <p className="font-body text-sm text-soft-ivory/80 leading-relaxed">
+          Your agreed rate has not been configured yet.
+        </p>
+      ) : (
+        <>
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="font-body text-[0.6rem] tracking-wide-luxe uppercase text-muted-grey">
+              Agreed payout / hr
+            </span>
+            <span className="font-heading text-xl text-ivory whitespace-nowrap">
+              {formatMinor(data.payoutHourlyMinor, data.currency)}
+            </span>
+          </div>
+          {data.updatedAtUtc && (
+            <p className="font-body text-[0.55rem] text-muted-grey">
+              Last updated {new Date(data.updatedAtUtc).toLocaleDateString()}.
+            </p>
+          )}
+        </>
+      )}
+      <p className="font-body text-[0.6rem] text-muted-grey leading-relaxed pt-1 border-t border-white/[0.06]">
+        Set by Lustra — you cannot change it here. Booking-specific payout and total appear on
+        each appointment.
+      </p>
     </Card>
   );
 }

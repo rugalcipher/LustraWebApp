@@ -82,6 +82,7 @@ export const queryKeys = {
     bookings: () => ["talent-portal", "bookings"] as const,
     booking: (id: string) => ["talent-portal", "bookings", id] as const,
     reviews: () => ["talent-portal", "reviews"] as const,
+    agreedRate: () => ["talent-portal", "agreed-rate"] as const,
   },
 
   // --- Media (user-scoped: may reference private/VIP items) ---
