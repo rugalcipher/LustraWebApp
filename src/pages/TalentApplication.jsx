@@ -52,6 +52,31 @@ const CODE_TO_FIELD = {
   "talent_application.email_in_use": "email",
 };
 
+/**
+ * Maps a backend field name to the form field (whose input id matches) and the wizard step it
+ * lives on. The keys are LOWERCASED so the PascalCase names in a model-binding ProblemDetails
+ * `errors` dictionary ("ShortBiography", "LegalSurname") match regardless of casing. This is how a
+ * field-level API validation error lands on the right field and step instead of a bare banner.
+ */
+const API_FIELD_TO_STEP = {
+  legalfirstname: { field: "legalFirstName", step: 0 },
+  legalmiddlenames: { field: "legalMiddleNames", step: 0 },
+  legalsurname: { field: "legalSurname", step: 0 },
+  email: { field: "email", step: 0 },
+  cellphonenumber: { field: "cellphoneNumber", step: 0 },
+  whatsappnumber: { field: "whatsAppNumber", step: 0 },
+  dateofbirth: { field: "dateOfBirth", step: 0 },
+  isadultdeclared: { field: "isAdultDeclared", step: 0 },
+  consenttocontact: { field: "consentToContact", step: 0 },
+  requesteddisplayname: { field: "requestedDisplayName", step: 1 },
+  shortbiography: { field: "shortBiography", step: 1 },
+  instagram: { field: "instagram", step: 1 },
+  additionalsocialurl: { field: "additionalSocialUrl", step: 1 },
+  requestedhourlyrate: { field: "requestedHourlyRate", step: 1 },
+  currencycode: { field: "currencyCode", step: 1 },
+  cityfreetext: { field: "cityFreeText", step: 1 },
+};
+
 // text-base is a fixed 16px — the threshold below which iOS Safari auto-zooms a focused field.
 // Never use the fluid text-body (which floors near 13px) on an interactive control.
 const inputCls =
@@ -86,6 +111,9 @@ export default function TalentApplication() {
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState("");
   const [busy, setBusy] = useState(false);
+  // A field to focus once its step is rendered. Set when a server validation error is mapped to a
+  // field so the applicant is taken straight to the first thing to fix (data preserved).
+  const [pendingFocus, setPendingFocus] = useState(null);
 
   // The password is held apart from `form` — it is a credential, not an application detail,
   // and must never travel with `toDetails` to the draft. It is sent only on final submission,
@@ -179,14 +207,67 @@ export default function TalentApplication() {
 
   const toDetails = () => buildDetails(form);
 
-  /** Surfaces a refusal on the field that caused it, using the API's `errorCode`. */
+  // Once the target field's step is on screen, focus and reveal it. Kept in an effect because the
+  // input only exists after the step re-renders.
+  useEffect(() => {
+    if (!pendingFocus || pendingFocus.step !== step) return;
+    const el = document.getElementById(pendingFocus.field);
+    if (el) {
+      el.focus({ preventScroll: true });
+      el.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    }
+    setPendingFocus(null);
+  }, [pendingFocus, step]);
+
+  /**
+   * Surfaces a server refusal ON the field(s) that caused it, never as a bare "one or more
+   * validation errors". Prefers the field-level ProblemDetails `errors` dictionary (model-binding
+   * validation), mapping each field to its wizard step; then falls back to the domain `errorCode`.
+   * Entered data is preserved throughout — only `errors`/`step`/`banner` change.
+   */
   function applyApiError(error) {
-    const code = isApiError(error) ? error.code : undefined;
+    if (!isApiError(error)) {
+      setBanner(toUserMessage(error));
+      return;
+    }
+
+    // 1) Field-level model-binding errors → the matching form fields and their steps.
+    const mapped = (error.fieldErrors ?? [])
+      .map(({ field, messages }) => ({
+        target: API_FIELD_TO_STEP[String(field).toLowerCase()],
+        message: messages?.[0],
+      }))
+      .filter((e) => e.target)
+      .sort((a, b) => a.target.step - b.target.step);
+
+    if (mapped.length > 0) {
+      const nextErrors = {};
+      for (const { target, message } of mapped) {
+        nextErrors[target.field] = message || "Please check this field.";
+      }
+      setErrors((prev) => ({ ...prev, ...nextErrors }));
+      const first = mapped[0].target;
+      setStep(first.step);
+      setPendingFocus({ field: first.field, step: first.step });
+      // The banner is only a SECONDARY summary — the specific messages sit on the fields.
+      setBanner(
+        mapped.length === 1
+          ? "Please correct the highlighted field."
+          : "Please correct the highlighted fields."
+      );
+      return;
+    }
+
+    // 2) A domain refusal with a stable code → land it on the field it belongs to.
+    const code = error.code;
     const field = code ? CODE_TO_FIELD[code] : undefined;
     if (field) {
       setErrors((prev) => ({ ...prev, [field]: toUserMessage(error) }));
       setStep(0);
+      setPendingFocus({ field, step: 0 });
     }
+
+    // 3) The API's specific message (its `detail`) — never a bare generic when the API gave detail.
     setBanner(toUserMessage(error));
   }
 

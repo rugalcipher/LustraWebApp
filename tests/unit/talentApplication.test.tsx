@@ -302,6 +302,17 @@ describe("application details", () => {
     expect(validateProfile(complete)).toEqual({});
   });
 
+  it("accepts a blank short biography (optional) and sends it as null", () => {
+    expect(validateProfile({ ...complete, shortBiography: "" }).shortBiography).toBeUndefined();
+    expect(validateProfile({ ...complete, shortBiography: "   " }).shortBiography).toBeUndefined();
+    expect(toDetails({ ...complete, shortBiography: "" }).shortBiography).toBeNull();
+    expect(toDetails({ ...complete, shortBiography: "  " }).shortBiography).toBeNull();
+  });
+
+  it("still keeps a light floor on a short biography that IS provided", () => {
+    expect(validateProfile({ ...complete, shortBiography: "too short" }).shortBiography).toBeTruthy();
+  });
+
   it("computes age from a date of birth", () => {
     expect(ageFrom("1990-06-15")).toBeGreaterThan(30);
     expect(ageFrom("")).toBeNull();
