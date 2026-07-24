@@ -309,6 +309,18 @@ export function formatRate(amount: number | null | undefined, currency: string |
   }
 }
 
+/**
+ * The talent's PRIVACY-SAFE public operating location: "Province · City" from the public
+ * region/city the talent chose to show (e.g. "Gauteng · Soweto"). Returns null when neither is
+ * set. Never derived from the private base address, coordinates, suburb, postal code or place id —
+ * this uses only the safe public fields the discovery API already exposes. It describes where a
+ * talent is BASED, never a live/current position.
+ */
+export function publicLocationLabel(talent: Pick<Talent, "region" | "city">): string | null {
+  const parts = [talent.region, talent.city].map((p) => (p ?? "").trim()).filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 /** Human label for a rate unit (`PerEvening` → "per evening"). */
 export function formatRateUnit(unit: string): string {
   switch (unit) {

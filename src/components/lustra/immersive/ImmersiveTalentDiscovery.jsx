@@ -11,7 +11,7 @@ import { useDiscoverState, usePrefersReducedMotion } from "./useDiscoverState";
 import DiscoverToolbar from "./DiscoverToolbar";
 import TalentGallery from "@/features/discovery/TalentGallery";
 import { formatDistanceBand } from "@/features/discovery/NearbyLocation";
-import { formatRate } from "@/domain/talent";
+import { formatRate, publicLocationLabel } from "@/domain/talent";
 import { AvailabilityPill } from "@/components/lustra/Primitives";
 import TalentActionBar from "./TalentActionBar";
 import TalentFilterSheet from "./TalentFilterSheet";
@@ -310,9 +310,11 @@ export default function ImmersiveTalentDiscovery() {
                       {current.age ? <span className="text-soft-ivory/50 text-xl">, {current.age}</span> : null}
                     </h2>
                     <div className="flex items-center gap-2.5 mt-2 flex-wrap">
-                      {current.city && (
+                      {/* Privacy-safe public operating location: "Province · City" where the
+                          talent is BASED — never a private address or a live position. */}
+                      {publicLocationLabel(current) && (
                         <span className="inline-flex items-center gap-1 text-[0.6rem] text-soft-ivory/80 font-body">
-                          <MapPin className="w-3 h-3" strokeWidth={1.2} /> {current.city}
+                          <MapPin className="w-3 h-3" strokeWidth={1.2} /> {publicLocationLabel(current)}
                         </span>
                       )}
                       {formatDistanceBand(current.distanceKm) && (

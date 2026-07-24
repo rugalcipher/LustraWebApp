@@ -29,6 +29,7 @@ vi.mock("@/features/conversations/useMessageAction", () => ({ useMessageAction: 
 
 import TalentDetail from "@/pages/TalentDetail";
 import TalentTeaser from "@/pages/TalentTeaser";
+import { publicLocationLabel } from "@/domain/talent";
 
 const TALENT = {
   slug: "aria", talentProfileId: "p1", name: "Aria", age: 27, headline: "Art curator",
@@ -147,5 +148,46 @@ describe("detail layout: Message footer clears the bottom nav; headers clear the
     expect(css).toContain(".client-action-footer");
     expect(css).toContain(".pb-client-action");
     expect(css).toContain(".safe-top-spaced");
+  });
+});
+
+// ---- Part 3: privacy-safe public location overlay ---------------------------
+describe("talent location overlay is privacy-safe", () => {
+  beforeEach(() => { profile = { ...TALENT, city: "Cape Town", region: "Western Cape" }; reviews = []; });
+
+  it("shows Province · City on the authenticated detail image", async () => {
+    renderPage(TalentDetail);
+    const overlay = await screen.findByTestId("talent-location-overlay");
+    expect(overlay).toHaveTextContent("Western Cape · Cape Town");
+    // It sits over the image and never captures a tap meant for the gallery.
+    expect(overlay.className).toContain("pointer-events-none");
+  });
+
+  it("shows Province · City on the guest teaser image", async () => {
+    renderPage(TalentTeaser);
+    const overlay = await screen.findByTestId("talent-location-overlay");
+    expect(overlay).toHaveTextContent("Western Cape · Cape Town");
+  });
+
+  it("shows the location once (only in the overlay), not duplicated in the detail meta", () => {
+    renderPage(TalentDetail);
+    expect(screen.getAllByText(/Western Cape · Cape Town/)).toHaveLength(1);
+  });
+
+  it("renders nothing and never a private address when no public location is set", () => {
+    profile = { ...TALENT, city: "", region: "" };
+    const { container } = renderPage(TalentDetail);
+    expect(screen.queryByTestId("talent-location-overlay")).toBeNull();
+    // No street/coordinate/place-id ever appears (the public DTO carries none).
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/-?\d{1,3}\.\d{4,}/);
+    expect(html).not.toMatch(/Place ?ID|googlePlaceId|postal/i);
+  });
+
+  it("formats only province and city, and is null when neither is set", () => {
+    expect(publicLocationLabel({ region: "Gauteng", city: "Soweto" })).toBe("Gauteng · Soweto");
+    expect(publicLocationLabel({ region: "", city: "Soweto" })).toBe("Soweto");
+    expect(publicLocationLabel({ region: "Gauteng", city: "" })).toBe("Gauteng");
+    expect(publicLocationLabel({ region: "", city: "" })).toBeNull();
   });
 });

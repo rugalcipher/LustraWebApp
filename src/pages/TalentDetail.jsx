@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, MapPin, Globe, Star, Flag, Shield, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Globe, Star, Flag, Shield, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StarDivider } from "@/lib/lustra/Brand";
 import { Eyebrow, AvailabilityPill } from "@/components/lustra/Primitives";
 import LustraButton from "@/components/lustra/Button";
 import DiscoveryGate from "@/components/lustra/immersive/DiscoveryGate";
 import TalentGallery from "@/features/discovery/TalentGallery";
+import TalentLocationOverlay from "@/features/discovery/TalentLocationOverlay";
 import { useTalentProfile, useTalentReviews, useDiscoveryPolicy } from "@/features/discovery/hooks";
 import { useMessageAction } from "@/features/conversations/useMessageAction";
 import { formatDistanceBand } from "@/features/discovery/NearbyLocation";
@@ -80,6 +81,8 @@ export default function TalentDetail() {
           ariaLabel={`${talent.name} photographs`}
         >
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-noir via-noir/10 to-noir/40" />
+          {/* Privacy-safe "Province · City" where the talent is based — never a private address. */}
+          <TalentLocationOverlay talent={talent} />
         </TalentGallery>
 
         {/* Header — Back only. z-30 above the gallery tap zones (z-10) and desktop chevrons (z-20),
@@ -121,12 +124,9 @@ export default function TalentDetail() {
         </div>
 
         <div className="flex items-center gap-3 mt-3 flex-wrap">
-          {talent.city && (
-            <span className="inline-flex items-center gap-1 text-[0.65rem] text-muted-grey font-body">
-              <MapPin className="w-3 h-3" strokeWidth={1.2} /> {talent.city}
-              {talent.region ? `, ${talent.region}` : ""}
-            </span>
-          )}
+          {/* Location is shown once, on the image (TalentLocationOverlay). The distance band —
+              how far the talent is from the CLIENT's search location — is a separate concept and
+              stays here. */}
           {distance && (
             <span className="text-[0.6rem] tracking-wide-luxe uppercase text-rose-gold/80 font-body">{distance}</span>
           )}

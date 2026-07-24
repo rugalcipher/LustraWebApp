@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Lock, Loader2, Shield } from "lucide-react";
+import { ArrowLeft, Lock, Loader2, Shield } from "lucide-react";
 import { StarDivider } from "@/lib/lustra/Brand";
 import { AvailabilityPill } from "@/components/lustra/Primitives";
 import LustraButton from "@/components/lustra/Button";
 import DiscoveryGate from "@/components/lustra/immersive/DiscoveryGate";
 import TalentGallery from "@/features/discovery/TalentGallery";
+import TalentLocationOverlay from "@/features/discovery/TalentLocationOverlay";
 import { useTalentProfile } from "@/features/discovery/hooks";
 import { formatRate } from "@/domain/talent";
 
@@ -61,6 +62,8 @@ export default function TalentTeaser() {
           ariaLabel={`${talent.name} preview photographs`}
         >
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-noir via-noir/10 to-noir/40" />
+          {/* Privacy-safe "Province · City" where the talent is based — never a private address. */}
+          <TalentLocationOverlay talent={talent} />
         </TalentGallery>
 
         {/* Header — Back only (no share/save/message on a guest teaser). safe-top-spaced keeps the
@@ -87,11 +90,7 @@ export default function TalentTeaser() {
         )}
 
         <div className="flex items-center gap-3 mt-3 flex-wrap">
-          {talent.city && (
-            <span className="inline-flex items-center gap-1 text-[0.65rem] text-muted-grey font-body">
-              <MapPin className="w-3 h-3" strokeWidth={1.2} /> {talent.city}
-            </span>
-          )}
+          {/* Location is shown once, on the image (TalentLocationOverlay). */}
           <AvailabilityPill status={talent.availability} />
         </div>
 
