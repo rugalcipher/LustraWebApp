@@ -58,3 +58,74 @@ export function geolocationMessage(status: GeolocationOutcome["status"]): string
       return null;
   }
 }
+
+/** The browser's stored decision, or "unknown" when the Permissions API is unavailable. */
+export type GeolocationPermission = "granted" | "prompt" | "denied" | "unknown";
+
+/**
+ * Reads the stored geolocation permission WITHOUT prompting, via the Permissions API.
+ *
+ * This is what lets us avoid the confusing "instantly declined" experience: when the browser has
+ * already stored a block, calling getCurrentPosition again shows no prompt and fails immediately,
+ * so we must NOT call it — we query the state first and, when it is "denied", show recovery
+ * guidance instead. Returns "unknown" where the Permissions API is missing (e.g. older Safari),
+ * so the caller falls back to attempting getCurrentPosition and interpreting its error.
+ */
+export async function queryGeolocationPermission(): Promise<GeolocationPermission> {
+  try {
+    if (typeof navigator === "undefined" || !navigator.permissions?.query) return "unknown";
+    const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+    return (status.state as GeolocationPermission) ?? "unknown";
+  } catch {
+    // Some browsers throw for an unsupported permission name — treat as unknown.
+    return "unknown";
+  }
+}
+
+/** True only when we can be SURE the page is not a secure context (geolocation needs HTTPS). */
+export function isInsecureContext(): boolean {
+  return typeof window !== "undefined" && window.isSecureContext === false;
+}
+
+/**
+ * Platform-aware, honest guidance for re-enabling a blocked location permission. We CANNOT open a
+ * browser's permission settings for the user, so this only tells them where to look. Detection is
+ * best-effort from the user agent; the steps are safe to show even if the guess is slightly off.
+ */
+export function platformLocationGuidance(userAgent?: string): { platform: string; steps: string[] } {
+  const ua = (userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : "")).toLowerCase();
+  const isIOS = /iphone|ipad|ipod/.test(ua) || (/macintosh/.test(ua) && typeof navigator !== "undefined" && (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints! > 1);
+  const isAndroid = /android/.test(ua);
+
+  if (isIOS) {
+    return {
+      platform: "iPhone / iPad (Safari)",
+      steps: [
+        "Open the iPhone Settings app",
+        "Go to Privacy & Security → Location Services",
+        "Scroll to Safari Websites and set it to “While Using”",
+        "Also check Settings → Safari → Location for this website, then return and try again",
+      ],
+    };
+  }
+  if (isAndroid) {
+    return {
+      platform: "Android (Chrome)",
+      steps: [
+        "Open the browser menu (⋮)",
+        "Tap the site information / lock icon in the address bar",
+        "Open Permissions → Location and set it to Allow",
+        "Reload Lustra, then try again",
+      ],
+    };
+  }
+  return {
+    platform: "Chrome / Edge (desktop)",
+    steps: [
+      "Click the site-controls icon beside the address bar (a lock or tune icon)",
+      "Open Site settings",
+      "Set Location to Allow",
+      "Reload Lustra, then try again",
+    ],
+  };
+}
