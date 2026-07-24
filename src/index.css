@@ -41,6 +41,13 @@
     --font-body: "Jost", ui-sans-serif, system-ui, sans-serif;
     --font-display: "Cormorant Garamond", ui-serif, Georgia, serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* The client bottom-navigation content height (AppShell nav links are min-h-[52px]).
+       Shared so a page's sticky action footer can sit ABOVE the menu instead of underneath it,
+       and so a page can pad its content clear of both. The home-indicator inset is added
+       separately via env(safe-area-inset-bottom) wherever this is used. */
+    --client-nav-height: 3.25rem;
+    /* A comfortable height allowance for a page's own fixed action footer (e.g. Message bar). */
+    --client-action-height: 4rem;
   }
 
   * {
@@ -139,6 +146,28 @@
   }
   .safe-top {
     padding-top: env(safe-area-inset-top, 0px);
+  }
+  /* Deliberate spacing below the top safe-area for a detail header, so the Back button never
+     hugs the notch / Dynamic Island / status bar. */
+  .safe-top-spaced {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  }
+  /* A page's fixed action footer that ALWAYS sits directly above the client bottom navigation
+     and the home-indicator inset — never underneath the menu. The bar supplies its own
+     background; the nav below it already covers the safe-area, so this must NOT add safe-bottom. */
+  .client-action-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--client-nav-height) + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+  }
+  /* Bottom padding so a detail page's last content clears BOTH its own action footer and the
+     bottom navigation (plus the safe-area and breathing room). */
+  .pb-client-action {
+    padding-bottom: calc(
+      var(--client-nav-height) + var(--client-action-height) + env(safe-area-inset-bottom, 0px) + 1.5rem
+    );
   }
   .sr-only {
     position: absolute;

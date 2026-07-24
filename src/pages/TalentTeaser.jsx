@@ -63,8 +63,10 @@ export default function TalentTeaser() {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-noir via-noir/10 to-noir/40" />
         </TalentGallery>
 
-        {/* Header — Back only (no share/save/message on a guest teaser). */}
-        <div className="absolute top-0 left-0 right-0 z-30 p-4 safe-top">
+        {/* Header — Back only (no share/save/message on a guest teaser). safe-top-spaced keeps the
+            button clear of the notch/status bar with comfortable spacing (px/pb separate so they
+            do not fight the padding-top the safe-area utility sets). */}
+        <div className="absolute top-0 left-0 right-0 z-30 px-4 pb-4 safe-top-spaced">
           <button
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/talent"))}
             aria-label="Back"

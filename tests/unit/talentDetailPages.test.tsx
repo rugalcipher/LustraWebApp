@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -105,5 +107,45 @@ describe("guest TalentTeaser", () => {
     renderPage(TalentTeaser);
     await userEvent.click(screen.getByRole("button", { name: /Log in to view the full profile/i }));
     expect(navigate).toHaveBeenCalledWith("/login", { state: { from: "/app/talent/aria" } });
+  });
+});
+
+// ---- P0: Message footer must sit ABOVE the client bottom navigation ----------
+describe("detail layout: Message footer clears the bottom nav; headers clear the notch", () => {
+  beforeEach(() => { profile = { ...TALENT }; reviews = []; navigate.mockClear(); messageFn.mockClear(); });
+
+  it("positions the Message footer with client-action-footer, NOT fixed bottom-0", () => {
+    const { container } = renderPage(TalentDetail);
+    const footer = screen.getByTestId("talent-detail-action-footer");
+    // The footer opts into the shared utility that sits above the nav + safe-area…
+    expect(footer.className).toContain("client-action-footer");
+    // …and must NOT pin itself to the very bottom, which is where the nav lives.
+    expect(footer.className).not.toMatch(/\bbottom-0\b/);
+    // The page reserves room for BOTH the footer and the nav so content isn't hidden.
+    expect(container.querySelector(".pb-client-action")).not.toBeNull();
+  });
+
+  it("keeps the Message button clickable and a comfortable touch target", async () => {
+    renderPage(TalentDetail);
+    const btn = screen.getByRole("button", { name: /^Message$/i });
+    expect(btn.className).toContain("min-h-[44px]");
+    await userEvent.click(btn);
+    expect(messageFn).toHaveBeenCalled();
+  });
+
+  it("gives both detail headers deliberate top safe-area spacing (not a bare safe-top)", () => {
+    const auth = renderPage(TalentDetail);
+    expect(auth.container.querySelector(".safe-top-spaced")).not.toBeNull();
+    auth.unmount();
+    const guest = renderPage(TalentTeaser);
+    expect(guest.container.querySelector(".safe-top-spaced")).not.toBeNull();
+  });
+
+  it("defines the shared client-nav-height token and footer/padding utilities in the stylesheet", () => {
+    const css = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8");
+    expect(css).toContain("--client-nav-height");
+    expect(css).toContain(".client-action-footer");
+    expect(css).toContain(".pb-client-action");
+    expect(css).toContain(".safe-top-spaced");
   });
 });

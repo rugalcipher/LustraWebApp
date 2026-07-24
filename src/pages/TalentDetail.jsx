@@ -68,7 +68,7 @@ export default function TalentDetail() {
   const hasReviews = reviews.length > 0;
 
   return (
-    <div className="pb-28">
+    <div className="pb-client-action">
       {/* Cover / gallery */}
       <div className="relative aspect-[4/5]">
         <TalentGallery
@@ -83,8 +83,10 @@ export default function TalentDetail() {
         </TalentGallery>
 
         {/* Header — Back only. z-30 above the gallery tap zones (z-10) and desktop chevrons (z-20),
-            and the tap zones start below this via headerOffset, so Back is always clickable. */}
-        <div className="absolute top-0 left-0 right-0 z-30 p-4 safe-top">
+            and the tap zones start below this via headerOffset, so Back is always clickable.
+            safe-top-spaced keeps the button below the notch/status bar with comfortable spacing
+            (px/pb are separate so they don't fight the padding-top the safe-area utility sets). */}
+        <div className="absolute top-0 left-0 right-0 z-30 px-4 pb-4 safe-top-spaced">
           <button
             onClick={goBack}
             aria-label="Back to discovery"
@@ -237,14 +239,21 @@ export default function TalentDetail() {
         </Link>
       </div>
 
-      {/* Sticky Message bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-noir/95 backdrop-blur-xl border-t border-white/[0.06] safe-bottom">
+      {/*
+        Message bar. It sits ABOVE the client bottom navigation via .client-action-footer
+        (bottom = nav height + safe-area inset), so the menu can never cover it, and the page
+        padding above (.pb-client-action) keeps the last profile content clear of both bars.
+      */}
+      <div
+        data-testid="talent-detail-action-footer"
+        className="client-action-footer bg-noir/95 backdrop-blur-xl border-t border-white/[0.06]"
+      >
         <div className="max-w-luxe mx-auto px-5 py-3 flex items-center gap-3">
           <div className="flex-1">
             <p className="text-[0.5rem] tracking-luxe uppercase text-muted-grey leading-none">From</p>
             <p className="font-heading text-lg text-light-rose-gold leading-none mt-1">{rateLabel}</p>
           </div>
-          <LustraButton onClick={() => message(talent)} size="md" className="flex-1">Message</LustraButton>
+          <LustraButton onClick={() => message(talent)} size="md" className="flex-1 min-h-[44px]">Message</LustraButton>
         </div>
       </div>
     </div>
